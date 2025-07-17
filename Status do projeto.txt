@@ -1,0 +1,37 @@
+Linguagem C#
+
+Versão 1.0, projeto base:
+Chamada: interface texto, apenas comandos em prompt Funções: Requisitar Coleta de dados, Enviar comandos remotos e limpar/atualizar BD
+Coleta: sem interface, recebe comandos da "Chamada", responde requisições de dados e executar comandos recebidos remotamente
+Web: Acessa o bando de dados e exibe uma tabela com os dados, incluído filtros por texto
+***** OK *****
+
+Versão 1.1, correções de segurança:
+Todos os 3 programas foram realizados criação de arquivos externos para senhas, evitando que vaze informações
+***** OK *****
+
+Versão 1.2, Correções de segurança:
+Criptografia na comunicação entre coleta e envio de comandos.
+
+Versão 1.2, funcionabilidades:
+WEB: interface WEB irá poder incluir, editar e apagar dados
+
+Versão 1.2.1, correções
+Criada interface com ações, porém apresenta bugs (editar e incluir precisa estar com todos campos preenchidos)
+
+Versão 1.2.2, Filtros
+Melhorar filtros do sistema
+
+Versão 1.3, Unificação de chamada e WEB:
+Unificar ambos programas para trabalhar em conjuntos, Footer com status de coleta
+Iniciado, bug em coleta range
+
+Versão 1.4, Melhorias na interface WEB
+Deixar mais amigável visualmente
+
+Versão 1.5, tela de login
+Evitar acessos de terceiros
+
+Versão 1.6 BD local da instalação? evitar necessidade de terceiros
+
+Versão 2.0, publicação da versão nova!!! (a menos que altere mais coisa)

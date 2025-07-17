@@ -1,0 +1,17 @@
+## Cria projeto via terminal
+dotnet new console -n "nomedocoisa"
+
+## Cria projeto MVC (Model View Controller)
+dotnet new mvc -n "nome do site"
+
+## Restaura as bibliotecas imcorporadas
+dotnet restore
+
+## Copila
+dotnet build
+
+## Executa
+dotnet run
+
+## Copila/Publica
+dotnet publish -c Release -r win-x64

@@ -1,0 +1,170 @@
+@model web.Models.Computador
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Excluir Computador</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Excluir Computador</h1>
+        <h3>Tem certeza que deseja excluir este computador?</h3>
+        <div>
+            <h4>Computador</h4>
+            <hr />
+            <dl class="row">
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.MAC)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.MAC)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.IP)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.IP)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.Usuario)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Usuario)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.Hostname)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Hostname)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.Fabricante)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Fabricante)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.Processador)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Processador)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ProcessadorFabricante)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ProcessadorFabricante)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ProcessadorCore)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ProcessadorCore)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ProcessadorThread)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ProcessadorThread)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ProcessadorClock)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ProcessadorClock)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.Ram)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Ram)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.RamTipo)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.RamTipo)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.RamVelocidade)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.RamVelocidade)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.RamVoltagem)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.RamVoltagem)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoC)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoC)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoCTotal)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoCTotal)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoCLivre)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoCLivre)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoD)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoD)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoDTotal)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoDTotal)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ArmazenamentoDLivre)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ArmazenamentoDLivre)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.ConsumoCPU)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.ConsumoCPU)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.SO)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.SO)
+                </dd>
+                <dt class="col-sm-2">
+                    @Html.DisplayNameFor(model => model.DataColeta)
+                </dt>
+                <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.DataColeta)
+                </dd>
+            </dl>
+
+            <form asp-action="DeleteConfirmed" asp-route-id="@Model.MAC" method="post">
+                <input type="hidden" asp-for="MAC" />
+                <input type="submit" value="Excluir" class="btn btn-danger" /> |
+                <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>
