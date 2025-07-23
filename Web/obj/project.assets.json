@@ -1213,11 +1213,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Web\\Web.csproj",
+      "projectUniqueName": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Web\\Web.csproj",
       "projectName": "Web",
-      "projectPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Web\\Web.csproj",
+      "projectPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Web\\Web.csproj",
       "packagesPath": "C:\\Users\\lucas\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Web\\obj\\",
+      "outputPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Web\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\lucas\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "rQtNYcGL4wM=",
+  "dgSpecHash": "oKzTPiheDSc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Web\\Web.csproj",
+  "projectFilePath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Web\\Web.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\lucas\\.nuget\\packages\\microsoft.aspnetcore.diagnostics.entityframeworkcore\\5.0.0\\microsoft.aspnetcore.diagnostics.entityframeworkcore.5.0.0.nupkg.sha512",
     "C:\\Users\\lucas\\.nuget\\packages\\microsoft.entityframeworkcore\\5.0.0\\microsoft.entityframeworkcore.5.0.0.nupkg.sha512",

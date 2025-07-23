@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "WGgBwYneTK4=",
+  "dgSpecHash": "RfoSofs1M48=",
   "success": true,
-  "projectFilePath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Chamada\\Chamada.csproj",
+  "projectFilePath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Chamada\\Chamada.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\lucas\\.nuget\\packages\\google.protobuf\\3.21.9\\google.protobuf.3.21.9.nupkg.sha512",
     "C:\\Users\\lucas\\.nuget\\packages\\k4os.compression.lz4\\1.3.5\\k4os.compression.lz4.1.3.5.nupkg.sha512",

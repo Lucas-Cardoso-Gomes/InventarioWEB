@@ -2547,11 +2547,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Chamada\\Chamada.csproj",
+      "projectUniqueName": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Chamada\\Chamada.csproj",
       "projectName": "Chamada",
-      "projectPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Chamada\\Chamada.csproj",
+      "projectPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Chamada\\Chamada.csproj",
       "packagesPath": "C:\\Users\\lucas\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\Inventário Web\\Chamada\\obj\\",
+      "outputPath": "C:\\Users\\lucas\\OneDrive\\Documentos\\Code\\C#\\InventarioWEB\\Chamada\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\lucas\\AppData\\Roaming\\NuGet\\NuGet.Config"
