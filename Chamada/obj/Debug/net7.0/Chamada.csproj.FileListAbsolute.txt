@@ -57,7 +57,6 @@ C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Chamada\obj\Debug\net
 C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Chamada\obj\Debug\net7.0\Chamada.genruntimeconfig.cache
 C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Chamada\obj\Debug\net7.0\ref\Chamada.dll
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\Chamada.exe
-C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\appsettings.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\Chamada.deps.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\Chamada.runtimeconfig.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\Chamada.dll
@@ -115,3 +114,4 @@ C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\obj\Debug\net7.
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\obj\Debug\net7.0\Chamada.pdb
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\obj\Debug\net7.0\Chamada.genruntimeconfig.cache
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\obj\Debug\net7.0\ref\Chamada.dll
+C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Chamada\bin\Debug\net7.0\appsettings.json

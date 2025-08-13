@@ -38,7 +38,6 @@ C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Coleta\obj\Debug\net7
 C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Coleta\obj\Debug\net7.0\Coleta.genruntimeconfig.cache
 C:\Users\lucas\OneDrive\Documentos\Code\C#\Inventário Web\Coleta\obj\Debug\net7.0\ref\Coleta.dll
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\Coleta.exe
-C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\appsettings.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\Coleta.deps.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\Coleta.runtimeconfig.json
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\Coleta.dll
@@ -77,3 +76,4 @@ C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\obj\Debug\net7.0
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\obj\Debug\net7.0\Coleta.pdb
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\obj\Debug\net7.0\Coleta.genruntimeconfig.cache
 C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\obj\Debug\net7.0\ref\Coleta.dll
+C:\Users\lucas\OneDrive\Documentos\Code\C#\InventarioWEB\Coleta\bin\Debug\net7.0\appsettings.json
