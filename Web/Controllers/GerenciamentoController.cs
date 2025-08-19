@@ -15,7 +15,7 @@ namespace Web.Controllers
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
-
+        
         public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
             _serviceProvider = serviceProvider;
@@ -43,7 +43,7 @@ namespace Web.Controllers
                 using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     connection.Open();
-
+                    
                     viewModel.Levels = GetDistinctLogValues(connection, "Level");
                     viewModel.Sources = GetDistinctLogValues(connection, "Source");
 
@@ -106,7 +106,7 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao obter os logs.");
                 ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
             }
-
+            
             return View(viewModel);
         }
 
@@ -179,7 +179,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 string ip = model.IpAddress;
                 Task.Run(() => RunScopedColeta(ip));
                 model.Resultados.Add($"Coleta agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
@@ -213,7 +213,7 @@ namespace Web.Controllers
 
             return View(model);
         }
-
+        
         private async Task RunScopedColeta(string ip)
         {
             using (var scope = _serviceProvider.CreateScope())
@@ -250,7 +250,7 @@ namespace Web.Controllers
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
             }
-
+            
             model.ComandoIniciado = true;
 
             if (!ModelState.IsValid)
@@ -265,7 +265,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 string ip = model.IpAddress;
                 string comando = model.Comando;
                 Task.Run(() => RunScopedComando(ip, comando));
@@ -290,11 +290,11 @@ namespace Web.Controllers
                 {
                     foreach (var faixaBase in faixas)
                     {
-                        Parallel.For(1, 256, i =>
+                        for (int i = 1; i < 255; i++)
                         {
                             string ipFaixa = faixaBase + i.ToString();
                             RunScopedComando(ipFaixa, comando);
-                        });
+                        }
                     }
                 });
             }
@@ -302,28 +302,38 @@ namespace Web.Controllers
             return View(model);
         }
 
-        private async Task RunScopedComando(string ip, string comando)
+        private void RunScopedComando(string ip, string comando)
         {
-            // Este método é executado em um thread de fundo e precisa de seu próprio escopo de serviço.
-            using (var scope = _serviceProvider.CreateScope())
+            try
             {
-                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
-                try
+                using (var scope = _serviceProvider.CreateScope())
                 {
-                    logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
+                    var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                    logService.AddLog("Debug", $"[BG Task] RunScopedComando INICIADO para {ip}.", "Sistema");
 
-                    var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
-                    logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}.", "Sistema");
+                    try
+                    {
+                        logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
+                        
+                        var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                        logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
 
-                    await coletaService.EnviarComandoAsync(ip, comando);
-
-                    logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
+                        // Chame o método async e espere pelo resultado de forma síncrona para depuração.
+                        coletaService.EnviarComandoAsync(ip, comando).GetAwaiter().GetResult();
+                        
+                        logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Loga a exceção que ocorreu dentro da tarefa de fundo.
+                        logService.AddLog("Error", $"[BG Task] Falha na tarefa de envio de comando para {ip}: {ex.GetBaseException().Message}", "Sistema");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // Loga a exceção que ocorreu dentro da tarefa de fundo.
-                    logService.AddLog("Error", $"[BG Task] Falha na tarefa de envio de comando para {ip}: {ex.GetBaseException().Message}", "Sistema");
-                }
+            }
+            catch (Exception ex)
+            {
+                // Fallback extremo: se até a criação do escopo falhar, logue no console do servidor web.
+                _logger.LogError(ex, "[BG Task] Falha CRÍTICA ao criar escopo de serviço para RunScopedComando.");
             }
         }
     }
