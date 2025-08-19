@@ -202,6 +202,7 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Comandos(ComandoViewModel model)
         {
+            _logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
             model.ComandoIniciado = true;
 
             if (!ModelState.IsValid)
