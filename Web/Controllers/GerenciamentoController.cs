@@ -161,8 +161,15 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
+
                 // Don't wait, run in background
-                Task.Run(() => _coletaService.EnviarComandoAsync(model.IpAddress, model.Comando));
+                Task.Run(() => _coletaService.EnviarComandoAsync(model.IpAddress, model.Comando))
+                    .ContinueWith(t => {
+                        if (t.IsFaulted) {
+                            _logService.AddLog("Error", $"Falha na tarefa de envio de comando para {model.IpAddress}: {t.Exception.GetBaseException().Message}", "Sistema");
+                        }
+                    }, TaskContinuationOptions.OnlyOnFaulted);
+
                 model.Resultados.Add($"Envio do comando '{model.Comando}' agendado para o IP: {model.IpAddress}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoEnvio == "range")
@@ -187,7 +194,12 @@ namespace Web.Controllers
                         Parallel.For(1, 256, i =>
                         {
                             string ipFaixa = faixaBase + i.ToString();
-                            _coletaService.EnviarComandoAsync(ipFaixa, model.Comando);
+                            _coletaService.EnviarComandoAsync(ipFaixa, model.Comando)
+                                .ContinueWith(t => {
+                                    if (t.IsFaulted) {
+                                        _logService.AddLog("Error", $"Falha na tarefa de envio de comando para {ipFaixa}: {t.Exception.GetBaseException().Message}", "Sistema");
+                                    }
+                                }, TaskContinuationOptions.OnlyOnFaulted);
                         });
                     }
                 });

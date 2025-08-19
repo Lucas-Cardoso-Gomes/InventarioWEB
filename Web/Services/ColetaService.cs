@@ -64,10 +64,22 @@ namespace Web.Services
                         int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                         string resposta = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                        var hardwareInfo = JsonSerializer.Deserialize<HardwareInfo>(resposta);
+                        HardwareInfo hardwareInfo;
+                        try
+                        {
+                            hardwareInfo = JsonSerializer.Deserialize<HardwareInfo>(resposta);
+                        }
+                        catch (JsonException jsonEx)
+                        {
+                            string message = $"Erro de JSON ao coletar dados de {computadorIp}: {jsonEx.Message}. Resposta recebida: '{resposta}'";
+                            _logService.AddLog("Error", message, "Coleta");
+                            onResult(message);
+                            return;
+                        }
+
                         if (hardwareInfo == null || hardwareInfo.MAC == null)
                         {
-                            string message = $"Falha ao deserializar a resposta ou MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
+                            string message = $"Resposta JSON recebida, mas o MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
                             _logService.AddLog("Error", message, "Coleta");
                             onResult(message);
                             return;
