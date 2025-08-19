@@ -355,7 +355,7 @@ namespace Web.Controllers
         // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public IActionResult Delete(string id)
+        public IActionResult DeleteConfirmed(string id)
         {
             try
             {
