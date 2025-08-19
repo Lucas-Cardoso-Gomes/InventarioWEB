@@ -1,4 +1,4 @@
-using web.Services;
+using Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 // Adiciona os serviços ao contêiner
