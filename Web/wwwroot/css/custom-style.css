@@ -1,0 +1,56 @@
+:root {
+    --verde: #28a745;
+    --vermelho-bordo: #800020;
+    --cinza: #6c757d;
+    --cinza-claro: #f8f9fa;
+    --branco: #ffffff;
+}
+
+body {
+    background-color: var(--cinza-claro);
+}
+
+/* Navbar */
+.navbar.navbar-light.bg-white {
+    background-color: var(--vermelho-bordo) !important;
+}
+
+.navbar .navbar-brand,
+.navbar .nav-link {
+    color: var(--branco) !important;
+}
+
+.navbar .nav-link:hover {
+    color: var(--cinza-claro) !important;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--verde);
+    border-color: var(--verde);
+}
+
+.btn-primary:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+.btn-secondary {
+    background-color: var(--cinza);
+    border-color: var(--cinza);
+}
+
+/* Tables */
+.table thead {
+    background-color: var(--vermelho-bordo);
+    color: var(--branco);
+}
+
+/* Links */
+a {
+    color: var(--verde);
+}
+
+a:hover {
+    color: #218838;
+}

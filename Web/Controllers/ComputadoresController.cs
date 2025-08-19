@@ -17,9 +17,27 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string sortOrder, string searchString, string fabricante, string so, int pageNumber = 1, int pageSize = 25)
         {
-            List<Computador> computadores = new List<Computador>();
+            ViewData["CurrentSort"] = sortOrder;
+            ViewData["IpSortParm"] = String.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
+            ViewData["MacSortParm"] = sortOrder == "mac" ? "mac_desc" : "mac";
+            ViewData["UserSortParm"] = sortOrder == "user" ? "user_desc" : "user";
+            ViewData["HostnameSortParm"] = sortOrder == "hostname" ? "hostname_desc" : "hostname";
+            ViewData["OsSortParm"] = sortOrder == "os" ? "os_desc" : "os";
+            ViewData["DateSortParm"] = sortOrder == "date" ? "date_desc" : "date";
+            ViewData["CurrentFilter"] = searchString;
+
+            var viewModel = new ComputadorIndexViewModel
+            {
+                Computadores = new List<Computador>(),
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SearchString = searchString,
+                CurrentSort = sortOrder,
+                CurrentFabricante = fabricante,
+                CurrentSO = so
+            };
 
             try
             {
@@ -27,15 +45,71 @@ namespace Web.Controllers
                 {
                     connection.Open();
 
-                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores";
+                    viewModel.Fabricantes = GetDistinctComputerValues(connection, "Fabricante");
+                    viewModel.SOs = GetDistinctComputerValues(connection, "SO");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+
+                    if (!string.IsNullOrEmpty(searchString))
+                    {
+                        whereClauses.Add("(IP LIKE @search OR MAC LIKE @search OR Usuario LIKE @search OR Hostname LIKE @search)");
+                        parameters.Add("@search", $"%{searchString}%");
+                    }
+
+                    if (!string.IsNullOrEmpty(fabricante))
+                    {
+                        whereClauses.Add("Fabricante = @fabricante");
+                        parameters.Add("@fabricante", fabricante);
+                    }
+
+                    if (!string.IsNullOrEmpty(so))
+                    {
+                        whereClauses.Add("SO = @so");
+                        parameters.Add("@so", so);
+                    }
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    // Get total count
+                    string countSql = $"SELECT COUNT(*) FROM Computadores {whereSql}";
+                    using (var countCommand = new SqlCommand(countSql, connection))
+                    {
+                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                    }
+
+                    // Get paginated data
+                    string orderBySql;
+                    switch (sortOrder)
+                    {
+                        case "ip_desc": orderBySql = "ORDER BY IP DESC"; break;
+                        case "mac": orderBySql = "ORDER BY MAC"; break;
+                        case "mac_desc": orderBySql = "ORDER BY MAC DESC"; break;
+                        case "user": orderBySql = "ORDER BY Usuario"; break;
+                        case "user_desc": orderBySql = "ORDER BY Usuario DESC"; break;
+                        case "hostname": orderBySql = "ORDER BY Hostname"; break;
+                        case "hostname_desc": orderBySql = "ORDER BY Hostname DESC"; break;
+                        case "os": orderBySql = "ORDER BY SO"; break;
+                        case "os_desc": orderBySql = "ORDER BY SO DESC"; break;
+                        case "date": orderBySql = "ORDER BY DataColeta"; break;
+                        case "date_desc": orderBySql = "ORDER BY DataColeta DESC"; break;
+                        default: orderBySql = "ORDER BY IP"; break;
+                    }
+
+                    string sql = $"SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
+                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                Computador computador = new Computador
+                                viewModel.Computadores.Add(new Computador
                                 {
                                     MAC = reader["MAC"].ToString(),
                                     IP = reader["IP"].ToString(),
@@ -61,8 +135,7 @@ namespace Web.Controllers
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
                                     DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
-                                };
-                                computadores.Add(computador);
+                                });
                             }
                         }
                     }
@@ -74,7 +147,24 @@ namespace Web.Controllers
                 ViewBag.Message = "Ocorreu um erro ao obter a lista de computadores. Por favor, tente novamente mais tarde.";
             }
 
-            return View(computadores);
+            return View(viewModel);
+        }
+
+        private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            // Use a separate command to prevent issues with open readers
+            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
         }
 
         // GET: Computadores/Create
@@ -265,7 +355,6 @@ namespace Web.Controllers
         // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Route("Computadores/DeleteConfirmed/{id}")]
         public IActionResult DeleteConfirmed(string id)
         {
             try
