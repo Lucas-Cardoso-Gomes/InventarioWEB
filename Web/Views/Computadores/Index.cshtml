@@ -1,4 +1,4 @@
-@model IEnumerable<web.Models.Computador>
+@model web.Models.ComputadorIndexViewModel
 
 @{
     ViewData["Title"] = "Lista de Computadores";
@@ -6,9 +6,20 @@
 
 <h1>@ViewData["Title"]</h1>
 
-<p>
-    <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
-</p>
+<div class="row mb-3">
+    <div class="col-md-6">
+        <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
+    </div>
+    <div class="col-md-6">
+        <form asp-action="Index" method="get">
+            <div class="input-group">
+                <input type="text" name="SearchString" class="form-control" placeholder="Pesquisar por IP, MAC, Usuário..." value="@Model.SearchString">
+                <button class="btn btn-outline-secondary" type="submit">Pesquisar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 
 <div class="mb-3">
     <div class="dropdown d-inline-block">
@@ -19,6 +30,45 @@
             <!-- Checkboxes will be inserted here by JavaScript -->
         </div>
     </div>
+    <button type="button" class="btn btn-info d-inline-block" data-bs-toggle="modal" data-bs-target="#filterModal">
+        Filtros Avançados
+    </button>
+</div>
+
+<!-- Modal de Filtros -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="Index" method="get">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="filterModalLabel">Filtros Avançados</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="sortOrder" value="@Model.CurrentSort" />
+                    <input type="hidden" name="searchString" value="@Model.SearchString" />
+                    <input type="hidden" name="pageSize" value="@Model.PageSize" />
+
+                    <div class="mb-3">
+                        <label for="fabricante" class="form-label">Fabricante</label>
+                        <select name="fabricante" class="form-select" asp-for="CurrentFabricante" asp-items="@(new SelectList(Model.Fabricantes))">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="so" class="form-label">Sistema Operacional</label>
+                        <select name="so" class="form-select" asp-for="CurrentSO" asp-items="@(new SelectList(Model.SOs))">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
+                    <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="table-responsive">
@@ -26,82 +76,46 @@
         <thead>
             <tr>
                 <th class="col-ip">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["IpSortParm"]">IP</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["IpSortParm"]" asp-route-searchString="@Model.SearchString">IP</a>
                 </th>
                 <th class="col-mac">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]">MAC</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]" asp-route-searchString="@Model.SearchString">MAC</a>
                 </th>
                 <th class="col-usuario">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]">Usuário</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Usuário</a>
                 </th>
                 <th class="col-hostname">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]">Hostname</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>
                 </th>
-                <th class="col-fabricante">
-                    Fabricante
-                </th>
-                <th class="col-processador">
-                    Processador
-                </th>
-                <th class="col-processadorfabricante">
-                    Fab. Processador
-                </th>
-                <th class="col-processadorcore">
-                    Cores
-                </th>
-                <th class="col-processadorthread">
-                    Threads
-                </th>
-                <th class="col-processadorclock">
-                    Clock
-                </th>
-                <th class="col-ram">
-                    RAM
-                </th>
-                <th class="col-ramtipo">
-                    Tipo RAM
-                </th>
-                <th class="col-ramvelocidade">
-                    Vel. RAM
-                </th>
-                <th class="col-ramvoltagem">
-                    Volt. RAM
-                </th>
-                <th class="col-ramporomodule">
-                    RAM/Módulo
-                </th>
-                <th class="col-armazenamentoc">
-                    Armaz. C
-                </th>
-                <th class="col-armazenamentoctotal">
-                    Total C
-                </th>
-                <th class="col-armazenamentoclivre">
-                    Livre C
-                </th>
-                <th class="col-armazenamentod">
-                    Armaz. D
-                </th>
-                <th class="col-armazenamentodtotal">
-                    Total D
-                </th>
-                <th class="col-armazenamentodlivre">
-                    Livre D
-                </th>
+                <th class="col-fabricante">Fabricante</th>
+                <th class="col-processador">Processador</th>
+                <th class="col-processadorfabricante">Fab. Processador</th>
+                <th class="col-processadorcore">Cores</th>
+                <th class="col-processadorthread">Threads</th>
+                <th class="col-processadorclock">Clock</th>
+                <th class="col-ram">RAM</th>
+                <th class="col-ramtipo">Tipo RAM</th>
+                <th class="col-ramvelocidade">Vel. RAM</th>
+                <th class="col-ramvoltagem">Volt. RAM</th>
+                <th class="col-ramporomodule">RAM/Módulo</th>
+                <th class="col-armazenamentoc">Armaz. C</th>
+                <th class="col-armazenamentoctotal">Total C</th>
+                <th class="col-armazenamentoclivre">Livre C</th>
+                <th class="col-armazenamentod">Armaz. D</th>
+                <th class="col-armazenamentodtotal">Total D</th>
+                <th class="col-armazenamentodlivre">Livre D</th>
                 <th class="col-so">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["OsSortParm"]">Sistema Operacional</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["OsSortParm"]" asp-route-searchString="@Model.SearchString">Sistema Operacional</a>
                 </th>
-                <th class="col-consumocpu">
-                    Consumo CPU
-                </th>
+                <th class="col-consumocpu">Consumo CPU</th>
                 <th class="col-datacoleta">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]">Data da Coleta</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
                 </th>
                 <th>Ações</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var item in Model)
+            @foreach (var item in Model.Computadores)
             {
                 <tr>
                     <td class="col-ip">@Html.DisplayFor(modelItem => item.IP)</td>
@@ -137,6 +151,36 @@
         </tbody>
     </table>
 </div>
+
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+            <a class="page-link" asp-action="Index"
+               asp-route-sortOrder="@Model.CurrentSort"
+               asp-route-searchString="@Model.SearchString"
+               asp-route-pageNumber="@(Model.PageNumber - 1)"
+               asp-route-pageSize="@Model.PageSize">Anterior</a>
+        </li>
+        @for (int i = 1; i <= Model.TotalPages; i++)
+        {
+            <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                <a class="page-link" asp-action="Index"
+                   asp-route-sortOrder="@Model.CurrentSort"
+                   asp-route-searchString="@Model.SearchString"
+                   asp-route-pageNumber="@i"
+                   asp-route-pageSize="@Model.PageSize">@i</a>
+            </li>
+        }
+        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+            <a class="page-link" asp-action="Index"
+               asp-route-sortOrder="@Model.CurrentSort"
+               asp-route-searchString="@Model.SearchString"
+               asp-route-pageNumber="@(Model.PageNumber + 1)"
+               asp-route-pageSize="@Model.PageSize">Próxima</a>
+        </li>
+    </ul>
+</nav>
+
 
 @section Scripts {
     <script src="~/js/computer-list.js" asp-append-version="true"></script>
