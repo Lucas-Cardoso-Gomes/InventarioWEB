@@ -1,4 +1,4 @@
-namespace Chamada.Models
+namespace web.Models
 {
     public class HardwareInfo
     {

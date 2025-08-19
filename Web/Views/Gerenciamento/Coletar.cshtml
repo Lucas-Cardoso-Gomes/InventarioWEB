@@ -1,0 +1,74 @@
+@model web.Models.ColetaViewModel
+
+@{
+    ViewData["Title"] = "Coletar Dados da Rede";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<p>Use as opções abaixo para iniciar a coleta de dados de um computador específico ou de uma faixa de rede.</p>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>Coleta por IP ou Hostname</h4>
+        <form asp-action="Coletar" method="post">
+            <input type="hidden" name="TipoColeta" value="ip" />
+            <div class="form-group">
+                <label asp-for="IpAddress" class="control-label"></label>
+                <input asp-for="IpAddress" class="form-control" placeholder="Ex: 10.0.0.5 ou PC-01" />
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Coletar</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <h4>Coleta por Faixa de Rede</h4>
+        <form asp-action="Coletar" method="post">
+            <input type="hidden" name="TipoColeta" value="range" />
+            <div class="form-group">
+                <label asp-for="IpRange" class="control-label"></label>
+                <select asp-for="IpRange" class="form-control">
+                    <option value="10.0.0.">10.0.0.x</option>
+                    <option value="10.0.2.">10.0.2.x</option>
+                    <option value="10.1.1.">10.1.1.x</option>
+                    <option value="10.1.2.">10.1.2.x</option>
+                    <option value="10.2.2.">10.2.2.x</option>
+                    <option value="10.3.3.">10.3.3.x</option>
+                    <option value="10.4.4.">10.4.4.x</option>
+                    <option value="all">Todas as faixas acima</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Iniciar Varredura</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.ColetaIniciada)
+{
+    <hr />
+    <h3>Resultados da Coleta</h3>
+    <div class="alert alert-info">
+        <p>A coleta foi iniciada. Os resultados aparecerão abaixo à medida que forem concluídos. A página não será atualizada automaticamente.</p>
+        @if (Model.Resultados.Any())
+        {
+            <ul>
+                @foreach (var resultado in Model.Resultados)
+                {
+                    <li>@resultado</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>Nenhum resultado ainda. A varredura pode estar em andamento.</p>
+        }
+    </div>
+}
+
+<div>
+    <a asp-action="Index">Voltar ao Gerenciamento</a>
+</div>

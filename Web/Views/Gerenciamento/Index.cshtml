@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Gerenciamento";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Painel de Gerenciamento</h1>
+    <p>Selecione uma das opções abaixo para gerenciar os computadores da rede.</p>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Coletar Dados</h5>
+                    <p class="card-text">Inicie uma varredura na rede para coletar ou atualizar as informações de hardware dos computadores.</p>
+                    <a asp-action="Coletar" class="btn btn-primary">Iniciar Coleta</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Executar Comandos</h5>
+                    <p class="card-text">Envie comandos remotos para serem executados nos computadores selecionados.</p>
+                    <a asp-action="Comandos" class="btn btn-warning">Enviar Comando</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
