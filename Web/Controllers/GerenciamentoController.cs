@@ -10,21 +10,19 @@ namespace Web.Controllers
 {
     public class GerenciamentoController : Controller
     {
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly ColetaService _coletaService;
-        private readonly LogService _logService;
 
-        public GerenciamentoController(ILogger<GerenciamentoController> logger, IConfiguration configuration, ColetaService coletaService, LogService logService)
+        public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
+            _serviceProvider = serviceProvider;
             _logger = logger;
             _configuration = configuration;
-            _coletaService = coletaService;
-            _logService = logService;
         }
 
         // GET: /Gerenciamento/Logs
-        public IActionResult Logs(string level, string source, int pageNumber = 1, int pageSize = 25)
+        public IActionResult Logs(string level, string source, string searchString, int pageNumber = 1, int pageSize = 25)
         {
             var viewModel = new LogViewModel
             {
@@ -33,6 +31,7 @@ namespace Web.Controllers
                 Sources = new List<string>(),
                 CurrentLevel = level,
                 CurrentSource = source,
+                SearchString = searchString,
                 PageNumber = pageNumber,
                 PageSize = pageSize
             };
@@ -43,7 +42,6 @@ namespace Web.Controllers
                 {
                     connection.Open();
 
-                    // Get distinct levels and sources for filter dropdowns
                     viewModel.Levels = GetDistinctLogValues(connection, "Level");
                     viewModel.Sources = GetDistinctLogValues(connection, "Source");
 
@@ -59,6 +57,11 @@ namespace Web.Controllers
                     {
                         whereClauses.Add("Source = @source");
                         parameters.Add("@source", source);
+                    }
+                    if (!string.IsNullOrEmpty(searchString))
+                    {
+                        whereClauses.Add("Message LIKE @search");
+                        parameters.Add("@search", $"%{searchString}%");
                     }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
@@ -105,6 +108,32 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ClearLogs()
+        {
+            try
+            {
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    connection.Open();
+                    string sql = "TRUNCATE TABLE Logs";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                TempData["SuccessMessage"] = "Logs limpos com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao limpar os logs.");
+                TempData["ErrorMessage"] = "Ocorreu um erro ao limpar os logs.";
+            }
+
+            return RedirectToAction(nameof(Logs));
+        }
+
         private List<string> GetDistinctLogValues(System.Data.SqlClient.SqlConnection connection, string columnName)
         {
             var values = new List<string>();
@@ -141,13 +170,6 @@ namespace Web.Controllers
         {
             model.ColetaIniciada = true;
 
-            Action<string> onResult = (result) =>
-            {
-                // Este callback é executado em um thread de fundo.
-                // Apenas logamos aqui, não tentamos atualizar a UI diretamente.
-                _logger.LogInformation(result);
-            };
-
             if (model.TipoColeta == "ip")
             {
                 if (string.IsNullOrWhiteSpace(model.IpAddress))
@@ -155,9 +177,10 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-                // Don't wait, run in background
-                Task.Run(() => _coletaService.ColetarDadosAsync(model.IpAddress, onResult));
-                model.Resultados.Add($"Coleta agendada para o IP: {model.IpAddress}. Os resultados aparecerão na página de Logs.");
+
+                string ip = model.IpAddress;
+                Task.Run(() => RunScopedColeta(ip));
+                model.Resultados.Add($"Coleta agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoColeta == "range")
             {
@@ -180,14 +203,33 @@ namespace Web.Controllers
                         Parallel.For(1, 256, i =>
                         {
                             string ipFaixa = faixaBase + i.ToString();
-                            // Não usamos .Wait() aqui para permitir paralelismo total
-                            _coletaService.ColetarDadosAsync(ipFaixa, onResult);
+                            RunScopedColeta(ipFaixa);
                         });
                     }
                 });
             }
 
             return View(model);
+        }
+
+        private async Task RunScopedColeta(string ip)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                try
+                {
+                    await coletaService.ColetarDadosAsync(ip, (result) => {
+                        // O logging principal já acontece dentro do ColetaService
+                        _logger.LogInformation(result); // Log secundário opcional
+                    });
+                }
+                catch (Exception ex)
+                {
+                    logService.AddLog("Error", $"Falha na tarefa de coleta para {ip}: {ex.Message}", "Sistema");
+                }
+            }
         }
 
 
@@ -202,7 +244,12 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Comandos(ComandoViewModel model)
         {
-            _logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
+            }
+
             model.ComandoIniciado = true;
 
             if (!ModelState.IsValid)
@@ -218,15 +265,10 @@ namespace Web.Controllers
                     return View(model);
                 }
 
-                // Don't wait, run in background
-                Task.Run(() => _coletaService.EnviarComandoAsync(model.IpAddress, model.Comando))
-                    .ContinueWith(t => {
-                        if (t.IsFaulted) {
-                            _logService.AddLog("Error", $"Falha na tarefa de envio de comando para {model.IpAddress}: {t.Exception.GetBaseException().Message}", "Sistema");
-                        }
-                    }, TaskContinuationOptions.OnlyOnFaulted);
-
-                model.Resultados.Add($"Envio do comando '{model.Comando}' agendado para o IP: {model.IpAddress}. Os resultados aparecerão na página de Logs.");
+                string ip = model.IpAddress;
+                string comando = model.Comando;
+                Task.Run(() => RunScopedComando(ip, comando));
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoEnvio == "range")
             {
@@ -240,9 +282,9 @@ namespace Web.Controllers
                     faixas = new string[] { model.IpRange };
                 }
 
-                model.Resultados.Add($"Envio do comando '{model.Comando}' agendado para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
+                string comando = model.Comando;
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
 
-                // We don't wait for this to finish
                 Task.Run(() =>
                 {
                     foreach (var faixaBase in faixas)
@@ -250,18 +292,30 @@ namespace Web.Controllers
                         Parallel.For(1, 256, i =>
                         {
                             string ipFaixa = faixaBase + i.ToString();
-                            _coletaService.EnviarComandoAsync(ipFaixa, model.Comando)
-                                .ContinueWith(t => {
-                                    if (t.IsFaulted) {
-                                        _logService.AddLog("Error", $"Falha na tarefa de envio de comando para {ipFaixa}: {t.Exception.GetBaseException().Message}", "Sistema");
-                                    }
-                                }, TaskContinuationOptions.OnlyOnFaulted);
+                            RunScopedComando(ipFaixa, comando);
                         });
                     }
                 });
             }
 
             return View(model);
+        }
+
+        private async Task RunScopedComando(string ip, string comando)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                try
+                {
+                    await coletaService.EnviarComandoAsync(ip, comando);
+                }
+                catch (Exception ex)
+                {
+                    logService.AddLog("Error", $"Falha na tarefa de envio de comando para {ip}: {ex.Message}", "Sistema");
+                }
+            }
         }
     }
 }

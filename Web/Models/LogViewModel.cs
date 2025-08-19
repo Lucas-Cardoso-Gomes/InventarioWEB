@@ -11,6 +11,7 @@ namespace web.Models
 
         public string CurrentLevel { get; set; }
         public string CurrentSource { get; set; }
+        public string SearchString { get; set; }
 
         public int PageNumber { get; set; }
         public int PageSize { get; set; }
