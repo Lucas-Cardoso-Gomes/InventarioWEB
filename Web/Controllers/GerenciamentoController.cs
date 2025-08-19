@@ -304,17 +304,25 @@ namespace Web.Controllers
 
         private async Task RunScopedComando(string ip, string comando)
         {
+            // Este método é executado em um thread de fundo e precisa de seu próprio escopo de serviço.
             using (var scope = _serviceProvider.CreateScope())
             {
-                var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 try
                 {
+                    logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
+
+                    var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                    logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}.", "Sistema");
+
                     await coletaService.EnviarComandoAsync(ip, comando);
+
+                    logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
                 }
                 catch (Exception ex)
                 {
-                    logService.AddLog("Error", $"Falha na tarefa de envio de comando para {ip}: {ex.Message}", "Sistema");
+                    // Loga a exceção que ocorreu dentro da tarefa de fundo.
+                    logService.AddLog("Error", $"[BG Task] Falha na tarefa de envio de comando para {ip}: {ex.GetBaseException().Message}", "Sistema");
                 }
             }
         }
