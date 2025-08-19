@@ -24,22 +24,66 @@ namespace Web.Controllers
         }
 
         // GET: /Gerenciamento/Logs
-        public IActionResult Logs()
+        public IActionResult Logs(string level, string source, int pageNumber = 1, int pageSize = 25)
         {
-            var logs = new List<Log>();
+            var viewModel = new LogViewModel
+            {
+                Logs = new List<Log>(),
+                Levels = new List<string>(),
+                Sources = new List<string>(),
+                CurrentLevel = level,
+                CurrentSource = source,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+
             try
             {
                 using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     connection.Open();
-                    var sql = "SELECT Id, Timestamp, Level, Message, Source FROM Logs ORDER BY Timestamp DESC";
+
+                    // Get distinct levels and sources for filter dropdowns
+                    viewModel.Levels = GetDistinctLogValues(connection, "Level");
+                    viewModel.Sources = GetDistinctLogValues(connection, "Source");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+
+                    if (!string.IsNullOrEmpty(level))
+                    {
+                        whereClauses.Add("Level = @level");
+                        parameters.Add("@level", level);
+                    }
+                    if (!string.IsNullOrEmpty(source))
+                    {
+                        whereClauses.Add("Source = @source");
+                        parameters.Add("@source", source);
+                    }
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    // Get total count for pagination
+                    string countSql = $"SELECT COUNT(*) FROM Logs {whereSql}";
+                    using (var countCommand = new System.Data.SqlClient.SqlCommand(countSql, connection))
+                    {
+                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                    }
+
+                    // Get paginated logs
+                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
                     using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
                     {
+                        foreach (var p in parameters) command.Parameters.AddWithValue(p.Key, p.Value);
+                        command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        command.Parameters.AddWithValue("@pageSize", pageSize);
+
                         using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                logs.Add(new Log
+                                viewModel.Logs.Add(new Log
                                 {
                                     Id = reader.GetInt32(0),
                                     Timestamp = reader.GetDateTime(1),
@@ -55,16 +99,27 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao obter os logs.");
-                // Adiciona um log de erro à lista para ser exibido na tela
-                logs.Add(new Log
-                {
-                    Timestamp = DateTime.Now,
-                    Level = "Error",
-                    Message = "Não foi possível carregar os logs. Verifique a conexão com o banco de dados e se a tabela 'Logs' existe.",
-                    Source = "Sistema"
-                });
+                ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
             }
-            return View(logs);
+
+            return View(viewModel);
+        }
+
+        private List<string> GetDistinctLogValues(System.Data.SqlClient.SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            string sql = $"SELECT DISTINCT {columnName} FROM Logs WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
         }
 
         // GET: /Gerenciamento

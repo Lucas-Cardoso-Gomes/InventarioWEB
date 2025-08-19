@@ -17,18 +17,63 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string sortOrder)
         {
+            ViewData["IpSortParm"] = String.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
+            ViewData["MacSortParm"] = sortOrder == "mac" ? "mac_desc" : "mac";
+            ViewData["UserSortParm"] = sortOrder == "user" ? "user_desc" : "user";
+            ViewData["HostnameSortParm"] = sortOrder == "hostname" ? "hostname_desc" : "hostname";
+            ViewData["OsSortParm"] = sortOrder == "os" ? "os_desc" : "os";
+            ViewData["DateSortParm"] = sortOrder == "date" ? "date_desc" : "date";
+
             List<Computador> computadores = new List<Computador>();
+            string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores";
+
+            switch (sortOrder)
+            {
+                case "ip_desc":
+                    sql += " ORDER BY IP DESC";
+                    break;
+                case "mac":
+                    sql += " ORDER BY MAC";
+                    break;
+                case "mac_desc":
+                    sql += " ORDER BY MAC DESC";
+                    break;
+                case "user":
+                    sql += " ORDER BY Usuario";
+                    break;
+                case "user_desc":
+                    sql += " ORDER BY Usuario DESC";
+                    break;
+                case "hostname":
+                    sql += " ORDER BY Hostname";
+                    break;
+                case "hostname_desc":
+                    sql += " ORDER BY Hostname DESC";
+                    break;
+                case "os":
+                    sql += " ORDER BY SO";
+                    break;
+                case "os_desc":
+                    sql += " ORDER BY SO DESC";
+                    break;
+                case "date":
+                    sql += " ORDER BY DataColeta";
+                    break;
+                case "date_desc":
+                    sql += " ORDER BY DataColeta DESC";
+                    break;
+                default:
+                    sql += " ORDER BY IP";
+                    break;
+            }
 
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-
-                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores";
-
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         using (SqlDataReader reader = cmd.ExecuteReader())
