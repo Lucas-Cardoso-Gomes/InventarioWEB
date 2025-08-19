@@ -42,7 +42,7 @@ namespace Web.Controllers
                 using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     connection.Open();
-
+                    
                     // Get distinct levels and sources for filter dropdowns
                     viewModel.Levels = GetDistinctLogValues(connection, "Level");
                     viewModel.Sources = GetDistinctLogValues(connection, "Source");
@@ -101,7 +101,7 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao obter os logs.");
                 ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
             }
-
+            
             return View(viewModel);
         }
 
@@ -216,7 +216,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 // Don't wait, run in background
                 Task.Run(() => _coletaService.EnviarComandoAsync(model.IpAddress, model.Comando))
                     .ContinueWith(t => {

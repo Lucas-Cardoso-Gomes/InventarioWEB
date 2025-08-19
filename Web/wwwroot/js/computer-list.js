@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
         checkbox.id = `check-${column.id}`;
         checkbox.className = 'form-check-input';
         checkbox.checked = visibleColumns.includes(column.id);
-
+        
         const label = document.createElement('label');
         label.className = 'form-check-label ms-2';
         label.htmlFor = `check-${column.id}`;

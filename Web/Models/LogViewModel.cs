@@ -8,7 +8,7 @@ namespace web.Models
         public List<Log> Logs { get; set; }
         public List<string> Levels { get; set; }
         public List<string> Sources { get; set; }
-
+        
         public string CurrentLevel { get; set; }
         public string CurrentSource { get; set; }
 
