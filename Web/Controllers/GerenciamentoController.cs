@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
-using web.Services;
+using Web.Services; // Corrigido
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 

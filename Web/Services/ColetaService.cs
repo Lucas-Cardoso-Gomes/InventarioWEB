@@ -9,8 +9,9 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Web.Services;
 
-namespace web.Services
+namespace Web.Services
 {
     public class ColetaService
     {
