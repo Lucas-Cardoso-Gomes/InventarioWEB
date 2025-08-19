@@ -36,14 +36,13 @@ namespace ColetaDados
 
                     using (NetworkStream stream = client.GetStream())
                     {
-                        string solicitarInformacoes = Configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
-                        string autenticacao = $"{solicitarInformacoes}\n";
+                        string autenticacao = Configuration["Autenticacao"];
                         byte[] data = Encoding.UTF8.GetBytes(autenticacao);
 
                         stream.Write(data, 0, data.Length);
                         Console.WriteLine($"Solicitação enviada ao computador: {computadorIp}");
 
-                        byte[] buffer = new byte[8192]; // Increased buffer size for JSON
+                        byte[] buffer = new byte[8192];
                         int bytesRead = stream.Read(buffer, 0, buffer.Length);
                         string resposta = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
