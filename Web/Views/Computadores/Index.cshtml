@@ -1,316 +1,143 @@
 @model IEnumerable<web.Models.Computador>
-@using System.Linq
-<!DOCTYPE html>
-<html lang="pt-br">
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventário - Web</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.4/css/jquery.dataTables.css">
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+@{
+    ViewData["Title"] = "Lista de Computadores";
+}
 
-    <style>
-        body {
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
+<h1>@ViewData["Title"]</h1>
 
-        .container {
-            margin-top: 20px;
-        }
+<p>
+    <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
+</p>
 
-        table {
-            margin-top: 20px;
-        }
-
-        h1 {
-            margin-bottom: 20px;
-        }
-
-        .filters {
-            margin-bottom: 20px;
-        }
-
-        .filters label {
-            margin-right: 10px;
-        }
-
-        .filters select {
-            margin-right: 20px;
-        }
-    </style>
-</head>
-
-<body>
-    <main>
-        <h1>Lista de Computadores</h1>
-        <a href="/Computadores/Create" class="btn btn-primary mb-3">Adicionar Computador</a>
-        <a href="/Gerenciamento/Index" class="btn btn-secondary mb-3">Gerenciamento</a>
-        <button type="button" class="btn btn-info mb-3" data-toggle="modal" data-target="#filterModal">
-            Filtros
+<div class="mb-3">
+    <div class="dropdown d-inline-block">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="columnVisibilityDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            Exibir/Ocultar Colunas
         </button>
-
-        <table id="computadoresTable" class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>IP</th>
-                    <th>MAC</th>
-                    <th>Usuário</th>
-                    <th>Hostname</th>
-                    <th>Fabricante</th>
-                    <th>Processador</th>
-                    <th>Fabricante do Processador</th>
-                    <th>Núcleos do Processador</th>
-                    <th>Threads do Processador</th>
-                    <th>Clock do Processador</th>
-                    <th>RAM</th>
-                    <th>Tipo de RAM</th>
-                    <th>Velocidade da RAM</th>
-                    <th>Voltagem da RAM</th>
-                    <th>RAM por Modulo</th>
-                    <th>Armazenamento C</th>
-                    <th>Total Armazenamento C</th>
-                    <th>Armazenamento Livre C</th>
-                    <th>Armazenamento D</th>
-                    <th>Total Armazenamento D</th>
-                    <th>Armazenamento Livre D</th>
-                    <th>Sistema Operacional</th>
-                    <th>ConsumoCPU</th>
-                    <th>Data da Coleta</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var computador in Model)
-                {
-                    <tr>
-                        <td>@computador.IP</td>
-                        <td>@computador.MAC</td>
-                        <td>@computador.Usuario</td>
-                        <td>@computador.Hostname</td>
-                        <td>@computador.Fabricante</td>
-                        <td>@computador.Processador</td>
-                        <td>@computador.ProcessadorFabricante</td>
-                        <td>@computador.ProcessadorCore</td>
-                        <td>@computador.ProcessadorThread</td>
-                        <td>@computador.ProcessadorClock</td>
-                        <td>@computador.Ram</td>
-                        <td>@computador.RamTipo</td>
-                        <td>@computador.RamVelocidade</td>
-                        <td>@(Convert.ToDouble(computador.RamVoltagem.Replace(" Volts", "")) / 1000.0) V</td>
-                        <td>@computador.RamPorModule</td>
-                        <td>@computador.ArmazenamentoC</td>
-                        <td>@computador.ArmazenamentoCTotal</td>
-                        <td>@computador.ArmazenamentoCLivre</td>
-                        <td>@computador.ArmazenamentoD</td>
-                        <td>@computador.ArmazenamentoDTotal</td>
-                        <td>@computador.ArmazenamentoDLivre</td>
-                        <td>@computador.SO</td>
-                        <td>@computador.ConsumoCPU</td>
-                        <td>@computador.DataColeta</td>
-                        <td>
-                            <a href="/Computadores/Edit/@computador.MAC" class="btn btn-warning btn-sm">Editar</a>
-                            <a href="/Computadores/Delete/@computador.MAC" class="btn btn-danger btn-sm">Excluir</a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <!-- Modal de Filtros -->
-        <div class="modal fade" id="filterModal" tabindex="-1" role="dialog" aria-labelledby="filterModalLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="filterModalLabel">Filtros</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="filters">
-                            <label for="filter-processador">Processador:</label>
-                            <div id="filter-processador" class="form-group">
-                                @foreach (var processador in Model.Select(m => m.Processador).Distinct().OrderBy(p => p))
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="@processador" id="processador-@processador.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                        <label class="form-check-label" for="processador-@processador.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                            @processador
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-
-                            <label for="filter-cores">Núcleos do Processador:</label>
-                            <div id="filter-cores" class="form-group">
-                                @foreach (var cores in Model.Select(m => m.ProcessadorCore).Distinct().OrderBy(c => c))
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="@cores" id="cores-@cores.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                        <label class="form-check-label" for="cores-@cores.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                            @cores
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-
-                            <label for="filter-ram">RAM:</label>
-                            <div id="filter-ram" class="form-group">
-                                @foreach (var ram in Model.Select(m => m.Ram).Distinct().OrderBy(r => r))
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="@ram" id="ram-@ram.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                        <label class="form-check-label" for="ram-@ram.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                            @ram
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-
-                            <label for="filter-ram-quantidade">Quantidade de RAM:</label>
-                            <div id="filter-ram-quantidade" class="form-group">
-                                @foreach (var ramQuantidade in Model.Select(m => m.RamVelocidade).Distinct().OrderBy(rq => rq))
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="@ramQuantidade" id="ram-quantidade-@ramQuantidade.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                        <label class="form-check-label" for="ram-quantidade-@ramQuantidade.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                            @ramQuantidade
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-
-                            <label for="column-visibility">Exibir/Ocultar Colunas:</label>
-                            <div id="column-visibility" class="form-group">
-                                @foreach (var column in new[] { "IP", "MAC", "Usuario", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "SO", "ConsumoCPU", "DataColeta" })
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input column-toggle" type="checkbox" value="@column" id="column-@column.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")" checked>
-                                        <label class="form-check-label" for="column-@column.Replace("@", "_").Replace(" ", "_").Replace("-", "_").Replace("(", "_").Replace(")", "_")">
-                                            @column
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
-                        <button type="button" class="btn btn-primary" id="applyFilters">Aplicar Filtros</button>
-                    </div>
-                </div>
-            </div>
+        <div class="dropdown-menu" aria-labelledby="columnVisibilityDropdown" id="column-visibility-menu">
+            <!-- Checkboxes will be inserted here by JavaScript -->
         </div>
+    </div>
+</div>
 
-        <script>
-            $(document).ready(function () {
-                var table = $('#computadoresTable').DataTable({
-                    "paging": true,
-                    "ordering": true,
-                    "searching": true,
-                    "order": [[0, "asc"]],
-                    "columnDefs": [
-                        { "type": "numeric-comma", targets: [8, 10] }
-                    ]
-                });
+<div class="table-responsive">
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th class="col-ip">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["IpSortParm"]">IP</a>
+                </th>
+                <th class="col-mac">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]">MAC</a>
+                </th>
+                <th class="col-usuario">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]">Usuário</a>
+                </th>
+                <th class="col-hostname">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]">Hostname</a>
+                </th>
+                <th class="col-fabricante">
+                    Fabricante
+                </th>
+                <th class="col-processador">
+                    Processador
+                </th>
+                <th class="col-processadorfabricante">
+                    Fab. Processador
+                </th>
+                <th class="col-processadorcore">
+                    Cores
+                </th>
+                <th class="col-processadorthread">
+                    Threads
+                </th>
+                <th class="col-processadorclock">
+                    Clock
+                </th>
+                <th class="col-ram">
+                    RAM
+                </th>
+                <th class="col-ramtipo">
+                    Tipo RAM
+                </th>
+                <th class="col-ramvelocidade">
+                    Vel. RAM
+                </th>
+                <th class="col-ramvoltagem">
+                    Volt. RAM
+                </th>
+                <th class="col-ramporomodule">
+                    RAM/Módulo
+                </th>
+                <th class="col-armazenamentoc">
+                    Armaz. C
+                </th>
+                <th class="col-armazenamentoctotal">
+                    Total C
+                </th>
+                <th class="col-armazenamentoclivre">
+                    Livre C
+                </th>
+                <th class="col-armazenamentod">
+                    Armaz. D
+                </th>
+                <th class="col-armazenamentodtotal">
+                    Total D
+                </th>
+                <th class="col-armazenamentodlivre">
+                    Livre D
+                </th>
+                <th class="col-so">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["OsSortParm"]">Sistema Operacional</a>
+                </th>
+                <th class="col-consumocpu">
+                    Consumo CPU
+                </th>
+                <th class="col-datacoleta">
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]">Data da Coleta</a>
+                </th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td class="col-ip">@Html.DisplayFor(modelItem => item.IP)</td>
+                    <td class="col-mac">@Html.DisplayFor(modelItem => item.MAC)</td>
+                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.Usuario)</td>
+                    <td class="col-hostname">@Html.DisplayFor(modelItem => item.Hostname)</td>
+                    <td class="col-fabricante">@Html.DisplayFor(modelItem => item.Fabricante)</td>
+                    <td class="col-processador">@Html.DisplayFor(modelItem => item.Processador)</td>
+                    <td class="col-processadorfabricante">@Html.DisplayFor(modelItem => item.ProcessadorFabricante)</td>
+                    <td class="col-processadorcore">@Html.DisplayFor(modelItem => item.ProcessadorCore)</td>
+                    <td class="col-processadorthread">@Html.DisplayFor(modelItem => item.ProcessadorThread)</td>
+                    <td class="col-processadorclock">@Html.Displayfor(modelItem => item.ProcessadorClock)</td>
+                    <td class="col-ram">@Html.DisplayFor(modelItem => item.Ram)</td>
+                    <td class="col-ramtipo">@Html.DisplayFor(modelItem => item.RamTipo)</td>
+                    <td class="col-ramvelocidade">@Html.DisplayFor(modelItem => item.RamVelocidade)</td>
+                    <td class="col-ramvoltagem">@Html.DisplayFor(modelItem => item.RamVoltagem)</td>
+                    <td class="col-ramporomodule">@Html.DisplayFor(modelItem => item.RamPorModule)</td>
+                    <td class="col-armazenamentoc">@Html.DisplayFor(modelItem => item.ArmazenamentoC)</td>
+                    <td class="col-armazenamentoctotal">@Html.DisplayFor(modelItem => item.ArmazenamentoCTotal)</td>
+                    <td class="col-armazenamentoclivre">@Html.DisplayFor(modelItem => item.ArmazenamentoCLivre)</td>
+                    <td class="col-armazenamentod">@Html.DisplayFor(modelItem => item.ArmazenamentoD)</td>
+                    <td class="col-armazenamentodtotal">@Html.DisplayFor(modelItem => item.ArmazenamentoDTotal)</td>
+                    <td class="col-armazenamentodlivre">@Html.DisplayFor(modelItem => item.ArmazenamentoDLivre)</td>
+                    <td class="col-so">@Html.DisplayFor(modelItem => item.SO)</td>
+                    <td class="col-consumocpu">@Html.DisplayFor(modelItem => item.ConsumoCPU)</td>
+                    <td class="col-datacoleta">@Html.DisplayFor(modelItem => item.DataColeta)</td>
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
+                        <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-danger btn-sm">Excluir</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
-                function updateFilters() {
-                    var filteredData = table.rows({ filter: 'applied' }).data();
-
-                    var processadorOptions = new Set();
-                    var coresOptions = new Set();
-                    var ramOptions = new Set();
-                    var ramQuantidadeOptions = new Set();
-
-                    filteredData.each(function (row) {
-                        processadorOptions.add(row[5]);
-                        coresOptions.add(row[7]);
-                        ramOptions.add(row[10]);
-                        ramQuantidadeOptions.add(row[12]);
-                    });
-
-                    updateFilterOptions('#filter-processador', processadorOptions);
-                    updateFilterOptions('#filter-cores', coresOptions);
-                    updateFilterOptions('#filter-ram', ramOptions);
-                    updateFilterOptions('#filter-ram-quantidade', ramQuantidadeOptions);
-                }
-
-                function updateFilterOptions(filterId, options) {
-                    var filterContainer = $(filterId);
-                    var selectedOptions = new Set(filterContainer.find('input:checked').map(function () {
-                        return $(this).val();
-                    }).get());
-
-                    filterContainer.empty();
-                    options.forEach(function (option) {
-                        var safeOption = option.replace(/[^a-zA-Z0-9]/g, '_'); // Ensure unique IDs
-                        var isChecked = selectedOptions.has(option) ? 'checked' : '';
-                        filterContainer.append(`
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="${option}" id="${filterId}-${safeOption}" ${isChecked}>
-                                <label class="form-check-label" for="${filterId}-${safeOption}">
-                                    ${option}
-                                </label>
-                            </div>
-                        `);
-                    });
-                }
-
-                function applyFilters() {
-                    var processadorFilter = [];
-                    $('#filter-processador input:checked').each(function () {
-                        processadorFilter.push($(this).val());
-                    });
-                    table.column(5).search(processadorFilter.join('|'), true, false).draw();
-
-                    var coresFilter = [];
-                    $('#filter-cores input:checked').each(function () {
-                        coresFilter.push($(this).val());
-                    });
-                    table.column(7).search(coresFilter.join('|'), true, false).draw();
-
-                    var ramFilter = [];
-                    $('#filter-ram input:checked').each(function () {
-                        ramFilter.push($(this).val());
-                    });
-                    table.column(10).search(ramFilter.join('|'), true, false).draw();
-
-                    var ramQuantidadeFilter = [];
-                    $('#filter-ram-quantidade input:checked').each(function () {
-                        ramQuantidadeFilter.push($(this).val());
-                    });
-                    table.column(12).search(ramQuantidadeFilter.join('|'), true, false).draw();
-
-                    updateFilters();
-                }
-
-                $('#applyFilters').on('click', function () {
-                    applyFilters();
-                    $('#filterModal').modal('hide');
-                });
-
-                $('#filter-processador, #filter-cores, #filter-ram, #filter-ram-quantidade').on('change', 'input', function () {
-                    applyFilters();
-                });
-
-                $('.column-toggle').on('change', function () {
-                    var columnIndex = $(this).closest('div').index();
-                    var column = table.column(columnIndex);
-                    column.visible(!column.visible());
-                });
-
-                updateFilters();
-            });
-        </script>
-    </main>
-    <footer style="text-align: center;">
-        <a>Produzido por Lucas Cardoso / TIC - PM Logística</a>
-    </footer>
-</body>
-
-</html>
+@section Scripts {
+    <script src="~/js/computer-list.js" asp-append-version="true"></script>
+}

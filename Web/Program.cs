@@ -18,8 +18,8 @@ var app = builder.Build();
 // Configure o pipeline HTTP
 if (!app.Environment.IsDevelopment())
 {
-app.UseExceptionHandler("/Home/Error");
-app.UseHsts();
+    // app.UseExceptionHandler("/Home/Error"); // Removido pois HomeController não existe mais
+    app.UseHsts();
 }
 
 //app.UseHttpsRedirection();
