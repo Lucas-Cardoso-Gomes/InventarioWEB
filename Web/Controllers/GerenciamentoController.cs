@@ -1,140 +1,100 @@
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
-using web.Models;
-using System.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using web.Models;
+using Web.Services;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System;
+using System.Linq;
 
 namespace Web.Controllers
 {
-    public class ComputadoresController : Controller
+    public class GerenciamentoController : Controller
     {
-        private readonly string _connectionString;
-        private readonly ILogger<ComputadoresController> _logger;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<GerenciamentoController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger)
+        public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _serviceProvider = serviceProvider;
             _logger = logger;
+            _configuration = configuration;
         }
 
-        public IActionResult Index(string sortOrder, string searchString, string fabricante, string so, int pageNumber = 1, int pageSize = 25)
+        // GET: /Gerenciamento/Logs
+        public IActionResult Logs(string level, string source, string searchString, int pageNumber = 1, int pageSize = 25)
         {
-            ViewData["CurrentSort"] = sortOrder;
-            ViewData["IpSortParm"] = String.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
-            ViewData["MacSortParm"] = sortOrder == "mac" ? "mac_desc" : "mac";
-            ViewData["UserSortParm"] = sortOrder == "user" ? "user_desc" : "user";
-            ViewData["HostnameSortParm"] = sortOrder == "hostname" ? "hostname_desc" : "hostname";
-            ViewData["OsSortParm"] = sortOrder == "os" ? "os_desc" : "os";
-            ViewData["DateSortParm"] = sortOrder == "date" ? "date_desc" : "date";
-            ViewData["CurrentFilter"] = searchString;
-
-            var viewModel = new ComputadorIndexViewModel
+            var viewModel = new LogViewModel
             {
-                Computadores = new List<Computador>(),
-                PageNumber = pageNumber,
-                PageSize = pageSize,
+                Logs = new List<Log>(),
+                Levels = new List<string>(),
+                Sources = new List<string>(),
+                CurrentLevel = level,
+                CurrentSource = source,
                 SearchString = searchString,
-                CurrentSort = sortOrder,
-                CurrentFabricante = fabricante,
-                CurrentSO = so
+                PageNumber = pageNumber,
+                PageSize = pageSize
             };
 
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     connection.Open();
 
-                    viewModel.Fabricantes = GetDistinctComputerValues(connection, "Fabricante");
-                    viewModel.SOs = GetDistinctComputerValues(connection, "SO");
-                    
+                    viewModel.Levels = GetDistinctLogValues(connection, "Level");
+                    viewModel.Sources = GetDistinctLogValues(connection, "Source");
+
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
 
+                    if (!string.IsNullOrEmpty(level))
+                    {
+                        whereClauses.Add("Level = @level");
+                        parameters.Add("@level", level);
+                    }
+                    if (!string.IsNullOrEmpty(source))
+                    {
+                        whereClauses.Add("Source = @source");
+                        parameters.Add("@source", source);
+                    }
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        whereClauses.Add("(IP LIKE @search OR MAC LIKE @search OR Usuario LIKE @search OR Hostname LIKE @search)");
+                        whereClauses.Add("Message LIKE @search");
                         parameters.Add("@search", $"%{searchString}%");
                     }
 
-                    if (!string.IsNullOrEmpty(fabricante))
-                    {
-                        whereClauses.Add("Fabricante = @fabricante");
-                        parameters.Add("@fabricante", fabricante);
-                    }
-
-                    if (!string.IsNullOrEmpty(so))
-                    {
-                        whereClauses.Add("SO = @so");
-                        parameters.Add("@so", so);
-                    }
-                    
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    // Get total count
-                    string countSql = $"SELECT COUNT(*) FROM Computadores {whereSql}";
-                    using (var countCommand = new SqlCommand(countSql, connection))
+                    // Get total count for pagination
+                    string countSql = $"SELECT COUNT(*) FROM Logs {whereSql}";
+                    using (var countCommand = new System.Data.SqlClient.SqlCommand(countSql, connection))
                     {
                         foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
                         viewModel.TotalCount = (int)countCommand.ExecuteScalar();
                     }
 
-                    // Get paginated data
-                    string orderBySql;
-                    switch (sortOrder)
+                    // Get paginated logs
+                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
                     {
-                        case "ip_desc": orderBySql = "ORDER BY IP DESC"; break;
-                        case "mac": orderBySql = "ORDER BY MAC"; break;
-                        case "mac_desc": orderBySql = "ORDER BY MAC DESC"; break;
-                        case "user": orderBySql = "ORDER BY Usuario"; break;
-                        case "user_desc": orderBySql = "ORDER BY Usuario DESC"; break;
-                        case "hostname": orderBySql = "ORDER BY Hostname"; break;
-                        case "hostname_desc": orderBySql = "ORDER BY Hostname DESC"; break;
-                        case "os": orderBySql = "ORDER BY SO"; break;
-                        case "os_desc": orderBySql = "ORDER BY SO DESC"; break;
-                        case "date": orderBySql = "ORDER BY DataColeta"; break;
-                        case "date_desc": orderBySql = "ORDER BY DataColeta DESC"; break;
-                        default: orderBySql = "ORDER BY IP"; break;
-                    }
+                        foreach (var p in parameters) command.Parameters.AddWithValue(p.Key, p.Value);
+                        command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        command.Parameters.AddWithValue("@pageSize", pageSize);
 
-                    string sql = $"SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
-                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
-
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                viewModel.Computadores.Add(new Computador
+                                viewModel.Logs.Add(new Log
                                 {
-                                    MAC = reader["MAC"].ToString(),
-                                    IP = reader["IP"].ToString(),
-                                    Usuario = reader["Usuario"].ToString(),
-                                    Hostname = reader["Hostname"].ToString(),
-                                    Fabricante = reader["Fabricante"].ToString(),
-                                    Processador = reader["Processador"].ToString(),
-                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
-                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
-                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
-                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
-                                    Ram = reader["Ram"].ToString(),
-                                    RamTipo = reader["RamTipo"].ToString(),
-                                    RamVelocidade = reader["RamVelocidade"].ToString(),
-                                    RamVoltagem = reader["RamVoltagem"].ToString(),
-                                    RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
-                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
-                                    SO = reader["SO"].ToString(),
-                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                                    Id = reader.GetInt32(0),
+                                    Timestamp = reader.GetDateTime(1),
+                                    Level = reader.GetString(2),
+                                    Message = reader.GetString(3),
+                                    Source = reader.IsDBNull(4) ? null : reader.GetString(4)
                                 });
                             }
                         }
@@ -143,18 +103,44 @@ namespace Web.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de computadores.");
-                ViewBag.Message = "Ocorreu um erro ao obter a lista de computadores. Por favor, tente novamente mais tarde.";
+                _logger.LogError(ex, "Erro ao obter os logs.");
+                ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
             }
 
             return View(viewModel);
         }
 
-        private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ClearLogs()
+        {
+            try
+            {
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    connection.Open();
+                    string sql = "TRUNCATE TABLE Logs";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                TempData["SuccessMessage"] = "Logs limpos com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao limpar os logs.");
+                TempData["ErrorMessage"] = "Ocorreu um erro ao limpar os logs.";
+            }
+
+            return RedirectToAction(nameof(Logs));
+        }
+
+        private List<string> GetDistinctLogValues(System.Data.SqlClient.SqlConnection connection, string columnName)
         {
             var values = new List<string>();
-            // Use a separate command to prevent issues with open readers
-            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            string sql = $"SELECT DISTINCT {columnName} FROM Logs WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
             {
                 using (var reader = command.ExecuteReader())
                 {
@@ -167,278 +153,170 @@ namespace Web.Controllers
             return values;
         }
 
-        // GET: Computadores/Create
-        public IActionResult Create()
+        // GET: /Gerenciamento
+        public IActionResult Index()
         {
-            return View(new ComputadorViewModel());
+            return View();
         }
 
-        // POST: Computadores/Create
+        // GET: /Gerenciamento/Coletar
+        public IActionResult Coletar()
+        {
+            var model = new ColetaViewModel();
+            return View(model);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(ComputadorViewModel viewModel)
+        public IActionResult Coletar(ColetaViewModel model)
         {
-            if (ModelState.IsValid)
+            model.ColetaIniciada = true;
+
+            if (model.TipoColeta == "ip")
             {
+                if (string.IsNullOrWhiteSpace(model.IpAddress))
+                {
+                    ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
+                    return View(model);
+                }
+
+                string ip = model.IpAddress;
+                Task.Run(() => RunScopedColeta(ip));
+                model.Resultados.Add($"Coleta agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
+            }
+            else if (model.TipoColeta == "range")
+            {
+                string[] faixas;
+                if (model.IpRange == "all")
+                {
+                    faixas = new string[] { "10.0.0.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                }
+                else
+                {
+                    faixas = new string[] { model.IpRange };
+                }
+
+                model.Resultados.Add($"Varredura de coleta agendada para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
+
+                Task.Run(() =>
+                {
+                    foreach (var faixaBase in faixas)
+                    {
+                        Parallel.For(1, 256, i =>
+                        {
+                            string ipFaixa = faixaBase + i.ToString();
+                            RunScopedColeta(ipFaixa);
+                        });
+                    }
+                });
+            }
+
+            return View(model);
+        }
+
+        private async Task RunScopedColeta(string ip)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-
-                        string sql = "INSERT INTO Computadores (MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @Usuario, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
-
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
-                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Usuario", (object)viewModel.Usuario ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
-
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-                    return RedirectToAction(nameof(Index));
+                    await coletaService.ColetarDadosAsync(ip, (result) => {
+                        _logger.LogInformation(result);
+                    });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao criar um novo computador.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o computador. Verifique se o MAC já existe.");
+                    logService.AddLog("Error", $"Falha na tarefa de coleta para {ip}: {ex.Message}", "Sistema");
                 }
             }
-            return View(viewModel);
         }
 
-        // GET: Computadores/Edit/5
-        public IActionResult Edit(string id)
+
+        // GET: /Gerenciamento/Comandos
+        public IActionResult Comandos()
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            Computador computador = FindComputadorById(id);
-
-            if (computador == null)
-            {
-                return NotFound();
-            }
-
-            var viewModel = new ComputadorViewModel
-            {
-                MAC = computador.MAC,
-                IP = computador.IP,
-                Usuario = computador.Usuario,
-                Hostname = computador.Hostname,
-                Fabricante = computador.Fabricante,
-                Processador = computador.Processador,
-                ProcessadorFabricante = computador.ProcessadorFabricante,
-                ProcessadorCore = computador.ProcessadorCore,
-                ProcessadorThread = computador.ProcessadorThread,
-                ProcessadorClock = computador.ProcessadorClock,
-                Ram = computador.Ram,
-                RamTipo = computador.RamTipo,
-                RamVelocidade = computador.RamVelocidade,
-                RamVoltagem = computador.RamVoltagem,
-                RamPorModule = computador.RamPorModule,
-                ArmazenamentoC = computador.ArmazenamentoC,
-                ArmazenamentoCTotal = computador.ArmazenamentoCTotal,
-                ArmazenamentoCLivre = computador.ArmazenamentoCLivre,
-                ArmazenamentoD = computador.ArmazenamentoD,
-                ArmazenamentoDTotal = computador.ArmazenamentoDTotal,
-                ArmazenamentoDLivre = computador.ArmazenamentoDLivre,
-                ConsumoCPU = computador.ConsumoCPU,
-                SO = computador.SO
-            };
-
-            return View(viewModel);
+            var model = new ComandoViewModel();
+            return View(model);
         }
 
-        // POST: Computadores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(string id, ComputadorViewModel viewModel)
+        public IActionResult Comandos(ComandoViewModel model)
         {
-            if (id != viewModel.MAC)
+            using (var scope = _serviceProvider.CreateScope())
             {
-                return NotFound();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
             }
 
-            if (ModelState.IsValid)
+            model.ComandoIniciado = true;
+
+            if (!ModelState.IsValid)
             {
+                return View(model);
+            }
+
+            if (model.TipoEnvio == "ip")
+            {
+                if (string.IsNullOrWhiteSpace(model.IpAddress))
+                {
+                    ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
+                    return View(model);
+                }
+
+                string ip = model.IpAddress;
+                string comando = model.Comando;
+                Task.Run(() => RunScopedComando(ip, comando));
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
+            }
+            else if (model.TipoEnvio == "range")
+            {
+                string[] faixas;
+                if (model.IpRange == "all")
+                {
+                    faixas = new string[] { "10.0.0.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                }
+                else
+                {
+                    faixas = new string[] { model.IpRange };
+                }
+
+                string comando = model.Comando;
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
+
+                Task.Run(() =>
+                {
+                    foreach (var faixaBase in faixas)
+                    {
+                        Parallel.For(1, 256, i =>
+                        {
+                            string ipFaixa = faixaBase + i.ToString();
+                            RunScopedComando(ipFaixa, comando);
+                        });
+                    }
+                });
+            }
+
+            return View(model);
+        }
+
+        private async Task RunScopedComando(string ip, string comando)
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-
-                        string sql = "UPDATE Computadores SET IP = @IP, Usuario = @Usuario, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO WHERE MAC = @MAC";
-
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
-                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Usuario", (object)viewModel.Usuario ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
-
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-                    return RedirectToAction(nameof(Index));
+                    await coletaService.EnviarComandoAsync(ip, comando);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao editar o computador.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o computador.");
+                    logService.AddLog("Error", $"Falha na tarefa de envio de comando para {ip}: {ex.Message}", "Sistema");
                 }
             }
-            return View(viewModel);
-        }
-
-        // GET: Computadores/Delete/5
-        public IActionResult Delete(string id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            Computador computador = FindComputadorById(id);
-
-            if (computador == null)
-            {
-                return NotFound();
-            }
-
-            return View(computador);
-        }
-
-        // POST: Computadores/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        [Route("Computadores/DeleteConfirmed/{id}")]
-        public IActionResult DeleteConfirmed(string id)
-        {
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        cmd.Parameters.AddWithValue("@MAC", id);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao excluir o computador.");
-                ViewBag.Message = "Ocorreu um erro ao excluir o computador. Por favor, tente novamente mais tarde.";
-                return View();
-            }
-        }
-
-        private Computador FindComputadorById(string id)
-        {
-            Computador computador = null;
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores WHERE MAC = @MAC";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        cmd.Parameters.AddWithValue("@MAC", id);
-
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                computador = new Computador
-                                {
-                                    MAC = reader["MAC"].ToString(),
-                                    IP = reader["IP"].ToString(),
-                                    Usuario = reader["Usuario"].ToString(),
-                                    Hostname = reader["Hostname"].ToString(),
-                                    Fabricante = reader["Fabricante"].ToString(),
-                                    Processador = reader["Processador"].ToString(),
-                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
-                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
-                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
-                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
-                                    Ram = reader["Ram"].ToString(),
-                                    RamTipo = reader["RamTipo"].ToString(),
-                                    RamVelocidade = reader["RamVelocidade"].ToString(),
-                                    RamVoltagem = reader["RamVoltagem"].ToString(),
-                                    RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
-                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
-                                    SO = reader["SO"].ToString(),
-                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao obter os detalhes do computador.");
-                ViewBag.Message = "Ocorreu um erro ao obter os detalhes do computador. Por favor, tente novamente mais tarde.";
-            }
-            return computador;
         }
     }
 }
