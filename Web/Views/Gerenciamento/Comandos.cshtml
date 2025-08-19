@@ -1,0 +1,101 @@
+@model web.Models.ComandoViewModel
+
+@{
+    ViewData["Title"] = "Enviar Comando Remoto";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<p>Use as opções abaixo para enviar um comando para ser executado em um computador específico ou em uma faixa de rede.</p>
+<hr />
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="form-group">
+            <label asp-for="Comando" class="control-label"></label>
+            <input asp-for="Comando" class="form-control" placeholder="Ex: shutdown -r -t 0" />
+            <span asp-validation-for="Comando" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <h4>Enviar para IP ou Hostname</h4>
+        <form asp-action="Comandos" method="post">
+            @Html.HiddenFor(m => m.Comando)
+            <input type="hidden" name="TipoEnvio" value="ip" />
+            <div class="form-group">
+                <label asp-for="IpAddress" class="control-label"></label>
+                <input asp-for="IpAddress" class="form-control" placeholder="Ex: 10.0.0.5 ou PC-01" />
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-warning">Enviar Comando</button>
+            </div>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <h4>Enviar para Faixa de Rede</h4>
+        <form asp-action="Comandos" method="post">
+            @Html.HiddenFor(m => m.Comando)
+            <input type="hidden" name="TipoEnvio" value="range" />
+            <div class="form-group">
+                <label asp-for="IpRange" class="control-label"></label>
+                <select asp-for="IpRange" class="form-control">
+                    <option value="10.0.0.">10.0.0.x</option>
+                    <option value="10.0.2.">10.0.2.x</option>
+                    <option value="10.1.1.">10.1.1.x</option>
+                    <option value="10.1.2.">10.1.2.x</option>
+                    <option value="10.2.2.">10.2.2.x</option>
+                    <option value="10.3.3.">10.3.3.x</option>
+                    <option value="10.4.4.">10.4.4.x</option>
+                    <option value="all">Todas as faixas acima</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-warning">Enviar para Todos na Faixa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.ComandoIniciado)
+{
+    <hr />
+    <h3>Resultados do Envio</h3>
+    <div class="alert alert-info">
+        <p>O comando foi enviado. Os resultados aparecerão abaixo. A página não será atualizada automaticamente.</p>
+        @if (Model.Resultados.Any())
+        {
+            <ul>
+                @foreach (var resultado in Model.Resultados)
+                {
+                    <li>@resultado</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>Nenhum resultado ainda. O envio pode estar em andamento.</p>
+        }
+    </div>
+}
+
+<div>
+    <a asp-action="Index">Voltar ao Gerenciamento</a>
+</div>
+
+@section Scripts {
+<script>
+    // Script to keep the command field in sync across forms
+    var commandInput = document.querySelector('input[name="Comando"]');
+    var hiddenInputs = document.querySelectorAll('input[type="hidden"][name="Comando"]');
+
+    commandInput.addEventListener('input', function() {
+        hiddenInputs.forEach(function(hidden) {
+            hidden.value = commandInput.value;
+        });
+    });
+</script>
+}
