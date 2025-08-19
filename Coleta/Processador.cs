@@ -1,26 +1,28 @@
 using System.Management;
+using Coleta.Models;
 
 namespace coleta
 {
     public class Processador
     {
-        public static string GetProcessorInfo()
+        public static ProcessorInfo GetProcessorInfo()
         {
             using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
             {
                 var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
                 if (result != null)
                 {
-                    string name = result["Name"].ToString();
-                    int cores = Convert.ToInt32(result["NumberOfCores"]);
-                    int threads = Convert.ToInt32(result["NumberOfLogicalProcessors"]);
-                    string clockSpeed = result["MaxClockSpeed"].ToString();
-                    string fabricante = result["Manufacturer"].ToString();
-
-                    return $"{name}\n{fabricante}\n{cores}\n{threads}\n{clockSpeed}";
+                    return new ProcessorInfo
+                    {
+                        Nome = result["Name"]?.ToString(),
+                        Fabricante = result["Manufacturer"]?.ToString(),
+                        Cores = Convert.ToInt32(result["NumberOfCores"]),
+                        Threads = Convert.ToInt32(result["NumberOfLogicalProcessors"]),
+                        ClockSpeed = result["MaxClockSpeed"]?.ToString()
+                    };
                 }
             }
-            return "Informação do processador não disponível";
+            return null;
         }
     }
 }

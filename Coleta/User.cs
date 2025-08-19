@@ -1,26 +1,22 @@
 using System.Security.Principal;
+using Coleta.Models;
 
 namespace coleta
 {
     public class User
     {
-        public static string GetUserInfo()
+        public static UserInfo GetUserInfo()
         {
             WindowsIdentity currentIdentity = WindowsIdentity.GetCurrent();
             if (currentIdentity != null)
             {
-                string userName = currentIdentity.Name;
-                int index = userName.IndexOf("\\");
-                if (index >= 0 && index < userName.Length - 1)
+                return new UserInfo
                 {
-                    string domain = userName.Substring(0, index);
-                    string user = userName.Substring(index + 1);
-                    string computerName = ComputerInfo.GetComputerName();
-                    
-                    return $"{domain}\\{user}\n{computerName}";
-                }
+                    Usuario = currentIdentity.Name,
+                    Hostname = ComputerInfo.GetComputerName()
+                };
             }
-            return ("Domínio ou usuariop não Identificado");
+            return null;
         }
     }
 }

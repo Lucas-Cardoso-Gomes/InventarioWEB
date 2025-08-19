@@ -1,175 +1,30 @@
-@model web.Models.Computador
+@model web.Models.ComputadorViewModel
 
-<!DOCTYPE html>
-<html lang="pt-br">
+@{
+    ViewData["Title"] = "Adicionar Computador";
+}
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Adicionar Computador</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-</head>
-
-<body>
-    <div class="container">
-        <h1>Adicionar Computador</h1>
+<h1>@ViewData["Title"]</h1>
+<h4>Computador</h4>
+<hr />
+<div class="row">
+    <div class="col-md-8">
         <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="form-group">
                 <label asp-for="MAC" class="control-label"></label>
                 <input asp-for="MAC" class="form-control" />
                 <span asp-validation-for="MAC" class="text-danger"></span>
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
             </div>
+            <p class="text-muted"><small>* Todos os outros campos serão preenchidos automaticamente na primeira coleta de dados.</small></p>
             <div class="form-group">
-                <label asp-for="IP" class="control-label"></label>
-                <input asp-for="IP" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="Usuario" class="control-label"></label>
-                <input asp-for="Usuario" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="Hostname" class="control-label"></label>
-                <input asp-for="Hostname" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-
-            </div>
-            <div class="form-group">
-                <label asp-for="Fabricante" class="control-label"></label>
-                <input asp-for="Fabricante" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="Processador" class="control-label"></label>
-                <input asp-for="Processador" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ProcessadorFabricante" class="control-label"></label>
-                <input asp-for="ProcessadorFabricante" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ProcessadorCore" class="control-label"></label>
-                <input asp-for="ProcessadorCore" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ProcessadorThread" class="control-label"></label>
-                <input asp-for="ProcessadorThread" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ProcessadorClock" class="control-label"></label>
-                <input asp-for="ProcessadorClock" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="Ram" class="control-label"></label>
-                <input asp-for="Ram" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="RamTipo" class="control-label"></label>
-                <input asp-for="RamTipo" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="RamVelocidade" class="control-label"></label>
-                <input asp-for="RamVelocidade" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="RamVoltagem" class="control-label"></label>
-                <input asp-for="RamVoltagem" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoC" class="control-label"></label>
-                <input asp-for="ArmazenamentoC" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoCTotal" class="control-label"></label>
-                <input asp-for="ArmazenamentoCTotal" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoCLivre" class="control-label"></label>
-                <input asp-for="ArmazenamentoCLivre" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoD" class="control-label"></label>
-                <input asp-for="ArmazenamentoD" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoDTotal" class="control-label"></label>
-                <input asp-for="ArmazenamentoDTotal" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ArmazenamentoDLivre" class="control-label"></label>
-                <input asp-for="ArmazenamentoDLivre" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="ConsumoCPU" class="control-label"></label>
-                <input asp-for="ConsumoCPU" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="SO" class="control-label"></label>
-                <input asp-for="SO" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <label asp-for="DataColeta" class="control-label"></label>
-                <input asp-for="DataColeta" class="form-control" />
-                <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e serão alterados conforme
-                    recoletados</small>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="Salvar" class="btn btn-primary" />
+                <input type="submit" value="Criar" class="btn btn-primary" />
+                 <a asp-action="Index" class="btn btn-secondary">Voltar para a Lista</a>
             </div>
         </form>
-        <div>
-            <a asp-action="Index" class="btn btn-secondary">Voltar</a>
-        </div>
-        <div class="mt-3">
-            <small class="form-text text-muted">* = Campos autopreenchidos na Coleta e Serão alterados conforme
-                recoletados, exceto no Usuario</small>
-        </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.0/jquery.validate.min.js"></script>
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate-unobtrusive/3.2.11/jquery.validate.unobtrusive.min.js"></script>
-</body>
+</div>
 
-</html>
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

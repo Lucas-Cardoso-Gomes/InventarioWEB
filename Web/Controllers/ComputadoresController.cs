@@ -60,7 +60,7 @@ namespace Web.Controllers
                                     ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
-                                    DataColeta = Convert.ToDateTime(reader["DataColeta"])
+                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
                                 };
                                 computadores.Add(computador);
                             }
@@ -80,13 +80,13 @@ namespace Web.Controllers
         // GET: Computadores/Create
         public IActionResult Create()
         {
-            return View();
+            return View(new ComputadorViewModel());
         }
 
         // POST: Computadores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create([Bind("MAC,IP,Usuario,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta")] Computador computador)
+        public IActionResult Create(ComputadorViewModel viewModel)
         {
             if (ModelState.IsValid)
             {
@@ -96,34 +96,34 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @Usuario, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @Usuario, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@MAC", computador.MAC);
-                            cmd.Parameters.AddWithValue("@IP", computador.IP);
-                            cmd.Parameters.AddWithValue("@Usuario", computador.Usuario);
-                            cmd.Parameters.AddWithValue("@Hostname", computador.Hostname);
-                            cmd.Parameters.AddWithValue("@Fabricante", computador.Fabricante);
-                            cmd.Parameters.AddWithValue("@Processador", computador.Processador);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", computador.ProcessadorFabricante);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", computador.ProcessadorCore);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", computador.ProcessadorThread);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", computador.ProcessadorClock);
-                            cmd.Parameters.AddWithValue("@Ram", computador.Ram);
-                            cmd.Parameters.AddWithValue("@RamTipo", computador.RamTipo);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", computador.RamVelocidade);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", computador.RamVoltagem);
-                            cmd.Parameters.AddWithValue("@RamPorModule", computador.RamPorModule);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", computador.ArmazenamentoC);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", computador.ArmazenamentoCTotal);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", computador.ArmazenamentoCLivre);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", computador.ArmazenamentoD);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", computador.ArmazenamentoDTotal);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", computador.ArmazenamentoDLivre);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", computador.ConsumoCPU);
-                            cmd.Parameters.AddWithValue("@SO", computador.SO);
-                            cmd.Parameters.AddWithValue("@DataColeta", computador.DataColeta);
+                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
+                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Usuario", (object)viewModel.Usuario ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -133,10 +133,10 @@ namespace Web.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erro ao criar um novo computador.");
-                    ViewBag.Message = "Ocorreu um erro ao criar um novo computador. Por favor, tente novamente mais tarde.";
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o computador. Verifique se o MAC já existe.");
                 }
             }
-            return View(computador);
+            return View(viewModel);
         }
 
         // GET: Computadores/Edit/5
@@ -147,76 +147,49 @@ namespace Web.Controllers
                 return NotFound();
             }
 
-            Computador computador = null;
-
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores WHERE MAC = @MAC";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        cmd.Parameters.AddWithValue("@MAC", id);
-
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                computador = new Computador
-                                {
-                                    MAC = reader["MAC"].ToString(),
-                                    IP = reader["IP"].ToString(),
-                                    Usuario = reader["Usuario"].ToString(),
-                                    Hostname = reader["Hostname"].ToString(),
-                                    Fabricante = reader["Fabricante"].ToString(),
-                                    Processador = reader["Processador"].ToString(),
-                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
-                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
-                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
-                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
-                                    Ram = reader["Ram"].ToString(),
-                                    RamTipo = reader["RamTipo"].ToString(),
-                                    RamVelocidade = reader["RamVelocidade"].ToString(),
-                                    RamVoltagem = reader["RamVoltagem"].ToString(),
-                                    RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
-                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
-                                    SO = reader["SO"].ToString(),
-                                    DataColeta = Convert.ToDateTime(reader["DataColeta"])
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao obter os detalhes do computador.");
-                ViewBag.Message = "Ocorreu um erro ao obter os detalhes do computador. Por favor, tente novamente mais tarde.";
-            }
+            Computador computador = FindComputadorById(id);
 
             if (computador == null)
             {
                 return NotFound();
             }
 
-            return View(computador);
+            var viewModel = new ComputadorViewModel
+            {
+                MAC = computador.MAC,
+                IP = computador.IP,
+                Usuario = computador.Usuario,
+                Hostname = computador.Hostname,
+                Fabricante = computador.Fabricante,
+                Processador = computador.Processador,
+                ProcessadorFabricante = computador.ProcessadorFabricante,
+                ProcessadorCore = computador.ProcessadorCore,
+                ProcessadorThread = computador.ProcessadorThread,
+                ProcessadorClock = computador.ProcessadorClock,
+                Ram = computador.Ram,
+                RamTipo = computador.RamTipo,
+                RamVelocidade = computador.RamVelocidade,
+                RamVoltagem = computador.RamVoltagem,
+                RamPorModule = computador.RamPorModule,
+                ArmazenamentoC = computador.ArmazenamentoC,
+                ArmazenamentoCTotal = computador.ArmazenamentoCTotal,
+                ArmazenamentoCLivre = computador.ArmazenamentoCLivre,
+                ArmazenamentoD = computador.ArmazenamentoD,
+                ArmazenamentoDTotal = computador.ArmazenamentoDTotal,
+                ArmazenamentoDLivre = computador.ArmazenamentoDLivre,
+                ConsumoCPU = computador.ConsumoCPU,
+                SO = computador.SO
+            };
+
+            return View(viewModel);
         }
 
         // POST: Computadores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(string id, [Bind("MAC,IP,Usuario,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta")] Computador computador)
+        public IActionResult Edit(string id, ComputadorViewModel viewModel)
         {
-            if (id != computador.MAC)
+            if (id != viewModel.MAC)
             {
                 return NotFound();
             }
@@ -229,34 +202,33 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "UPDATE Computadores SET IP = @IP, Usuario = @Usuario, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, Usuario = @Usuario, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO WHERE MAC = @MAC";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@MAC", computador.MAC);
-                            cmd.Parameters.AddWithValue("@IP", computador.IP);
-                            cmd.Parameters.AddWithValue("@Usuario", computador.Usuario);
-                            cmd.Parameters.AddWithValue("@Hostname", computador.Hostname);
-                            cmd.Parameters.AddWithValue("@Fabricante", computador.Fabricante);
-                            cmd.Parameters.AddWithValue("@Processador", computador.Processador);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", computador.ProcessadorFabricante);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", computador.ProcessadorCore);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", computador.ProcessadorThread);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", computador.ProcessadorClock);
-                            cmd.Parameters.AddWithValue("@Ram", computador.Ram);
-                            cmd.Parameters.AddWithValue("@RamTipo", computador.RamTipo);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", computador.RamVelocidade);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", computador.RamVoltagem);
-                            cmd.Parameters.AddWithValue("@RamPorModule", computador.RamPorModule);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", computador.ArmazenamentoC);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", computador.ArmazenamentoCTotal);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", computador.ArmazenamentoCLivre);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", computador.ArmazenamentoD);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", computador.ArmazenamentoDTotal);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", computador.ArmazenamentoDLivre);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", computador.ConsumoCPU);
-                            cmd.Parameters.AddWithValue("@SO", computador.SO);
-                            cmd.Parameters.AddWithValue("@DataColeta", computador.DataColeta);
+                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
+                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Usuario", (object)viewModel.Usuario ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -266,10 +238,10 @@ namespace Web.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erro ao editar o computador.");
-                    ViewBag.Message = "Ocorreu um erro ao editar o computador. Por favor, tente novamente mais tarde.";
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o computador.");
                 }
             }
-            return View(computador);
+            return View(viewModel);
         }
 
         // GET: Computadores/Delete/5
@@ -280,61 +252,7 @@ namespace Web.Controllers
                 return NotFound();
             }
 
-            Computador computador = null;
-
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores WHERE MAC = @MAC";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        cmd.Parameters.AddWithValue("@MAC", id);
-
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                computador = new Computador
-                                {
-                                    MAC = reader["MAC"].ToString(),
-                                    IP = reader["IP"].ToString(),
-                                    Usuario = reader["Usuario"].ToString(),
-                                    Hostname = reader["Hostname"].ToString(),
-                                    Fabricante = reader["Fabricante"].ToString(),
-                                    Processador = reader["Processador"].ToString(),
-                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
-                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
-                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
-                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
-                                    Ram = reader["Ram"].ToString(),
-                                    RamTipo = reader["RamTipo"].ToString(),
-                                    RamVelocidade = reader["RamVelocidade"].ToString(),
-                                    RamVoltagem = reader["RamVoltagem"].ToString(),
-                                    RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
-                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
-                                    SO = reader["SO"].ToString(),
-                                    DataColeta = Convert.ToDateTime(reader["DataColeta"])
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao obter os detalhes do computador.");
-                ViewBag.Message = "Ocorreu um erro ao obter os detalhes do computador. Por favor, tente novamente mais tarde.";
-            }
+            Computador computador = FindComputadorById(id);
 
             if (computador == null)
             {
@@ -372,6 +290,65 @@ namespace Web.Controllers
                 ViewBag.Message = "Ocorreu um erro ao excluir o computador. Por favor, tente novamente mais tarde.";
                 return View();
             }
+        }
+
+        private Computador FindComputadorById(string id)
+        {
+            Computador computador = null;
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    string sql = "SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores WHERE MAC = @MAC";
+
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@MAC", id);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                computador = new Computador
+                                {
+                                    MAC = reader["MAC"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    Usuario = reader["Usuario"].ToString(),
+                                    Hostname = reader["Hostname"].ToString(),
+                                    Fabricante = reader["Fabricante"].ToString(),
+                                    Processador = reader["Processador"].ToString(),
+                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
+                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
+                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
+                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
+                                    Ram = reader["Ram"].ToString(),
+                                    RamTipo = reader["RamTipo"].ToString(),
+                                    RamVelocidade = reader["RamVelocidade"].ToString(),
+                                    RamVoltagem = reader["RamVoltagem"].ToString(),
+                                    RamPorModule = reader["RamPorModule"].ToString(),
+                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
+                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
+                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
+                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
+                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
+                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
+                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
+                                    SO = reader["SO"].ToString(),
+                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter os detalhes do computador.");
+                ViewBag.Message = "Ocorreu um erro ao obter os detalhes do computador. Por favor, tente novamente mais tarde.";
+            }
+            return computador;
         }
     }
 }

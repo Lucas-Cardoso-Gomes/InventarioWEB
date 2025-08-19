@@ -3,9 +3,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
 using System.Text;
-using System.Security.Cryptography;
+using System.Text.Json;
 using System.Management;
 using Microsoft.Extensions.Configuration;
+using Coleta.Models;
 
 namespace coleta
 {
@@ -26,13 +27,11 @@ namespace coleta
 
             try
             {
-                AdicionarRegraFirewallPorta();
-                AdicionarRegraFirewallPrograma();
-
                 int port = 27275;
                 TcpListener listener = new TcpListener(IPAddress.Any, port);
                 listener.Start();
                 Console.WriteLine($"Aguardando solicitações na porta {port}...");
+                Console.WriteLine("Certifique-se de que a porta 27275 está liberada no firewall.");
 
                 while (true)
                 {
@@ -48,28 +47,24 @@ namespace coleta
 
                     var dadosColetados = dados.Split('\n');
                     string autenticacao = dadosColetados[0].Trim();
-                    string comandoRemoto = dadosColetados[1].Trim();
+                    string comandoRemoto = dadosColetados.Length > 1 ? dadosColetados[1].Trim() : "";
+
 
                     if (autenticacao == solicitarInformacoes)
                     {
-                        string processador = Processador.GetProcessorInfo();
-                        string ram = RAM.GetRamInfo();
-                        string usuario = User.GetUserInfo();
-                        string fabricante = Fabricante.GetManufacturer();
-                        string mac = MAC.GetFormattedMacAddress();
-                        string sistemaOperacional = OS.GetOSInfo();
-                        string armazenamento = Armazenamento.GetStorageInfo();
-                        string consumoCPU = Consumo.Uso();
-                        string resposta = $"{processador}\n" +
-                                            $"{ram}\n" +
-                                            $"{usuario}\n" +
-                                            $"{fabricante}\n" +
-                                            $"{mac}\n" +
-                                            $"{sistemaOperacional}\n" +
-                                            $"{consumoCPU}\n" + 
-                                            $"{armazenamento}";
+                        var hardwareInfo = new HardwareInfo
+                        {
+                            Processador = Processador.GetProcessorInfo(),
+                            Ram = RAM.GetRamInfo(),
+                            Usuario = User.GetUserInfo(),
+                            Fabricante = Fabricante.GetManufacturer(),
+                            MAC = MAC.GetFormattedMacAddress(),
+                            SO = OS.GetOSInfo(),
+                            ConsumoCPU = Consumo.Uso(),
+                            Armazenamento = Armazenamento.GetStorageInfo()
+                        };
 
-                        //Console.WriteLine(resposta);
+                        string resposta = JsonSerializer.Serialize(hardwareInfo);
 
                         byte[] responseBytes = Encoding.UTF8.GetBytes(resposta);
                         stream.Write(responseBytes, 0, responseBytes.Length);
@@ -106,101 +101,9 @@ namespace coleta
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Erro ao inserir dados na tabela 'Computadores': " + ex.Message);
+                Console.WriteLine("Erro: " + ex.Message);
             }
             Console.WriteLine("Fora do Loop, sistema finalizando operações...");
-        }
-
-        static void AdicionarRegraFirewallPrograma()
-        {
-            try
-            {
-                string ruleName = "Liberação do programa Coleta";
-                string appPath = @"C:\Coleta\coleta.exe";
-
-                string command = $"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow program=\"{appPath}\" enable=yes";
-
-                ProcessStartInfo psi = new ProcessStartInfo("netsh", command)
-                {
-                    Verb = "runas",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (Process process = new Process())
-                {
-                    process.StartInfo = psi;
-                    process.Start();
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-
-                    process.WaitForExit();
-
-                    if (process.ExitCode == 0)
-                    {
-                        Console.WriteLine($"Regra do firewall adicionada com sucesso para o programa Coleta.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Erro ao adicionar regra do firewall:");
-                        Console.WriteLine($"Saída padrão: {output}");
-                        Console.WriteLine($"Erro padrão: {error}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao adicionar regra do firewall: {ex.Message}");
-            }
-        }
-
-        static void AdicionarRegraFirewallPorta()
-        {
-            try
-            {
-                int porta = 27275;
-                string ruleName = $"Liberação da porta {porta}";
-
-                string command = $"advfirewall firewall add rule name=\"{ruleName}\" dir=in action=allow protocol=TCP localport={porta}";
-
-                ProcessStartInfo psi = new ProcessStartInfo("netsh", command)
-                {
-                    Verb = "runas",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (Process process = new Process())
-                {
-                    process.StartInfo = psi;
-                    process.Start();
-
-                    string output = process.StandardOutput.ReadToEnd();
-                    string error = process.StandardError.ReadToEnd();
-
-                    process.WaitForExit();
-
-                    if (process.ExitCode == 0)
-                    {
-                        Console.WriteLine($"Regra do firewall adicionada com sucesso para a porta {porta}.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Erro ao adicionar regra do firewall para a porta {porta}:");
-                        Console.WriteLine($"Saída padrão: {output}");
-                        Console.WriteLine($"Erro padrão: {error}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao adicionar regra do firewall para a porta: {ex.Message}");
-            }
         }
     }
 }
