@@ -1,9 +1,7 @@
-Web/appsettings.json
-Chamada/appsettings.json
-Coleta/appsettings.json
-InventarioWEB.rar
-/Coleta/bin
-/Coleta/obj
+/Web/appsettings.json
 /Web/bin/Debug
 /Web/obj/Debug/net8.0
 /Web/obj
+/Coleta/appsettings.json
+/Coleta/bin
+/Coleta/obj
