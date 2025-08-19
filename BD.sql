@@ -28,3 +28,10 @@ CREATE TABLE Computadores (
             ConsumoCPU varchar(100),
             DataColeta datetime
         );
+CREATE TABLE Logs (
+    Id INT PRIMARY KEY IDENTITY,
+    Timestamp DATETIME NOT NULL,
+    Level NVARCHAR(10) NOT NULL,
+    Message NVARCHAR(MAX) NOT NULL,
+    Source NVARCHAR(50)
+);
