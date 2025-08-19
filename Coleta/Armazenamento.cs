@@ -1,62 +1,51 @@
 using System.Management;
-using System.Text;
+using Coleta.Models;
 
 namespace coleta
 {
     public class Armazenamento
     {
-        public static string GetStorageInfo()
+        public static StorageInfo GetStorageInfo()
         {
-            var ArmazenamentoBuilder = new StringBuilder();
-            bool unidadeDEncontrada = false;
-            bool unidadeCEncontrada = false;
+            var storageInfo = new StorageInfo();
 
             using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"))
             {
                 foreach (var result in searcher.Get())
                 {
-                    string letra = result["Name"].ToString();
-
-                    if (letra.Equals("C:") || letra.Equals("D:"))
+                    string letra = result["Name"]?.ToString();
+                    if (letra == "C:")
                     {
-                        ulong total = Convert.ToUInt64(result["Size"]);
-                        ulong livre = Convert.ToUInt64(result["FreeSpace"]);
-
-                        string armazenamento = $"{letra}\n{total / (1024 * 1024 * 1024)} GB\n{livre / (1024 * 1024 * 1024)} GB";
-                        ArmazenamentoBuilder.AppendLine(armazenamento);
-
-                        if (letra.Equals("C:"))
+                        storageInfo.DriveC = new DiskInfo
                         {
-                            unidadeCEncontrada = true;
-                        }
-                        else if (letra.Equals("D:"))
+                            Letra = letra,
+                            TotalGB = $"{Convert.ToUInt64(result["Size"]) / (1024 * 1024 * 1024)} GB",
+                            LivreGB = $"{Convert.ToUInt64(result["FreeSpace"]) / (1024 * 1024 * 1024)} GB"
+                        };
+                    }
+                    else if (letra == "D:")
+                    {
+                        storageInfo.DriveD = new DiskInfo
                         {
-                            unidadeDEncontrada = true;
-                        }
+                            Letra = letra,
+                            TotalGB = $"{Convert.ToUInt64(result["Size"]) / (1024 * 1024 * 1024)} GB",
+                            LivreGB = $"{Convert.ToUInt64(result["FreeSpace"]) / (1024 * 1024 * 1024)} GB"
+                        };
                     }
                 }
             }
 
-            if (!unidadeCEncontrada)
+            if (storageInfo.DriveC == null)
             {
-                string armazenamentoC = "C:\n0 GB\n0 GB";
-                ArmazenamentoBuilder.AppendLine(armazenamentoC);
+                storageInfo.DriveC = new DiskInfo { Letra = "C:", TotalGB = "0 GB", LivreGB = "0 GB" };
             }
 
-            if (!unidadeDEncontrada)
+            if (storageInfo.DriveD == null)
             {
-                string armazenamentoD = "D:\n0 GB\n0 GB";
-                ArmazenamentoBuilder.AppendLine(armazenamentoD);
+                storageInfo.DriveD = new DiskInfo { Letra = "D:", TotalGB = "0 GB", LivreGB = "0 GB" };
             }
 
-            if (ArmazenamentoBuilder.Length > 0)
-            {
-                return ArmazenamentoBuilder.ToString();
-            }
-            else
-            {
-                return "Informação de armazenamento não disponível";
-            }
+            return storageInfo;
         }
     }
 }

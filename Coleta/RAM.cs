@@ -2,38 +2,40 @@ using System;
 using System.Linq;
 using System.Management;
 using System.Text;
-
+using Coleta.Models;
 
 namespace coleta
 {
     public class RAM
     {
-        public static string GetRamInfo()
+        public static RamInfo GetRamInfo()
         {
             try
             {
+                string ramSizeMB = "N/A";
                 using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_ComputerSystem"))
                 {
                     var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
                     if (result != null)
                     {
                         ulong ramSize = Convert.ToUInt64(result["TotalPhysicalMemory"]);
-                        string ramSizeMB = $"{ramSize / (1024 * 1024)} MB";
-
-                        string ramType = GetRamType();
-                        string ramSpeed = GetRamSpeed();
-                        string ramVoltage = GetRamVoltage();
-                        string ramPorModule = GetRamPorModule();
-
-                        return $"{ramSizeMB}\n{ramType}\n{ramSpeed}\n{ramVoltage}\n{ramPorModule}";
+                        ramSizeMB = $"{ramSize / (1024 * 1024)} MB";
                     }
                 }
+
+                return new RamInfo
+                {
+                    RamTotal = ramSizeMB,
+                    Tipo = GetRamType(),
+                    Velocidade = GetRamSpeed(),
+                    Voltagem = GetRamVoltage(),
+                    PorModulo = GetRamPorModule()
+                };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return $"Erro ao obter informações da RAM: {ex.Message}";
+                return null;
             }
-            return "Informação de RAM não disponível";
         }
 
         private static string GetRamType()
@@ -84,10 +86,7 @@ namespace coleta
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                return $"Erro ao obter tipo de RAM: {ex.Message}";
-            }
+            catch (Exception) { /* ignore */ }
             return "Tipo de RAM não disponível";
         }
 
@@ -105,10 +104,7 @@ namespace coleta
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                return $"Erro ao obter velocidade de RAM: {ex.Message}";
-            }
+            catch (Exception) { /* ignore */ }
             return "Velocidade de RAM não disponível";
         }
 
@@ -126,45 +122,29 @@ namespace coleta
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                return $"Erro ao obter voltagem de RAM: {ex.Message}";
-            }
+            catch (Exception) { /* ignore */ }
             return "Voltagem de RAM não disponível";
         }
         private static string GetRamPorModule()
         {
             try
             {
-                ulong[] capacidades = new ulong[4]; // 4 slots fixos
+                var capacidades = new StringBuilder();
                 int i = 0;
 
                 using (var searcher = new ManagementObjectSearcher("SELECT Capacity FROM Win32_PhysicalMemory"))
                 {
                     foreach (var obj in searcher.Get())
                     {
-                        if (i < 4)
-                        {
-                            capacidades[i] = Convert.ToUInt64(obj["Capacity"]);
-                            i++;
-                        }
+                        capacidades.Append($"Módulo {i}: {Convert.ToUInt64(obj["Capacity"]) / (1024 * 1024)} MB; ");
+                        i++;
                     }
                 }
 
-                string RamModule = "";
-                for (int j = 0; j < 4; j++)
-                {
-                    RamModule += $"Módulo {j}: {capacidades[j] / (1024 * 1024)} MB ";
-                }
-                //System.Console.WriteLine(RamModule);
-
-                return RamModule.TrimEnd(); // remove o \n final
+                return capacidades.ToString().TrimEnd(';',' ');
             }
-            catch (Exception ex)
-            {
-                return $"Erro ao obter quantidade por módulo: {ex.Message}";
-            }
+            catch (Exception) { /* ignore */ }
+            return "N/A";
         }
-
     }
 }
