@@ -9,21 +9,24 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Web.Services;
 
-namespace web.Services
+namespace Web.Services
 {
     public class ColetaService
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<ColetaService> _logger;
+        private readonly LogService _logService;
         private readonly string _connectionString;
         private readonly string _solicitarInformacoes;
         private readonly string _realizarComandos;
 
-        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger)
+        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService)
         {
             _configuration = configuration;
             _logger = logger;
+            _logService = logService;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
             _realizarComandos = _configuration.GetSection("Autenticacao")["RealizarComandos"];
@@ -32,19 +35,23 @@ namespace web.Services
         public async Task ColetarDadosAsync(string computadorIp, Action<string> onResult)
         {
             int serverPort = 27275;
+            _logService.AddLog("Info", $"Iniciando coleta de dados para o IP: {computadorIp}", "Coleta");
 
             try
             {
                 using (var client = new TcpClient())
                 {
                     var connectTask = client.ConnectAsync(computadorIp, serverPort);
-                    if (await Task.WhenAny(connectTask, Task.Delay(2000)) != connectTask)
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout aumentado para 5s
                     {
-                        onResult($"Timeout ao conectar com: {computadorIp}");
+                        string message = $"Timeout ao conectar com: {computadorIp}";
+                        _logService.AddLog("Warning", message, "Coleta");
+                        onResult(message);
                         return;
                     }
 
                     await connectTask; // Propagate exceptions
+                    _logService.AddLog("Info", $"Conexão bem-sucedida com o IP: {computadorIp}", "Coleta");
 
                     using (NetworkStream stream = client.GetStream())
                     {
@@ -60,19 +67,25 @@ namespace web.Services
                         var hardwareInfo = JsonSerializer.Deserialize<HardwareInfo>(resposta);
                         if (hardwareInfo == null || hardwareInfo.MAC == null)
                         {
-                            onResult($"Falha ao deserializar a resposta ou MAC é nulo para o IP: {computadorIp}");
+                            string message = $"Falha ao deserializar a resposta ou MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
+                            _logService.AddLog("Error", message, "Coleta");
+                            onResult(message);
                             return;
                         }
 
                         SalvarDados(hardwareInfo, computadorIp);
-                        onResult($"Dados de {computadorIp} salvos com sucesso.");
+                        string successMessage = $"Dados de {computadorIp} (MAC: {hardwareInfo.MAC}) salvos com sucesso.";
+                        _logService.AddLog("Info", successMessage, "Coleta");
+                        onResult(successMessage);
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Erro ao coletar dados de {computadorIp}");
-                onResult($"Erro ao coletar dados de {computadorIp}: {ex.Message}");
+                string errorMessage = $"Erro ao coletar dados de {computadorIp}: {ex.Message}";
+                _logger.LogError(ex, errorMessage);
+                _logService.AddLog("Error", errorMessage, "Coleta");
+                onResult(errorMessage);
             }
         }
 
@@ -124,15 +137,19 @@ namespace web.Services
 
         public async Task<string> EnviarComandoAsync(string computadorIp, string comando)
         {
-             int serverPort = 27275;
+            int serverPort = 27275;
+            _logService.AddLog("Info", $"Enviando comando '{comando}' para o IP: {computadorIp}", "Comandos");
+
             try
             {
                 using (var client = new TcpClient())
                 {
                     var connectTask = client.ConnectAsync(computadorIp, serverPort);
-                    if (await Task.WhenAny(connectTask, Task.Delay(2000)) != connectTask)
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout aumentado para 5s
                     {
-                        return $"Timeout ao conectar com: {computadorIp}";
+                        string message = $"Timeout ao conectar com: {computadorIp} para enviar o comando.";
+                        _logService.AddLog("Warning", message, "Comandos");
+                        return message;
                     }
 
                     await connectTask;
@@ -146,14 +163,19 @@ namespace web.Services
                         byte[] buffer = new byte[8192];
                         int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                         string resposta = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        return $"Resultado de '{comando}' em {computadorIp}: {resposta}";
+
+                        string successMessage = $"Resultado de '{comando}' em {computadorIp}: {resposta}";
+                        _logService.AddLog("Info", successMessage, "Comandos");
+                        return successMessage;
                     }
                 }
             }
             catch (Exception ex)
             {
-                 _logger.LogError(ex, $"Erro ao enviar comando para {computadorIp}");
-                return $"Erro ao enviar comando para {computadorIp}: {ex.Message}";
+                string errorMessage = $"Erro ao enviar comando '{comando}' para {computadorIp}: {ex.Message}";
+                _logger.LogError(ex, errorMessage);
+                _logService.AddLog("Error", errorMessage, "Comandos");
+                return errorMessage;
             }
         }
     }
