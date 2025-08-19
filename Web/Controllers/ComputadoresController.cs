@@ -355,8 +355,7 @@ namespace Web.Controllers
         // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Route("Computadores/DeleteConfirmed/{id}")]
-        public IActionResult DeleteConfirmed(string id)
+        public IActionResult Delete(string id)
         {
             try
             {
