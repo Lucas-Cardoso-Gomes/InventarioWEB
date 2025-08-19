@@ -2,8 +2,11 @@ using web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 // Adiciona os serviços ao contêiner
+using Web.Services;
+
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<ColetaService>();
+builder.Services.AddScoped<LogService>();
 
 // Configuração do Kestrel para escutar em todas as interfaces de rede
 builder.WebHost.ConfigureKestrel(serverOptions =>
