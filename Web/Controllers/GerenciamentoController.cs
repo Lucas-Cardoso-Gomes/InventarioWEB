@@ -15,7 +15,7 @@ namespace Web.Controllers
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
-
+        
         public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
             _serviceProvider = serviceProvider;
@@ -43,7 +43,7 @@ namespace Web.Controllers
                 using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
                 {
                     connection.Open();
-
+                    
                     viewModel.Levels = GetDistinctLogValues(connection, "Level");
                     viewModel.Sources = GetDistinctLogValues(connection, "Source");
 
@@ -106,7 +106,7 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao obter os logs.");
                 ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
             }
-
+            
             return View(viewModel);
         }
 
@@ -179,7 +179,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 string ip = model.IpAddress;
                 Task.Run(() => RunScopedColeta(ip));
                 model.Resultados.Add($"Coleta agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
@@ -213,7 +213,7 @@ namespace Web.Controllers
 
             return View(model);
         }
-
+        
         private async Task RunScopedColeta(string ip)
         {
             using (var scope = _serviceProvider.CreateScope())
@@ -250,7 +250,7 @@ namespace Web.Controllers
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
             }
-
+            
             model.ComandoIniciado = true;
 
             if (!ModelState.IsValid)
@@ -265,7 +265,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 string ip = model.IpAddress;
                 string comando = model.Comando;
                 Task.Run(() => RunScopedComando(ip, comando));
@@ -314,13 +314,13 @@ namespace Web.Controllers
                     try
                     {
                         logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
-
+                        
                         var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
                         logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
 
                         // Chame o método async e espere pelo resultado de forma síncrona para depuração.
                         coletaService.EnviarComandoAsync(ip, comando).GetAwaiter().GetResult();
-
+                        
                         logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
                     }
                     catch (Exception ex)
