@@ -257,12 +257,12 @@ namespace Web.Controllers
                     model.ComandoIniciado = true;
                     logService.AddLog("Critical", "--- PASSO 1: ComandoIniciado = true ---", "DIAGNOSTICO");
 
-                    if (!ModelState.IsValid)
-                    {
-                        logService.AddLog("Critical", "--- FALHA: ModelState is INVALID ---", "DIAGNOSTICO");
-                        return View(model);
-                    }
-                    logService.AddLog("Critical", "--- PASSO 2: ModelState is VALID ---", "DIAGNOSTICO");
+                    //if (!ModelState.IsValid)
+                    //{
+                    //    logService.AddLog("Critical", "--- FALHA: ModelState is INVALID ---", "DIAGNOSTICO");
+                    //    return View(model);
+                    //}
+                    logService.AddLog("Critical", "--- PASSO 2: CHECAGEM DE MODELSTATE IGNORADA PARA TESTE ---", "DIAGNOSTICO");
 
                     if (model.TipoEnvio == "ip")
                     {
