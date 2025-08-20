@@ -9,11 +9,19 @@ namespace web.Models
         public string CurrentSort { get; set; }
         public string SearchString { get; set; }
 
-        // For advanced filters
+        // Filter data sources
         public List<string> Fabricantes { get; set; }
         public List<string> SOs { get; set; }
-        public string CurrentFabricante { get; set; }
-        public string CurrentSO { get; set; }
+        public List<string> ProcessadorFabricantes { get; set; }
+        public List<string> RamTipos { get; set; }
+        public List<string> Processadores { get; set; }
+
+        // Current filter selections
+        public List<string> CurrentFabricantes { get; set; } = new List<string>();
+        public List<string> CurrentSOs { get; set; } = new List<string>();
+        public List<string> CurrentProcessadorFabricantes { get; set; } = new List<string>();
+        public List<string> CurrentRamTipos { get; set; } = new List<string>();
+        public List<string> CurrentProcessadores { get; set; } = new List<string>();
 
         public int PageNumber { get; set; }
         public int PageSize { get; set; }
