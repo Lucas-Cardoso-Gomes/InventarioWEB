@@ -246,7 +246,7 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Comandos(ComandoViewModel model)
         {
-            using (var scope = _serviceProvider.CreateScope())
+            using (var scope = _scopeFactory.CreateScope())
             {
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
