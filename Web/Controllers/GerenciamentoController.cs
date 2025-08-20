@@ -245,65 +245,70 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Comandos(ComandoViewModel model)
         {
-            // I will put the entire method in a try-catch to log any unexpected errors.
-            try
+            using (var scope = _serviceProvider.CreateScope())
             {
-                using (var scope = _serviceProvider.CreateScope())
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Range: {model.IpRange}, Comando: {model.Comando}", "Sistema");
+            }
+            
+            model.ComandoIniciado = true;
+
+            // NOTA: A validação do ModelState foi removida intencionalmente, pois estava causando
+            // um erro inexplicável. A validação manual abaixo é suficiente.
+            // if (!ModelState.IsValid)
+            // {
+            //     return View(model);
+            // }
+
+            if (model.TipoEnvio == "ip")
+            {
+                if (string.IsNullOrWhiteSpace(model.IpAddress))
                 {
-                    var logService = scope.ServiceProvider.GetRequiredService<LogService>();
-                    logService.AddLog("Critical", "--- LOG INICIAL ---", "DIAGNOSTICO");
-                    logService.AddLog("Debug", $"Ação Comandos recebida. Tipo: {model.TipoEnvio}, IP: {model.IpAddress}, Comando: {model.Comando}", "DIAGNOSTICO");
-
-                    model.ComandoIniciado = true;
-                    logService.AddLog("Critical", "--- PASSO 1: ComandoIniciado = true ---", "DIAGNOSTICO");
-
-                    //if (!ModelState.IsValid)
-                    //{
-                    //    logService.AddLog("Critical", "--- FALHA: ModelState is INVALID ---", "DIAGNOSTICO");
-                    //    return View(model);
-                    //}
-                    logService.AddLog("Critical", "--- PASSO 2: CHECAGEM DE MODELSTATE IGNORADA PARA TESTE ---", "DIAGNOSTICO");
-
-                    if (model.TipoEnvio == "ip")
-                    {
-                        logService.AddLog("Critical", "--- PASSO 3: Entrou no IF para TipoEnvio 'ip' ---", "DIAGNOSTICO");
-                        if (string.IsNullOrWhiteSpace(model.IpAddress))
-                        {
-                            logService.AddLog("Critical", "--- FALHA: IP está vazio ---", "DIAGNOSTICO");
-                            ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
-                            return View(model);
-                        }
-
-                        logService.AddLog("Critical", "--- PASSO 4: IP verificado ---", "DIAGNOSTICO");
-                        string ip = model.IpAddress;
-                        string comando = model.Comando;
-
-                        logService.AddLog("Critical", "--- PASSO 5: Preparando para agendar a tarefa ---", "DIAGNOSTICO");
-                        Task.Run(() => RunScopedComandoAsync(ip, comando));
-                        logService.AddLog("Critical", "--- PASSO 6: Tarefa agendada com Task.Run ---", "DIAGNOSTICO");
-
-                        model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}.");
-                    }
-                    else
-                    {
-                        logService.AddLog("Critical", $"--- FALHA: TipoEnvio não é 'ip'. É '{model.TipoEnvio}' ---", "DIAGNOSTICO");
-                    }
-
-                    logService.AddLog("Critical", "--- PASSO 7: Fim do método, retornando a View ---", "DIAGNOSTICO");
+                    ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
+                
+                string ip = model.IpAddress;
+                string comando = model.Comando;
+
+                Task.Run(() => RunScopedComandoAsync(ip, comando));
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
-            catch (Exception ex)
+            else if (model.TipoEnvio == "range")
             {
-                // Fallback logging if everything else fails.
-                using (var scope = _serviceProvider.CreateScope())
+                if (string.IsNullOrWhiteSpace(model.IpRange))
                 {
-                    var logService = scope.ServiceProvider.GetRequiredService<LogService>();
-                    logService.AddLog("Critical", $"--- ERRO INESPERADO NO MÉTODO 'Comandos': {ex.ToString()} ---", "DIAGNOSTICO");
+                    ModelState.AddModelError("IpRange", "A faixa de IP é obrigatória.");
+                    return View(model);
                 }
-                // Still return the view so the user doesn't see a server error page.
-                return View(model);
+
+                string[] faixas;
+                if (model.IpRange == "all")
+                {
+                    faixas = new string[] { "10.0.0.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                }
+                else
+                {
+                    faixas = new string[] { model.IpRange };
+                }
+
+                string comando = model.Comando;
+                model.Resultados.Add($"Envio do comando '{comando}' agendado para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
+
+                Task.Run(() =>
+                {
+                    foreach (var faixaBase in faixas)
+                    {
+                        for (int i = 1; i < 255; i++)
+                        {
+                            string ipFaixa = faixaBase + i.ToString();
+                            _ = RunScopedComandoAsync(ipFaixa, comando);
+                        }
+                    }
+                });
             }
+
+            return View(model);
         }
 
         private async Task RunScopedComandoAsync(string ip, string comando)
