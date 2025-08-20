@@ -20,7 +20,6 @@ namespace Web.Services
         private readonly LogService _logService;
         private readonly string _connectionString;
         private readonly string _solicitarInformacoes;
-        private readonly string _realizarComandos;
 
         public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService)
         {
@@ -29,7 +28,6 @@ namespace Web.Services
             _logService = logService;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
-            _realizarComandos = _configuration.GetSection("Autenticacao")["RealizarComandos"];
         }
 
         public async Task ColetarDadosAsync(string computadorIp, Action<string> onResult)
@@ -54,15 +52,13 @@ namespace Web.Services
                     _logService.AddLog("Info", $"Conexão bem-sucedida com o IP: {computadorIp}", "Coleta");
 
                     using (NetworkStream stream = client.GetStream())
+                    using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+                    using (var reader = new StreamReader(stream, Encoding.UTF8))
                     {
-                        string autenticacao = $"{_solicitarInformacoes}\n";
-                        byte[] data = Encoding.UTF8.GetBytes(autenticacao);
-                        await stream.WriteAsync(data, 0, data.Length);
+                        await writer.WriteLineAsync(_solicitarInformacoes);
                         onResult($"Solicitação enviada para: {computadorIp}");
 
-                        byte[] buffer = new byte[8192];
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-                        string resposta = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        string resposta = await reader.ReadToEndAsync();
 
                         HardwareInfo hardwareInfo;
                         try
@@ -147,48 +143,5 @@ namespace Web.Services
             }
         }
 
-        public async Task<string> EnviarComandoAsync(string computadorIp, string comando)
-        {
-            int serverPort = 27275;
-            _logService.AddLog("Info", $"Enviando comando '{comando}' para o IP: {computadorIp}", "Comandos");
-
-            try
-            {
-                using (var client = new TcpClient())
-                {
-                    var connectTask = client.ConnectAsync(computadorIp, serverPort);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout aumentado para 5s
-                    {
-                        string message = $"Timeout ao conectar com: {computadorIp} para enviar o comando.";
-                        _logService.AddLog("Warning", message, "Comandos");
-                        return message;
-                    }
-
-                    await connectTask;
-
-                    using (NetworkStream stream = client.GetStream())
-                    {
-                        string autenticacao = $"{_realizarComandos}\n{comando}";
-                        byte[] data = Encoding.UTF8.GetBytes(autenticacao);
-                        await stream.WriteAsync(data, 0, data.Length);
-
-                        byte[] buffer = new byte[8192];
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-                        string resposta = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                        string successMessage = $"Resultado de '{comando}' em {computadorIp}: {resposta}";
-                        _logService.AddLog("Info", successMessage, "Comandos");
-                        return successMessage;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                string errorMessage = $"Erro ao enviar comando '{comando}' para {computadorIp}: {ex.Message}";
-                _logger.LogError(ex, errorMessage);
-                _logService.AddLog("Error", errorMessage, "Comandos");
-                return errorMessage;
-            }
-        }
     }
 }

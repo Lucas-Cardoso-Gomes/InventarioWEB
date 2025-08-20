@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<ColetaService>();
 builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<ComandoService>();
 
 // Configuração do Kestrel para escutar em todas as interfaces de rede
 builder.WebHost.ConfigureKestrel(serverOptions =>
