@@ -12,13 +12,13 @@ namespace Web.Controllers
 {
     public class GerenciamentoController : Controller
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
         
-        public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
+        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _logger = logger;
             _configuration = configuration;
         }
@@ -216,14 +216,15 @@ namespace Web.Controllers
         
         private async Task RunScopedColeta(string ip)
         {
-            using (var scope = _serviceProvider.CreateScope())
+            using (var scope = _scopeFactory.CreateScope())
             {
                 var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
                 try
                 {
                     await coletaService.ColetarDadosAsync(ip, (result) => {
-                        _logger.LogInformation(result);
+                        logger.LogInformation(result);
                     });
                 }
                 catch (Exception ex)
@@ -315,33 +316,24 @@ namespace Web.Controllers
         {
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                    var comandoService = scope.ServiceProvider.GetRequiredService<ComandoService>();
+
                     logService.AddLog("Debug", $"[BG Task] RunScopedComandoAsync INICIADO para {ip}.", "Sistema");
-
-                    try
-                    {
-                        logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
-                        
-                        var comandoService = scope.ServiceProvider.GetRequiredService<ComandoService>();
-                        logService.AddLog("Debug", $"[BG Task] ComandoService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
-
-                        await comandoService.EnviarComandoAsync(ip, comando);
-                        
-                        logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
-                    }
-                    catch (Exception ex)
-                    {
-                        // Loga a exceção que ocorreu dentro da tarefa de fundo.
-                        logService.AddLog("Error", $"[BG Task] Falha na tarefa de envio de comando para {ip}: {ex.GetBaseException().Message}", "Sistema");
-                    }
+                    await comandoService.EnviarComandoAsync(ip, comando);
+                    logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
                 }
             }
             catch (Exception ex)
             {
-                // Fallback extremo: se até a criação do escopo falhar, logue no console do servidor web.
-                _logger.LogError(ex, "[BG Task] Falha CRÍTICA ao criar escopo de serviço para RunScopedComandoAsync.");
+                // Create a new scope specifically for logging the error.
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
+                    logger.LogError(ex, "[BG Task] Falha CRÍTICA na execução de RunScopedComandoAsync para o IP {IP}", ip);
+                }
             }
         }
     }
