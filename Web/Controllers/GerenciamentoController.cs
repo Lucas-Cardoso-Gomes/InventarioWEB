@@ -269,7 +269,31 @@ namespace Web.Controllers
                 string ip = model.IpAddress;
                 string comando = model.Comando;
 
-                Task.Run(() => RunScopedComandoAsync(ip, comando));
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                    logService.AddLog("Info", "[DIAG] Preparando para iniciar Task.Run.", "SISTEMA-DIAG");
+
+                    var task = Task.Run(() => RunScopedComandoAsync(ip, comando));
+
+                    logService.AddLog("Info", "[DIAG] Task.Run foi chamado. A tarefa foi agendada.", "SISTEMA-DIAG");
+
+                    task.ContinueWith(t =>
+                    {
+                        using (var innerScope = _serviceProvider.CreateScope())
+                        {
+                            var innerLogService = innerScope.ServiceProvider.GetRequiredService<LogService>();
+                            if (t.IsFaulted)
+                            {
+                                innerLogService.AddLog("Error", $"[DIAG-TASK] A TAREFA FALHOU: {t.Exception.ToString()}", "SISTEMA-DIAG");
+                            }
+                            else
+                            {
+                                innerLogService.AddLog("Info", "[DIAG-TASK] A tarefa foi concluída (sem falha explícita).", "SISTEMA-DIAG");
+                            }
+                        }
+                    });
+                }
                 model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoEnvio == "range")
