@@ -10,6 +10,24 @@ namespace Coleta.Models
         public string SO { get; set; }
         public string ConsumoCPU { get; set; }
         public StorageInfo Armazenamento { get; set; }
+        public GpuInfo GPU { get; set; }
+        public List<NetworkAdapterInfo> AdaptadoresRede { get; set; }
+    }
+
+    public class GpuInfo
+    {
+        public string Nome { get; set; }
+        public string Fabricante { get; set; }
+        public string RamDedicadaGB { get; set; }
+    }
+
+    public class NetworkAdapterInfo
+    {
+        public string Descricao { get; set; }
+        public string EnderecoIP { get; set; }
+        public string MascaraSubRede { get; set; }
+        public string GatewayPadrao { get; set; }
+        public string ServidoresDNS { get; set; }
     }
 
     public class ProcessorInfo
@@ -38,8 +56,7 @@ namespace Coleta.Models
 
     public class StorageInfo
     {
-        public DiskInfo DriveC { get; set; }
-        public DiskInfo DriveD { get; set; }
+        public List<DiskInfo> Discos { get; set; }
     }
 
     public class DiskInfo
