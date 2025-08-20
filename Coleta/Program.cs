@@ -35,67 +35,79 @@ namespace coleta
 
                 while (true)
                 {
-                    TcpClient client = listener.AcceptTcpClient();
-                    NetworkStream stream = client.GetStream();
-
-                    string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                    Console.WriteLine($"Conexão recebida do IP: {clientIP}");
-
-                    byte[] buffer = new byte[5120];
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    string dados = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                    var dadosColetados = dados.Split('\n');
-                    string autenticacao = dadosColetados[0].Trim();
-                    string comandoRemoto = dadosColetados.Length > 1 ? dadosColetados[1].Trim() : "";
-
-
-                    if (autenticacao == solicitarInformacoes)
+                    TcpClient client = null;
+                    try
                     {
-                        var hardwareInfo = new HardwareInfo
+                        client = listener.AcceptTcpClient();
+                        using (NetworkStream stream = client.GetStream())
+                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
                         {
-                            Processador = Processador.GetProcessorInfo(),
-                            Ram = RAM.GetRamInfo(),
-                            Usuario = User.GetUserInfo(),
-                            Fabricante = Fabricante.GetManufacturer(),
-                            MAC = MAC.GetFormattedMacAddress(),
-                            SO = OS.GetOSInfo(),
-                            ConsumoCPU = Consumo.Uso(),
-                            Armazenamento = Armazenamento.GetStorageInfo()
-                        };
+                            string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                            Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
 
-                        string resposta = JsonSerializer.Serialize(hardwareInfo);
+                            string autenticacao = reader.ReadLine();
+                            if (autenticacao == null)
+                            {
+                                Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
+                                continue;
+                            }
 
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(resposta);
-                        stream.Write(responseBytes, 0, responseBytes.Length);
+                            autenticacao = autenticacao.Trim();
+                            Console.WriteLine($"[DEBUG] Autenticação recebida: '{autenticacao}'");
 
-                        Console.WriteLine($"Informações enviadas para o IP: {clientIP}");
-                        Console.WriteLine("Aguardando novas instruções...");
+                            if (autenticacao == solicitarInformacoes)
+                            {
+                                Console.WriteLine("[INFO] Solicitação de informações recebida.");
+                                var hardwareInfo = new HardwareInfo
+                                {
+                                    Processador = Processador.GetProcessorInfo(),
+                                    Ram = RAM.GetRamInfo(),
+                                    Usuario = User.GetUserInfo(),
+                                    Fabricante = Fabricante.GetManufacturer(),
+                                    MAC = MAC.GetFormattedMacAddress(),
+                                    SO = OS.GetOSInfo(),
+                                    ConsumoCPU = Consumo.Uso(),
+                                    Armazenamento = Armazenamento.GetStorageInfo()
+                                };
 
-                        client.Close();
+                                string resposta = JsonSerializer.Serialize(hardwareInfo);
+                                writer.WriteLine(resposta);
+                                Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
+                            }
+                            else if (autenticacao == realizarComandos)
+                            {
+                                string comandoRemoto = reader.ReadLine();
+                                if (comandoRemoto == null)
+                                {
+                                    Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
+                                    continue;
+                                }
+
+                                comandoRemoto = comandoRemoto.Trim();
+                                Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
+
+                                string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
+                                writer.WriteLine(resultadoComando);
+                                Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
+                            }
+                            else
+                            {
+                                string resposta = "Código de Autenticação Incorreto!";
+                                writer.WriteLine(resposta);
+                                Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacao}'");
+                            }
+                        }
                     }
-                    else if (autenticacao == realizarComandos)
+                    catch (Exception ex)
                     {
-                        string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
-
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(resultadoComando);
-                        stream.Write(responseBytes, 0, responseBytes.Length);
-
-                        Console.WriteLine($"Informações enviadas para o IP: {clientIP}");
-                        Console.WriteLine("Aguardando novas instruções...");
-
-                        client.Close();
+                        Console.WriteLine($"[ERROR] Erro ao manusear cliente: {ex.Message}");
                     }
-                    else
+                    finally
                     {
-                        string resposta = "Código de Autenticação Incorreto!";
-
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(resposta);
-                        stream.Write(responseBytes, 0, responseBytes.Length);
-
-                        Console.WriteLine($"Falha no codigo de autenticação para o IP: {clientIP}");
-
-                        client.Close();
+                        client?.Close();
+                        Console.WriteLine("[INFO] Conexão fechada. Aguardando novas instruções...");
+                        Console.WriteLine("----------------------------------------------------");
                     }
                 }
             }

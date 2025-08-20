@@ -268,11 +268,18 @@ namespace Web.Controllers
                 
                 string ip = model.IpAddress;
                 string comando = model.Comando;
-                Task.Run(() => RunScopedComando(ip, comando));
+
+                Task.Run(() => RunScopedComandoAsync(ip, comando));
                 model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoEnvio == "range")
             {
+                if (string.IsNullOrWhiteSpace(model.IpRange))
+                {
+                    ModelState.AddModelError("IpRange", "A faixa de IP é obrigatória.");
+                    return View(model);
+                }
+
                 string[] faixas;
                 if (model.IpRange == "all")
                 {
@@ -293,7 +300,7 @@ namespace Web.Controllers
                         for (int i = 1; i < 255; i++)
                         {
                             string ipFaixa = faixaBase + i.ToString();
-                            RunScopedComando(ipFaixa, comando);
+                            _ = RunScopedComandoAsync(ipFaixa, comando);
                         }
                     }
                 });
@@ -302,24 +309,23 @@ namespace Web.Controllers
             return View(model);
         }
 
-        private void RunScopedComando(string ip, string comando)
+        private async Task RunScopedComandoAsync(string ip, string comando)
         {
             try
             {
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var logService = scope.ServiceProvider.GetRequiredService<LogService>();
-                    logService.AddLog("Debug", $"[BG Task] RunScopedComando INICIADO para {ip}.", "Sistema");
+                    logService.AddLog("Debug", $"[BG Task] RunScopedComandoAsync INICIADO para {ip}.", "Sistema");
 
                     try
                     {
                         logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
                         
-                        var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
-                        logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
+                        var comandoService = scope.ServiceProvider.GetRequiredService<ComandoService>();
+                        logService.AddLog("Debug", $"[BG Task] ComandoService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
 
-                        // Chame o método async e espere pelo resultado de forma síncrona para depuração.
-                        coletaService.EnviarComandoAsync(ip, comando).GetAwaiter().GetResult();
+                        await comandoService.EnviarComandoAsync(ip, comando);
                         
                         logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
                     }
@@ -333,7 +339,7 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 // Fallback extremo: se até a criação do escopo falhar, logue no console do servidor web.
-                _logger.LogError(ex, "[BG Task] Falha CRÍTICA ao criar escopo de serviço para RunScopedComando.");
+                _logger.LogError(ex, "[BG Task] Falha CRÍTICA ao criar escopo de serviço para RunScopedComandoAsync.");
             }
         }
     }
