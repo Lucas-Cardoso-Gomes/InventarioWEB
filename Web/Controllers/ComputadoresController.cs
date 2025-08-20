@@ -17,7 +17,9 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index(string sortOrder, string searchString, string fabricante, string so, int pageNumber = 1, int pageSize = 25)
+        public IActionResult Index(string sortOrder, string searchString,
+            List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores,
+            int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
             ViewData["IpSortParm"] = String.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
@@ -35,8 +37,11 @@ namespace Web.Controllers
                 PageSize = pageSize,
                 SearchString = searchString,
                 CurrentSort = sortOrder,
-                CurrentFabricante = fabricante,
-                CurrentSO = so
+                CurrentFabricantes = currentFabricantes,
+                CurrentSOs = currentSOs,
+                CurrentProcessadorFabricantes = currentProcessadorFabricantes,
+                CurrentRamTipos = currentRamTipos,
+                CurrentProcessadores = currentProcessadores
             };
 
             try
@@ -47,6 +52,9 @@ namespace Web.Controllers
 
                     viewModel.Fabricantes = GetDistinctComputerValues(connection, "Fabricante");
                     viewModel.SOs = GetDistinctComputerValues(connection, "SO");
+                    viewModel.ProcessadorFabricantes = GetDistinctComputerValues(connection, "ProcessadorFabricante");
+                    viewModel.RamTipos = GetDistinctComputerValues(connection, "RamTipo");
+                    viewModel.Processadores = GetDistinctComputerValues(connection, "Processador");
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
@@ -57,17 +65,27 @@ namespace Web.Controllers
                         parameters.Add("@search", $"%{searchString}%");
                     }
 
-                    if (!string.IsNullOrEmpty(fabricante))
+                    // Helper function to build IN clauses safely
+                    Action<string, List<string>> addInClause = (columnName, values) =>
                     {
-                        whereClauses.Add("Fabricante = @fabricante");
-                        parameters.Add("@fabricante", fabricante);
-                    }
+                        if (values != null && values.Any())
+                        {
+                            var paramNames = new List<string>();
+                            for (int i = 0; i < values.Count; i++)
+                            {
+                                var paramName = $"@{columnName.ToLower()}{i}";
+                                paramNames.Add(paramName);
+                                parameters.Add(paramName, values[i]);
+                            }
+                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                        }
+                    };
 
-                    if (!string.IsNullOrEmpty(so))
-                    {
-                        whereClauses.Add("SO = @so");
-                        parameters.Add("@so", so);
-                    }
+                    addInClause("Fabricante", currentFabricantes);
+                    addInClause("SO", currentSOs);
+                    addInClause("ProcessadorFabricante", currentProcessadorFabricantes);
+                    addInClause("RamTipo", currentRamTipos);
+                    addInClause("Processador", currentProcessadores);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
