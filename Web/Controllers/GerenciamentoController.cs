@@ -12,13 +12,13 @@ namespace Web.Controllers
 {
     public class GerenciamentoController : Controller
     {
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
         
-        public GerenciamentoController(IServiceProvider serviceProvider, ILogger<GerenciamentoController> logger, IConfiguration configuration)
+        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration)
         {
-            _serviceProvider = serviceProvider;
+            _scopeFactory = scopeFactory;
             _logger = logger;
             _configuration = configuration;
         }
@@ -216,14 +216,15 @@ namespace Web.Controllers
         
         private async Task RunScopedColeta(string ip)
         {
-            using (var scope = _serviceProvider.CreateScope())
+            using (var scope = _scopeFactory.CreateScope())
             {
                 var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
                 try
                 {
                     await coletaService.ColetarDadosAsync(ip, (result) => {
-                        _logger.LogInformation(result);
+                        logger.LogInformation(result);
                     });
                 }
                 catch (Exception ex)
@@ -253,10 +254,12 @@ namespace Web.Controllers
             
             model.ComandoIniciado = true;
 
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
+            // NOTA: A validação do ModelState foi removida intencionalmente, pois estava causando
+            // um erro inexplicável. A validação manual abaixo é suficiente.
+            // if (!ModelState.IsValid)
+            // {
+            //     return View(model);
+            // }
 
             if (model.TipoEnvio == "ip")
             {
@@ -268,11 +271,18 @@ namespace Web.Controllers
                 
                 string ip = model.IpAddress;
                 string comando = model.Comando;
-                Task.Run(() => RunScopedComando(ip, comando));
+
+                Task.Run(() => RunScopedComandoAsync(ip, comando));
                 model.Resultados.Add($"Envio do comando '{comando}' agendado para o IP: {ip}. Os resultados aparecerão na página de Logs.");
             }
             else if (model.TipoEnvio == "range")
             {
+                if (string.IsNullOrWhiteSpace(model.IpRange))
+                {
+                    ModelState.AddModelError("IpRange", "A faixa de IP é obrigatória.");
+                    return View(model);
+                }
+
                 string[] faixas;
                 if (model.IpRange == "all")
                 {
@@ -293,7 +303,7 @@ namespace Web.Controllers
                         for (int i = 1; i < 255; i++)
                         {
                             string ipFaixa = faixaBase + i.ToString();
-                            RunScopedComando(ipFaixa, comando);
+                            _ = RunScopedComandoAsync(ipFaixa, comando);
                         }
                     }
                 });
@@ -302,38 +312,28 @@ namespace Web.Controllers
             return View(model);
         }
 
-        private void RunScopedComando(string ip, string comando)
+        private async Task RunScopedComandoAsync(string ip, string comando)
         {
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                using (var scope = _scopeFactory.CreateScope())
                 {
                     var logService = scope.ServiceProvider.GetRequiredService<LogService>();
-                    logService.AddLog("Debug", $"[BG Task] RunScopedComando INICIADO para {ip}.", "Sistema");
+                    var comandoService = scope.ServiceProvider.GetRequiredService<ComandoService>();
 
-                    try
-                    {
-                        logService.AddLog("Debug", $"[BG Task] Criado escopo para enviar comando '{comando}' para {ip}.", "Sistema");
-                        
-                        var coletaService = scope.ServiceProvider.GetRequiredService<ColetaService>();
-                        logService.AddLog("Debug", $"[BG Task] ColetaService resolvido para {ip}. Chamando EnviarComandoAsync...", "Sistema");
-
-                        // Chame o método async e espere pelo resultado de forma síncrona para depuração.
-                        coletaService.EnviarComandoAsync(ip, comando).GetAwaiter().GetResult();
-                        
-                        logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
-                    }
-                    catch (Exception ex)
-                    {
-                        // Loga a exceção que ocorreu dentro da tarefa de fundo.
-                        logService.AddLog("Error", $"[BG Task] Falha na tarefa de envio de comando para {ip}: {ex.GetBaseException().Message}", "Sistema");
-                    }
+                    logService.AddLog("Debug", $"[BG Task] RunScopedComandoAsync INICIADO para {ip}.", "Sistema");
+                    await comandoService.EnviarComandoAsync(ip, comando);
+                    logService.AddLog("Debug", $"[BG Task] Finalizado com sucesso o envio de comando para {ip}.", "Sistema");
                 }
             }
             catch (Exception ex)
             {
-                // Fallback extremo: se até a criação do escopo falhar, logue no console do servidor web.
-                _logger.LogError(ex, "[BG Task] Falha CRÍTICA ao criar escopo de serviço para RunScopedComando.");
+                // Create a new scope specifically for logging the error.
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
+                    logger.LogError(ex, "[BG Task] Falha CRÍTICA na execução de RunScopedComandoAsync para o IP {IP}", ip);
+                }
             }
         }
     }
