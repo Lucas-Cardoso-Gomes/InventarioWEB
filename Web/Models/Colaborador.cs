@@ -19,7 +19,7 @@ namespace web.Models
         [StringLength(100)]
         [ValidateNever]
         public string Email { get; set; }
-
+        
         [StringLength(100)]
         [ValidateNever]
         public string SenhaEmail { get; set; }
@@ -79,7 +79,7 @@ namespace web.Models
         [StringLength(100)]
         [ValidateNever]
         public string Videoporteiro { get; set; }
-
+        
         [ValidateNever]
         public string Obs { get; set; }
 
