@@ -60,7 +60,7 @@ namespace Web.Controllers
                 };
 
                 await _userService.CreateAsync(user);
-
+                
                 // Optionally, you can add a success message.
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
@@ -118,7 +118,7 @@ namespace Web.Controllers
                 }
 
                 await _userService.UpdateAsync(user);
-
+                
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
