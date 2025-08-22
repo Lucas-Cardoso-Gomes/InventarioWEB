@@ -8,7 +8,7 @@
 
 <div class="row mb-3">
     <div class="col-12">
-        @if (User.IsInRole("Admin"))
+        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
         {
             <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
         }
@@ -31,7 +31,7 @@
         <div class="row g-3">
             <div class="col-md-12">
                 <label for="searchString" class="form-label">Pesquisa Geral</label>
-                <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Usuário..." value="@Model.SearchString">
+                <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Colaborador..." value="@Model.SearchString">
             </div>
 
             @{
@@ -81,7 +81,7 @@
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]" asp-route-searchString="@Model.SearchString">MAC</a>
                 </th>
                 <th class="col-usuario">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Usuário</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Colaborador</a>
                 </th>
                 <th class="col-hostname">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>
@@ -110,7 +110,7 @@
                 <th class="col-datacoleta">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
                 </th>
-                @if (User.IsInRole("Admin"))
+                @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                 {
                     <th>Ações</th>
                 }
@@ -122,7 +122,7 @@
                 <tr>
                     <td class="col-ip">@Html.DisplayFor(modelItem => item.IP)</td>
                     <td class="col-mac">@Html.DisplayFor(modelItem => item.MAC)</td>
-                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.Usuario)</td>
+                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
                     <td class="col-hostname">@Html.DisplayFor(modelItem => item.Hostname)</td>
                     <td class="col-fabricante">@Html.DisplayFor(modelItem => item.Fabricante)</td>
                     <td class="col-processador">@Html.DisplayFor(modelItem => item.Processador)</td>
@@ -144,7 +144,7 @@
                     <td class="col-so">@Html.DisplayFor(modelItem => item.SO)</td>
                     <td class="col-consumocpu">@Html.DisplayFor(modelItem => item.ConsumoCPU)</td>
                     <td class="col-datacoleta">@Html.DisplayFor(modelItem => item.DataColeta)</td>
-                    @if (User.IsInRole("Admin"))
+                    @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                     {
                         <td>
                             <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
