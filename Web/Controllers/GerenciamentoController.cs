@@ -7,9 +7,11 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
+    [Authorize(Roles = "Administrador")]
     public class GerenciamentoController : Controller
     {
         private readonly IServiceScopeFactory _scopeFactory;

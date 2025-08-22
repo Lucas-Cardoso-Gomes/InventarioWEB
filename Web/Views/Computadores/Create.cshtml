@@ -1,4 +1,4 @@
-@model web.Models.ComputadorViewModel
+@model Web.Models.Computador
 
 @{
     ViewData["Title"] = "Adicionar Computador";
@@ -11,11 +11,14 @@
     <div class="col-md-8">
         <form asp-action="Create">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <p class="text-muted">Esta tela cria uma entrada manual para um computador. Os detalhes de Disco, GPU e Rede não podem ser adicionados aqui e devem ser obtidos através do agente de coleta.</p>
+
             <div class="row">
                 <div class="col-md-6">
                     <div class="form-group">
                         <label asp-for="MAC" class="control-label"></label>
-                        <input asp-for="MAC" class="form-control" />
+                        <input asp-for="MAC" class="form-control" placeholder="XX-XX-XX-XX-XX-XX" />
                         <span asp-validation-for="MAC" class="text-danger"></span>
                     </div>
                     <div class="form-group">
@@ -46,9 +49,9 @@
                 </div>
                 <div class="col-md-6">
                     <div class="form-group">
-                        <label asp-for="Processador" class="control-label"></label>
-                        <input asp-for="Processador" class="form-control" />
-                        <span asp-validation-for="Processador" class="text-danger"></span>
+                        <label asp-for="ProcessadorNome" class="control-label"></label>
+                        <input asp-for="ProcessadorNome" class="form-control" />
+                        <span asp-validation-for="ProcessadorNome" class="text-danger"></span>
                     </div>
                     <div class="form-group">
                         <label asp-for="ProcessadorFabricante" class="control-label"></label>
@@ -56,83 +59,28 @@
                         <span asp-validation-for="ProcessadorFabricante" class="text-danger"></span>
                     </div>
                     <div class="form-group">
-                        <label asp-for="ProcessadorCore" class="control-label"></label>
-                        <input asp-for="ProcessadorCore" class="form-control" />
-                        <span asp-validation-for="ProcessadorCore" class="text-danger"></span>
+                        <label asp-for="ProcessadorCores" class="control-label"></label>
+                        <input asp-for="ProcessadorCores" class="form-control" />
+                        <span asp-validation-for="ProcessadorCores" class="text-danger"></span>
                     </div>
                     <div class="form-group">
-                        <label asp-for="ProcessadorThread" class="control-label"></label>
-                        <input asp-for="ProcessadorThread" class="form-control" />
-                        <span asp-validation-for="ProcessadorThread" class="text-danger"></span>
+                        <label asp-for="ProcessadorThreads" class="control-label"></label>
+                        <input asp-for="ProcessadorThreads" class="form-control" />
+                        <span asp-validation-for="ProcessadorThreads" class="text-danger"></span>
                     </div>
                     <div class="form-group">
                         <label asp-for="ProcessadorClock" class="control-label"></label>
                         <input asp-for="ProcessadorClock" class="form-control" />
                         <span asp-validation-for="ProcessadorClock" class="text-danger"></span>
                     </div>
-                </div>
-            </div>
-            <div class="row">
-                 <div class="col-md-6">
-                    <div class="form-group">
-                        <label asp-for="Ram" class="control-label"></label>
-                        <input asp-for="Ram" class="form-control" />
-                        <span asp-validation-for="Ram" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="RamTipo" class="control-label"></label>
-                        <input asp-for="RamTipo" class="form-control" />
-                        <span asp-validation-for="RamTipo" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="RamVelocidade" class="control-label"></label>
-                        <input asp-for="RamVelocidade" class="form-control" />
-                        <span asp-validation-for="RamVelocidade" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="RamVoltagem" class="control-label"></label>
-                        <input asp-for="RamVoltagem" class="form-control" />
-                        <span asp-validation-for="RamVoltagem" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="RamPorModule" class="control-label"></label>
-                        <input asp-for="RamPorModule" class="form-control" />
-                        <span asp-validation-for="RamPorModule" class="text-danger"></span>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoC" class="control-label"></label>
-                        <input asp-for="ArmazenamentoC" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoC" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoCTotal" class="control-label"></label>
-                        <input asp-for="ArmazenamentoCTotal" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoCTotal" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoCLivre" class="control-label"></label>
-                        <input asp-for="ArmazenamentoCLivre" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoCLivre" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoD" class="control-label"></label>
-                        <input asp-for="ArmazenamentoD" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoD" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoDTotal" class="control-label"></label>
-                        <input asp-for="ArmazenamentoDTotal" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoDTotal" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <label asp-for="ArmazenamentoDLivre" class="control-label"></label>
-                        <input asp-for="ArmazenamentoDLivre" class="form-control" />
-                        <span asp-validation-for="ArmazenamentoDLivre" class="text-danger"></span>
+                     <div class="form-group">
+                        <label asp-for="RamTotal" class="control-label"></label>
+                        <input asp-for="RamTotal" class="form-control" />
+                        <span asp-validation-for="RamTotal" class="text-danger"></span>
                     </div>
                 </div>
             </div>
+
             <div class="form-group mt-3">
                 <input type="submit" value="Criar" class="btn btn-primary" />
                 <a asp-action="Index" class="btn btn-secondary">Voltar para a Lista</a>
