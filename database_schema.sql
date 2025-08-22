@@ -45,3 +45,5 @@ CREATE TABLE Usuarios (
     PasswordHash NVARCHAR(255) NOT NULL,
     Role NVARCHAR(20) NOT NULL -- "Admin" or "Normal"
 );
+
+INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin User', 'admin', 'admin', 'Admin');
