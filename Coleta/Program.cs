@@ -7,7 +7,6 @@ using System.Text.Json;
 using System.Management;
 using Microsoft.Extensions.Configuration;
 using Coleta.Models;
-using Coleta;
 
 namespace coleta
 {
@@ -69,9 +68,7 @@ namespace coleta
                                     MAC = MAC.GetFormattedMacAddress(),
                                     SO = OS.GetOSInfo(),
                                     ConsumoCPU = Consumo.Uso(),
-                                    Armazenamento = Armazenamento.GetStorageInfo(),
-                                    GPU = GPU.GetGpuInfo(),
-                                    AdaptadoresRede = Rede.GetNetworkAdapterInfo()
+                                    Armazenamento = Armazenamento.GetStorageInfo()
                                 };
 
                                 string resposta = JsonSerializer.Serialize(hardwareInfo);

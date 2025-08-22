@@ -1,4 +1,4 @@
-namespace Coleta.Models
+namespace web.Models
 {
     public class HardwareInfo
     {
