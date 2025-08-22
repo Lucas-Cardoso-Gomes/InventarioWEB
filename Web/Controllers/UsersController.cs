@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Coordenador")]
     public class UsersController : Controller
     {
         private readonly UserService _userService;
@@ -24,6 +24,7 @@ namespace Web.Controllers
         }
 
         // GET: Users/Create
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View();
@@ -32,6 +33,7 @@ namespace Web.Controllers
         // POST: Users/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(UserViewModel model)
         {
             if (string.IsNullOrEmpty(model.Password))
@@ -70,6 +72,7 @@ namespace Web.Controllers
         }
 
         // GET: Users/Edit/5
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id)
         {
             var user = await _userService.FindByIdAsync(id);
@@ -92,6 +95,7 @@ namespace Web.Controllers
         // POST: Users/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
             if (ModelState.IsValid)
@@ -126,6 +130,7 @@ namespace Web.Controllers
         }
 
         // GET: Users/Delete/5
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var user = await _userService.FindByIdAsync(id);
@@ -139,6 +144,7 @@ namespace Web.Controllers
         // POST: Users/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             await _userService.DeleteAsync(id);
