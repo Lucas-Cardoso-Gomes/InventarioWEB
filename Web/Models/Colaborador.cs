@@ -17,7 +17,7 @@ namespace web.Models
         [EmailAddress(ErrorMessage = "E-mail inválido.")]
         [StringLength(100)]
         public string Email { get; set; }
-
+        
         [StringLength(100)]
         public string SenhaEmail { get; set; }
 
