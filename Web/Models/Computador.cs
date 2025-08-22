@@ -8,7 +8,7 @@ namespace web.Models
         [Required]
         public string MAC { get; set; }
         public string IP { get; set; }
-        public string Usuario { get; set; }
+        public string ColaboradorNome { get; set; }
         public string Hostname { get; set; }
         public string Fabricante { get; set; }
         public string Processador { get; set; }

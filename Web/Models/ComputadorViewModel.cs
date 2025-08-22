@@ -13,10 +13,11 @@ namespace web.Models
         [Display(Name = "Endereço IP")]
         public string IP { get; set; }
 
-        [Display(Name = "Usuário")]
-        public string Usuario { get; set; }
+        [Display(Name = "Colaborador")]
+        public string ColaboradorNome { get; set; }
 
         [Display(Name = "Hostname")]
+        [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }
 
         [Display(Name = "Fabricante")]
