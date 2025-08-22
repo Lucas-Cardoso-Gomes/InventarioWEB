@@ -241,9 +241,9 @@ namespace Web.Controllers
                     {
                         while (reader.Read())
                         {
-                            colaboradores.Add(new Colaborador {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
+                            colaboradores.Add(new Colaborador { 
+                                CPF = reader["CPF"].ToString(), 
+                                Nome = reader["Nome"].ToString() 
                             });
                         }
                     }
