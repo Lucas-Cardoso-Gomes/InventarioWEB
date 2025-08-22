@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Management;
 using Coleta.Models;
 
@@ -7,42 +8,31 @@ namespace coleta
     {
         public static StorageInfo GetStorageInfo()
         {
-            var storageInfo = new StorageInfo();
-
-            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"))
+            var storageInfo = new StorageInfo
             {
-                foreach (var result in searcher.Get())
+                Discos = new List<DiskInfo>()
+            };
+
+            try
+            {
+                using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_LogicalDisk WHERE DriveType=3"))
                 {
-                    string letra = result["Name"]?.ToString();
-                    if (letra == "C:")
+                    foreach (var result in searcher.Get())
                     {
-                        storageInfo.DriveC = new DiskInfo
+                        var disk = new DiskInfo
                         {
-                            Letra = letra,
-                            TotalGB = $"{Convert.ToUInt64(result["Size"]) / (1024 * 1024 * 1024)} GB",
-                            LivreGB = $"{Convert.ToUInt64(result["FreeSpace"]) / (1024 * 1024 * 1024)} GB"
+                            Letra = result["Name"]?.ToString(),
+                            TotalGB = $"{Convert.ToUInt64(result["Size"]) / (1024 * 1024 * 1024)}",
+                            LivreGB = $"{Convert.ToUInt64(result["FreeSpace"]) / (1024 * 1024 * 1024)}"
                         };
-                    }
-                    else if (letra == "D:")
-                    {
-                        storageInfo.DriveD = new DiskInfo
-                        {
-                            Letra = letra,
-                            TotalGB = $"{Convert.ToUInt64(result["Size"]) / (1024 * 1024 * 1024)} GB",
-                            LivreGB = $"{Convert.ToUInt64(result["FreeSpace"]) / (1024 * 1024 * 1024)} GB"
-                        };
+                        storageInfo.Discos.Add(disk);
                     }
                 }
             }
-
-            if (storageInfo.DriveC == null)
+            catch (ManagementException ex)
             {
-                storageInfo.DriveC = new DiskInfo { Letra = "C:", TotalGB = "0 GB", LivreGB = "0 GB" };
-            }
-
-            if (storageInfo.DriveD == null)
-            {
-                storageInfo.DriveD = new DiskInfo { Letra = "D:", TotalGB = "0 GB", LivreGB = "0 GB" };
+                // Log or handle the exception if WMI is not available
+                System.Console.WriteLine($"Erro ao consultar WMI para armazenamento: {ex.Message}");
             }
 
             return storageInfo;

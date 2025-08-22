@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using web.Models;
+using Web.Models;
 using Web.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
+    [Authorize(Roles = "Administrador")]
     public class GerenciamentoController : Controller
     {
         private readonly IServiceScopeFactory _scopeFactory;
