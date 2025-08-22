@@ -38,6 +38,10 @@ CREATE TABLE Colaboradores (
     SenhaIbrooker NVARCHAR(100),
     Adicional NVARCHAR(100),
     SenhaAdicional NVARCHAR(100),
+    Setor NVARCHAR(100),
+    Ramal NVARCHAR(100),
+    Alarme NVARCHAR(100),
+    Videoporteiro NVARCHAR(100),
     Obs NVARCHAR(MAX),
     DataInclusao DATETIME NOT NULL,
     DataAlteracao DATETIME

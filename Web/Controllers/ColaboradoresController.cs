@@ -63,8 +63,12 @@ namespace Web.Controllers
                                     SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
                                     Adicional = reader["Adicional"].ToString(),
                                     SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                    Setor = reader["Setor"].ToString(),
+                                    Ramal = reader["Ramal"].ToString(),
+                                    Alarme = reader["Alarme"].ToString(),
+                                    Videoporteiro = reader["Videoporteiro"].ToString(),
                                     Obs = reader["Obs"].ToString(),
-                                    DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
+                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null
                                 });
                             }
@@ -100,8 +104,8 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Obs, DataInclusao)
-                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Obs, @DataInclusao)";
+                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Ramal, Alarme, Videoporteiro, Obs, DataInclusao) 
+                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
@@ -118,6 +122,10 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ramal", (object)colaborador.Ramal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Alarme", (object)colaborador.Alarme ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
                             cmd.ExecuteNonQuery();
@@ -159,11 +167,12 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"UPDATE Colaboradores SET
-                                       Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams,
-                                       EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius,
-                                       Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional,
-                                       Obs = @Obs, DataAlteracao = @DataAlteracao
+                        string sql = @"UPDATE Colaboradores SET 
+                                       Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
+                                       EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
+                                       Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
+                                       Setor = @Setor, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
+                                       Obs = @Obs, DataAlteracao = @DataAlteracao 
                                        WHERE CPF = @CPF";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -181,6 +190,10 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ramal", (object)colaborador.Ramal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Alarme", (object)colaborador.Alarme ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                             cmd.ExecuteNonQuery();
@@ -270,8 +283,12 @@ namespace Web.Controllers
                                     SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
                                     Adicional = reader["Adicional"].ToString(),
                                     SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                    Setor = reader["Setor"].ToString(),
+                                    Ramal = reader["Ramal"].ToString(),
+                                    Alarme = reader["Alarme"].ToString(),
+                                    Videoporteiro = reader["Videoporteiro"].ToString(),
                                     Obs = reader["Obs"].ToString(),
-                                    DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
+                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null
                                 };
                             }

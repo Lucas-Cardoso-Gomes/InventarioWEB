@@ -17,7 +17,7 @@ namespace web.Models
         [EmailAddress(ErrorMessage = "E-mail inválido.")]
         [StringLength(100)]
         public string Email { get; set; }
-
+        
         [StringLength(100)]
         public string SenhaEmail { get; set; }
 
@@ -51,9 +51,21 @@ namespace web.Models
         [StringLength(100)]
         public string SenhaAdicional { get; set; }
 
+        [StringLength(100)]
+        public string Setor { get; set; }
+
+        [StringLength(100)]
+        public string Ramal { get; set; }
+
+        [StringLength(100)]
+        public string Alarme { get; set; }
+
+        [StringLength(100)]
+        public string Videoporteiro { get; set; }
+
         public string Obs { get; set; }
 
-        public DateTime DataInclusao { get; set; }
+        public DateTime? DataInclusao { get; set; }
 
         public DateTime? DataAlteracao { get; set; }
     }
