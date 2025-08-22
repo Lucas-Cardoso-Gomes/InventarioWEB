@@ -20,6 +20,7 @@ namespace web.Models
         public string Marca { get; set; }
 
         [StringLength(50)]
+        [Required(ErrorMessage = "O Modelo é obrigatório.")]
         public string Modelo { get; set; }
 
         [StringLength(20)]
