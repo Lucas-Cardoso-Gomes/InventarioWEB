@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Monitor = web.Models.Monitor;
 
 namespace Web.Controllers
 {
@@ -240,9 +241,9 @@ namespace Web.Controllers
                     {
                         while (reader.Read())
                         {
-                            colaboradores.Add(new Colaborador {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
+                            colaboradores.Add(new Colaborador { 
+                                CPF = reader["CPF"].ToString(), 
+                                Nome = reader["Nome"].ToString() 
                             });
                         }
                     }
