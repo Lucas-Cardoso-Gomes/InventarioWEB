@@ -8,19 +8,7 @@
 
 <div class="row mb-3">
     <div class="col-12">
-        @if (User.IsInRole("Admin"))
-        {
-            <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
-            <a asp-action="ExportToExcel"
-               asp-route-sortOrder="@Model.CurrentSort"
-               asp-route-searchString="@Model.SearchString"
-               asp-route-currentFabricantes="@Model.CurrentFabricantes"
-               asp-route-currentSOs="@Model.CurrentSOs"
-               asp-route-currentProcessadorFabricantes="@Model.CurrentProcessadorFabricantes"
-               asp-route-currentRamTipos="@Model.CurrentRamTipos"
-               asp-route-currentProcessadores="@Model.CurrentProcessadores"
-               class="btn btn-success">Exportar para Excel</a>
-        }
+        <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
         <div class="dropdown d-inline-block">
             <button class="btn btn-secondary dropdown-toggle" type="button" id="columnVisibilityDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                 Exibir/Ocultar Colunas
@@ -119,10 +107,7 @@
                 <th class="col-datacoleta">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
                 </th>
-                @if (User.IsInRole("Admin"))
-                {
-                    <th>Ações</th>
-                }
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
@@ -153,13 +138,10 @@
                     <td class="col-so">@Html.DisplayFor(modelItem => item.SO)</td>
                     <td class="col-consumocpu">@Html.DisplayFor(modelItem => item.ConsumoCPU)</td>
                     <td class="col-datacoleta">@Html.DisplayFor(modelItem => item.DataColeta)</td>
-                    @if (User.IsInRole("Admin"))
-                    {
-                        <td>
-                            <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
-                            <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-danger btn-sm">Excluir</a>
-                        </td>
-                    }
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
+                        <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-danger btn-sm">Excluir</a>
+                    </td>
                 </tr>
             }
         </tbody>

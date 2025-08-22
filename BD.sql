@@ -2,9 +2,6 @@ CREATE DATABASE Coletados;
 
 use coletados;
 
---drop database coletados;
---drop table Computadores;
-
 CREATE TABLE Computadores (
             MAC varchar(100) PRIMARY KEY,
             IP varchar(100),

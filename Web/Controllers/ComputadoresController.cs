@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using web.Models;
 using System.Data.SqlClient;
@@ -7,7 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Web.Controllers
 {
-    [Authorize]
     public class ComputadoresController : Controller
     {
         private readonly string _connectionString;
@@ -188,7 +186,6 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Create
-        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View(new ComputadorViewModel());
@@ -197,7 +194,6 @@ namespace Web.Controllers
         // POST: Computadores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
         public IActionResult Create(ComputadorViewModel viewModel)
         {
             if (ModelState.IsValid)
@@ -252,7 +248,6 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Edit/5
-        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
             if (id == null)
@@ -300,7 +295,6 @@ namespace Web.Controllers
         // POST: Computadores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id, ComputadorViewModel viewModel)
         {
             if (id != viewModel.MAC)
@@ -359,7 +353,6 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Delete/5
-        [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
             if (id == null)
@@ -380,7 +373,6 @@ namespace Web.Controllers
         // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(string id)
         {
             try
@@ -404,149 +396,6 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao excluir o computador.");
                 ViewBag.Message = "Ocorreu um erro ao excluir o computador. Por favor, tente novamente mais tarde.";
                 return View();
-            }
-        }
-
-        [Authorize(Roles = "Admin")]
-        public IActionResult ExportToExcel(string sortOrder, string searchString,
-            List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores)
-        {
-            var computadores = new List<Computador>();
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    var whereClauses = new List<string>();
-                    var parameters = new Dictionary<string, object>();
-
-                    if (!string.IsNullOrEmpty(searchString))
-                    {
-                        whereClauses.Add("(IP LIKE @search OR MAC LIKE @search OR Usuario LIKE @search OR Hostname LIKE @search)");
-                        parameters.Add("@search", $"%{searchString}%");
-                    }
-
-                    Action<string, List<string>> addInClause = (columnName, values) =>
-                    {
-                        if (values != null && values.Any())
-                        {
-                            var paramNames = new List<string>();
-                            for (int i = 0; i < values.Count; i++)
-                            {
-                                var paramName = $"@{columnName.ToLower()}{i}";
-                                paramNames.Add(paramName);
-                                parameters.Add(paramName, values[i]);
-                            }
-                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
-                        }
-                    };
-
-                    addInClause("Fabricante", currentFabricantes);
-                    addInClause("SO", currentSOs);
-                    addInClause("ProcessadorFabricante", currentProcessadorFabricantes);
-                    addInClause("RamTipo", currentRamTipos);
-                    addInClause("Processador", currentProcessadores);
-
-                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
-
-                    string orderBySql;
-                    switch (sortOrder)
-                    {
-                        case "ip_desc": orderBySql = "ORDER BY IP DESC"; break;
-                        case "mac": orderBySql = "ORDER BY MAC"; break;
-                        case "mac_desc": orderBySql = "ORDER BY MAC DESC"; break;
-                        case "user": orderBySql = "ORDER BY Usuario"; break;
-                        case "user_desc": orderBySql = "ORDER BY Usuario DESC"; break;
-                        case "hostname": orderBySql = "ORDER BY Hostname"; break;
-                        case "hostname_desc": orderBySql = "ORDER BY Hostname DESC"; break;
-                        case "os": orderBySql = "ORDER BY SO"; break;
-                        case "os_desc": orderBySql = "ORDER BY SO DESC"; break;
-                        case "date": orderBySql = "ORDER BY DataColeta"; break;
-                        case "date_desc": orderBySql = "ORDER BY DataColeta DESC"; break;
-                        default: orderBySql = "ORDER BY IP"; break;
-                    }
-
-                    string sql = $"SELECT MAC, IP, Usuario, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores {whereSql} {orderBySql}";
-
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
-                    {
-                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                computadores.Add(new Computador
-                                {
-                                    MAC = reader["MAC"].ToString(),
-                                    IP = reader["IP"].ToString(),
-                                    Usuario = reader["Usuario"].ToString(),
-                                    Hostname = reader["Hostname"].ToString(),
-                                    Fabricante = reader["Fabricante"].ToString(),
-                                    Processador = reader["Processador"].ToString(),
-                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
-                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
-                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
-                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
-                                    Ram = reader["Ram"].ToString(),
-                                    RamTipo = reader["RamTipo"].ToString(),
-                                    RamVelocidade = reader["RamVelocidade"].ToString(),
-                                    RamVoltagem = reader["RamVoltagem"].ToString(),
-                                    RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
-                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
-                                    SO = reader["SO"].ToString(),
-                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao exportar a lista de computadores.");
-                // Handle error appropriately
-            }
-
-            using (var workbook = new ClosedXML.Excel.XLWorkbook())
-            {
-                var worksheet = workbook.Worksheets.Add("Computadores");
-                var currentRow = 1;
-                worksheet.Cell(currentRow, 1).Value = "MAC";
-                worksheet.Cell(currentRow, 2).Value = "IP";
-                worksheet.Cell(currentRow, 3).Value = "Usuario";
-                worksheet.Cell(currentRow, 4).Value = "Hostname";
-                worksheet.Cell(currentRow, 5).Value = "Fabricante";
-                worksheet.Cell(currentRow, 6).Value = "Processador";
-                worksheet.Cell(currentRow, 7).Value = "SO";
-                worksheet.Cell(currentRow, 8).Value = "Data da Coleta";
-
-                foreach (var computador in computadores)
-                {
-                    currentRow++;
-                    worksheet.Cell(currentRow, 1).Value = computador.MAC;
-                    worksheet.Cell(currentRow, 2).Value = computador.IP;
-                    worksheet.Cell(currentRow, 3).Value = computador.Usuario;
-                    worksheet.Cell(currentRow, 4).Value = computador.Hostname;
-                    worksheet.Cell(currentRow, 5).Value = computador.Fabricante;
-                    worksheet.Cell(currentRow, 6).Value = computador.Processador;
-                    worksheet.Cell(currentRow, 7).Value = computador.SO;
-                    worksheet.Cell(currentRow, 8).Value = computador.DataColeta;
-                }
-
-                using (var stream = new System.IO.MemoryStream())
-                {
-                    workbook.SaveAs(stream);
-                    var content = stream.ToArray();
-                    return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Computadores.xlsx");
-                }
             }
         }
 
