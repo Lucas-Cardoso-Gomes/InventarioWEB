@@ -2,6 +2,9 @@
 -- O acesso a dados será feito via Entity Framework Core.
 
 -- Tabela principal para armazenar informações dos computadores monitorados.
+
+-- drop table Computadores;
+
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
     IP NVARCHAR(45),
