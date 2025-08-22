@@ -1,7 +1,7 @@
 using Web.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 // Adiciona os serviços ao contêiner
 builder.Services.AddControllersWithViews();
