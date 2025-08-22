@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using web.Models;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
+    [Authorize]
     public class ComputadoresController : Controller
     {
         private readonly string _connectionString;
@@ -186,6 +188,7 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Create
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View(new ComputadorViewModel());
@@ -194,6 +197,7 @@ namespace Web.Controllers
         // POST: Computadores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(ComputadorViewModel viewModel)
         {
             if (ModelState.IsValid)
@@ -248,6 +252,7 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Edit/5
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
             if (id == null)
@@ -295,6 +300,7 @@ namespace Web.Controllers
         // POST: Computadores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id, ComputadorViewModel viewModel)
         {
             if (id != viewModel.MAC)
@@ -353,6 +359,7 @@ namespace Web.Controllers
         }
 
         // GET: Computadores/Delete/5
+        [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
             if (id == null)
@@ -373,6 +380,7 @@ namespace Web.Controllers
         // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(string id)
         {
             try
