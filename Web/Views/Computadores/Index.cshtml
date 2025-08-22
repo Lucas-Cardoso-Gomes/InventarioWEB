@@ -1,4 +1,4 @@
-@model web.Models.ComputadorIndexViewModel
+@model Web.PaginatedList<Web.Models.Computador>
 
 @{
     ViewData["Title"] = "Lista de Computadores";
@@ -6,64 +6,18 @@
 
 <h1>@ViewData["Title"]</h1>
 
-<div class="row mb-3">
-    <div class="col-12">
-        <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
-        <div class="dropdown d-inline-block">
-            <button class="btn btn-secondary dropdown-toggle" type="button" id="columnVisibilityDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                Exibir/Ocultar Colunas
-            </button>
-            <div class="dropdown-menu" aria-labelledby="columnVisibilityDropdown" id="column-visibility-menu">
-                <!-- Checkboxes will be inserted here by JavaScript -->
-            </div>
-        </div>
-    </div>
-</div>
+@if (User.IsInRole("Administrador"))
+{
+    <p>
+        <a asp-action="Create" class="btn btn-primary">Adicionar Novo</a>
+    </p>
+}
 
-<form asp-action="Index" method="get" class="card mb-4">
-    <div class="card-header">
-        Filtros
-    </div>
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-12">
-                <label for="searchString" class="form-label">Pesquisa Geral</label>
-                <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Usuário..." value="@Model.SearchString">
-            </div>
-
-            @{
-                Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
-                {
-                    <div class="col-md-3">
-                        <label class="form-label">@title</label>
-                        <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
-                            @if (items != null)
-                            {
-                                @foreach (var item in items)
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
-                                        <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
-                                            @item
-                                        </label>
-                                    </div>
-                                }
-                            }
-                        </div>
-                    </div>
-                };
-
-                renderFilter("Fabricante", "CurrentFabricantes", Model.Fabricantes, Model.CurrentFabricantes);
-                renderFilter("Sistema Operacional", "CurrentSOs", Model.SOs, Model.CurrentSOs);
-                renderFilter("Fab. do Processador", "CurrentProcessadorFabricantes", Model.ProcessadorFabricantes, Model.CurrentProcessadorFabricantes);
-                renderFilter("Tipo de RAM", "CurrentRamTipos", Model.RamTipos, Model.CurrentRamTipos);
-                renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
-            }
-        </div>
-    </div>
-    <div class="card-footer text-end">
-        <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
-        <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+<form asp-action="Index" method="get" class="mb-4">
+    <div class="input-group">
+        <input type="text" name="SearchString" class="form-control" placeholder="Procurar por Hostname, IP, Usuário ou MAC..." value="@ViewData["CurrentFilter"]" />
+        <button type="submit" class="btn btn-primary">Procurar</button>
+        <a asp-action="Index" class="btn btn-secondary">Limpar</a>
     </div>
 </form>
 
@@ -71,76 +25,52 @@
     <table class="table table-striped table-bordered">
         <thead>
             <tr>
-                <th class="col-ip">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["IpSortParm"]" asp-route-searchString="@Model.SearchString">IP</a>
+                <th>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["IpSortParm"]" asp-route-currentFilter="@ViewData["CurrentFilter"]">IP</a>
                 </th>
-                <th class="col-mac">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]" asp-route-searchString="@Model.SearchString">MAC</a>
+                <th>
+                    MAC
                 </th>
-                <th class="col-usuario">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Usuário</a>
+                <th>
+                    Usuário
                 </th>
-                <th class="col-hostname">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>
+                <th>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-currentFilter="@ViewData["CurrentFilter"]">Hostname</a>
                 </th>
-                <th class="col-fabricante">Fabricante</th>
-                <th class="col-processador">Processador</th>
-                <th class="col-processadorfabricante">Fab. Processador</th>
-                <th class="col-processadorcore">Cores</th>
-                <th class="col-processadorthread">Threads</th>
-                <th class="col-processadorclock">Clock</th>
-                <th class="col-ram">RAM</th>
-                <th class="col-ramtipo">Tipo RAM</th>
-                <th class="col-ramvelocidade">Vel. RAM</th>
-                <th class="col-ramvoltagem">Volt. RAM</th>
-                <th class="col-ramporomodule">RAM/Módulo</th>
-                <th class="col-armazenamentoc">Armaz. C</th>
-                <th class="col-armazenamentoctotal">Total C</th>
-                <th class="col-armazenamentoclivre">Livre C</th>
-                <th class="col-armazenamentod">Armaz. D</th>
-                <th class="col-armazenamentodtotal">Total D</th>
-                <th class="col-armazenamentodlivre">Livre D</th>
-                <th class="col-so">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["OsSortParm"]" asp-route-searchString="@Model.SearchString">Sistema Operacional</a>
+                <th>
+                    Fabricante
                 </th>
-                <th class="col-consumocpu">Consumo CPU</th>
-                <th class="col-datacoleta">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
+                <th>
+                    Processador
+                </th>
+                <th>
+                    SO
+                </th>
+                <th>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-currentFilter="@ViewData["CurrentFilter"]">Data da Coleta</a>
                 </th>
                 <th>Ações</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var item in Model.Computadores)
+            @foreach (var item in Model)
             {
                 <tr>
-                    <td class="col-ip">@Html.DisplayFor(modelItem => item.IP)</td>
-                    <td class="col-mac">@Html.DisplayFor(modelItem => item.MAC)</td>
-                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.Usuario)</td>
-                    <td class="col-hostname">@Html.DisplayFor(modelItem => item.Hostname)</td>
-                    <td class="col-fabricante">@Html.DisplayFor(modelItem => item.Fabricante)</td>
-                    <td class="col-processador">@Html.DisplayFor(modelItem => item.Processador)</td>
-                    <td class="col-processadorfabricante">@Html.DisplayFor(modelItem => item.ProcessadorFabricante)</td>
-                    <td class="col-processadorcore">@Html.DisplayFor(modelItem => item.ProcessadorCore)</td>
-                    <td class="col-processadorthread">@Html.DisplayFor(modelItem => item.ProcessadorThread)</td>
-                    <td class="col-processadorclock">@Html.DisplayFor(modelItem => item.ProcessadorClock)</td>
-                    <td class="col-ram">@Html.DisplayFor(modelItem => item.Ram)</td>
-                    <td class="col-ramtipo">@Html.DisplayFor(modelItem => item.RamTipo)</td>
-                    <td class="col-ramvelocidade">@Html.DisplayFor(modelItem => item.RamVelocidade)</td>
-                    <td class="col-ramvoltagem">@Html.DisplayFor(modelItem => item.RamVoltagem)</td>
-                    <td class="col-ramporomodule">@Html.DisplayFor(modelItem => item.RamPorModule)</td>
-                    <td class="col-armazenamentoc">@Html.DisplayFor(modelItem => item.ArmazenamentoC)</td>
-                    <td class="col-armazenamentoctotal">@Html.DisplayFor(modelItem => item.ArmazenamentoCTotal)</td>
-                    <td class="col-armazenamentoclivre">@Html.DisplayFor(modelItem => item.ArmazenamentoCLivre)</td>
-                    <td class="col-armazenamentod">@Html.DisplayFor(modelItem => item.ArmazenamentoD)</td>
-                    <td class="col-armazenamentodtotal">@Html.DisplayFor(modelItem => item.ArmazenamentoDTotal)</td>
-                    <td class="col-armazenamentodlivre">@Html.DisplayFor(modelItem => item.ArmazenamentoDLivre)</td>
-                    <td class="col-so">@Html.DisplayFor(modelItem => item.SO)</td>
-                    <td class="col-consumocpu">@Html.DisplayFor(modelItem => item.ConsumoCPU)</td>
-                    <td class="col-datacoleta">@Html.DisplayFor(modelItem => item.DataColeta)</td>
+                    <td>@Html.DisplayFor(modelItem => item.IP)</td>
+                    <td>@Html.DisplayFor(modelItem => item.MAC)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Usuario)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Hostname)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Fabricante)</td>
+                    <td>@Html.DisplayFor(modelItem => item.ProcessadorNome)</td>
+                    <td>@Html.DisplayFor(modelItem => item.SO)</td>
+                    <td>@Html.DisplayFor(modelItem => item.DataColeta)</td>
                     <td>
-                        <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
-                        <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-danger btn-sm">Excluir</a>
+                        <a asp-action="Details" asp-route-id="@item.MAC" class="btn btn-sm btn-outline-info">Detalhes</a>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-sm btn-outline-primary ms-1">Editar</a>
+                            <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-sm btn-outline-danger ms-1">Excluir</a>
+                        }
                     </td>
                 </tr>
             }
@@ -148,36 +78,22 @@
     </table>
 </div>
 
-<nav aria-label="Page navigation">
-    <ul class="pagination justify-content-center">
-        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
-            <a class="page-link" asp-action="Index"
-               asp-route-sortOrder="@Model.CurrentSort"
-               asp-route-searchString="@Model.SearchString"
-               asp-route-pageNumber="@(Model.PageNumber - 1)"
-               asp-route-pageSize="@Model.PageSize">Anterior</a>
-        </li>
-        @for (int i = 1; i <= Model.TotalPages; i++)
-        {
-            <li class="page-item @(i == Model.PageNumber ? "active" : "")">
-                <a class="page-link" asp-action="Index"
-                   asp-route-sortOrder="@Model.CurrentSort"
-                   asp-route-searchString="@Model.SearchString"
-                   asp-route-pageNumber="@i"
-                   asp-route-pageSize="@Model.PageSize">@i</a>
-            </li>
-        }
-        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
-            <a class="page-link" asp-action="Index"
-               asp-route-sortOrder="@Model.CurrentSort"
-               asp-route-searchString="@Model.SearchString"
-               asp-route-pageNumber="@(Model.PageNumber + 1)"
-               asp-route-pageSize="@Model.PageSize">Próxima</a>
-        </li>
-    </ul>
-</nav>
-
-
-@section Scripts {
-    <script src="~/js/computer-list.js" asp-append-version="true"></script>
+@{
+    var prevDisabled = !Model.HasPreviousPage ? "disabled" : "";
+    var nextDisabled = !Model.HasNextPage ? "disabled" : "";
 }
+
+<a asp-action="Index"
+   asp-route-sortOrder="@ViewData["CurrentSort"]"
+   asp-route-pageNumber="@(Model.PageIndex - 1)"
+   asp-route-currentFilter="@ViewData["CurrentFilter"]"
+   class="btn btn-default @prevDisabled">
+    Anterior
+</a>
+<a asp-action="Index"
+   asp-route-sortOrder="@ViewData["CurrentSort"]"
+   asp-route-pageNumber="@(Model.PageIndex + 1)"
+   asp-route-currentFilter="@ViewData["CurrentFilter"]"
+   class="btn btn-default @nextDisabled">
+    Próximo
+</a>
