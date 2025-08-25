@@ -70,6 +70,14 @@ namespace web.Models
 
         [StringLength(100)]
         [ValidateNever]
+        public string? Smartphone { get; set; }
+
+        [StringLength(100)]
+        [ValidateNever]
+        public string? TelefoneFixo { get; set; }
+
+        [StringLength(100)]
+        [ValidateNever]
         public string? Ramal { get; set; }
 
         [StringLength(100)]

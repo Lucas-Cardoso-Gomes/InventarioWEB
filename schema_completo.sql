@@ -39,6 +39,8 @@ CREATE TABLE Colaboradores (
     Adicional NVARCHAR(100),
     SenhaAdicional NVARCHAR(100),
     Setor NVARCHAR(100),
+    Smartphone NVARCHAR(100),
+    TelefoneFixo NVARCHAR(100),
     Ramal NVARCHAR(100),
     Alarme NVARCHAR(100),
     Videoporteiro NVARCHAR(100),
