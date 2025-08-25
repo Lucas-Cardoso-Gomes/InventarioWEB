@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : Controller
     {
         private readonly UserService _userService;

@@ -13,15 +13,15 @@ namespace web.Models
 
         [Display(Name = "Colaborador")]
         [ValidateNever]
-        public string ColaboradorNome { get; set; }
+        public string? ColaboradorNome { get; set; }
 
         [ForeignKey("ColaboradorNome")]
         [ValidateNever]
-        public virtual Colaborador Colaborador { get; set; }
+        public virtual Colaborador? Colaborador { get; set; }
 
         [StringLength(50)]
         [ValidateNever]
-        public string Marca { get; set; }
+        public string? Marca { get; set; }
 
         [StringLength(50)]
         [Required(ErrorMessage = "O Modelo é obrigatório.")]

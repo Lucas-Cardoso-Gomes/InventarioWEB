@@ -18,70 +18,70 @@ namespace web.Models
         [EmailAddress(ErrorMessage = "E-mail inválido.")]
         [StringLength(100)]
         [ValidateNever]
-        public string Email { get; set; }
+        public string? Email { get; set; }
         
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaEmail { get; set; }
+        public string? SenhaEmail { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Teams { get; set; }
+        public string? Teams { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaTeams { get; set; }
+        public string? SenhaTeams { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string EDespacho { get; set; }
+        public string? EDespacho { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaEDespacho { get; set; }
+        public string? SenhaEDespacho { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Genius { get; set; }
+        public string? Genius { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaGenius { get; set; }
+        public string? SenhaGenius { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Ibrooker { get; set; }
+        public string? Ibrooker { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaIbrooker { get; set; }
+        public string? SenhaIbrooker { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Adicional { get; set; }
+        public string? Adicional { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string SenhaAdicional { get; set; }
+        public string? SenhaAdicional { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Setor { get; set; }
+        public string? Setor { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Ramal { get; set; }
+        public string? Ramal { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Alarme { get; set; }
+        public string? Alarme { get; set; }
 
         [StringLength(100)]
         [ValidateNever]
-        public string Videoporteiro { get; set; }
+        public string? Videoporteiro { get; set; }
         
         [ValidateNever]
-        public string Obs { get; set; }
+        public string? Obs { get; set; }
 
         [ValidateNever]
         public DateTime? DataInclusao { get; set; }
