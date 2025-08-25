@@ -18,10 +18,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 });
 
+using Web.Services;
+
 builder.Services.AddScoped<ColetaService>();
 builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ComandoService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<PersistentLogService>();
 
 // Configuração do Kestrel para escutar em todas as interfaces de rede
 builder.WebHost.ConfigureKestrel(serverOptions =>
