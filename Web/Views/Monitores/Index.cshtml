@@ -59,11 +59,11 @@
     <table class="table table-striped table-bordered">
         <thead>
             <tr>
-                <th>PartNumber</th>
-                <th>Colaborador</th>
-                <th>Marca</th>
-                <th>Modelo</th>
-                <th>Tamanho</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().PartNumber)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().ColaboradorNome)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Marca)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Modelo)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Tamanho)</th>
                 <th>Ações</th>
             </tr>
         </thead>

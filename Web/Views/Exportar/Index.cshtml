@@ -9,83 +9,114 @@
 <hr />
 
 <form asp-action="Export" method="post">
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
-            Selecione o Tipo de Dispositivo para Exportar
+            Modo de Exportação
         </div>
         <div class="card-body">
             <div class="form-group col-md-4">
-                <label asp-for="DeviceType" class="control-label"></label>
-                <select asp-for="DeviceType" asp-items="Html.GetEnumSelectList<DeviceType>()" class="form-control" id="deviceTypeSelect"></select>
+                <label asp-for="ExportMode" class="control-label"></label>
+                <select asp-for="ExportMode" asp-items="Html.GetEnumSelectList<ExportMode>()" class="form-control" id="exportModeSelect"></select>
             </div>
         </div>
     </div>
 
-    @{
-        Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
-        {
-            <div class="col-md-3">
-                <label class="form-label">@title</label>
-                <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
-                    @if (items != null)
-                    {
-                        @foreach (var item in items)
+    <!-- Export by Device Section -->
+    <div id="exportByDeviceSection" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                Selecione o Tipo de Dispositivo para Exportar
+            </div>
+            <div class="card-body">
+                <div class="form-group col-md-4">
+                    <label asp-for="DeviceType" class="control-label"></label>
+                    <select asp-for="DeviceType" asp-items="Html.GetEnumSelectList<DeviceType>()" class="form-control" id="deviceTypeSelect"></select>
+                </div>
+            </div>
+        </div>
+
+        @{
+            Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
+            {
+                <div class="col-md-3">
+                    <label class="form-label">@title</label>
+                    <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
+                        @if (items != null)
                         {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
-                                <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
-                                    @item
-                                </label>
-                            </div>
+                            @foreach (var item in items)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
+                                    <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
+                                        @item
+                                    </label>
+                                </div>
+                            }
                         }
+                    </div>
+                </div>
+            };
+        }
+
+        <!-- Filtros para Computadores -->
+        <div id="computadoresFilters" class="card mt-4 filter-section" style="display: none;">
+            <div class="card-header">Filtros de Computadores</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    @{
+                        renderFilter("Fabricante", "CurrentFabricantes", Model.Fabricantes, Model.CurrentFabricantes);
+                        renderFilter("Sistema Operacional", "CurrentSOs", Model.SOs, Model.CurrentSOs);
+                        renderFilter("Fab. do Processador", "CurrentProcessadorFabricantes", Model.ProcessadorFabricantes, Model.CurrentProcessadorFabricantes);
+                        renderFilter("Tipo de RAM", "CurrentRamTipos", Model.RamTipos, Model.CurrentRamTipos);
+                        renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
+                        renderFilter("RAM", "CurrentRams", Model.Rams, Model.CurrentRams);
                     }
                 </div>
             </div>
-        };
-    }
+        </div>
 
-    <!-- Filtros para Computadores -->
-    <div id="computadoresFilters" class="card mt-4 filter-section" style="display: none;">
-        <div class="card-header">Filtros de Computadores</div>
-        <div class="card-body">
-            <div class="row g-3">
-                @{
-                    renderFilter("Fabricante", "CurrentFabricantes", Model.Fabricantes, Model.CurrentFabricantes);
-                    renderFilter("Sistema Operacional", "CurrentSOs", Model.SOs, Model.CurrentSOs);
-                    renderFilter("Fab. do Processador", "CurrentProcessadorFabricantes", Model.ProcessadorFabricantes, Model.CurrentProcessadorFabricantes);
-                    renderFilter("Tipo de RAM", "CurrentRamTipos", Model.RamTipos, Model.CurrentRamTipos);
-                    renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
-                    renderFilter("RAM", "CurrentRams", Model.Rams, Model.CurrentRams);
-                }
+        <!-- Filtros para Monitores -->
+        <div id="monitoresFilters" class="card mt-4 filter-section" style="display: none;">
+            <div class="card-header">Filtros de Monitores</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    @{
+                        renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
+                        renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
+                        renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros para Periféricos -->
+        <div id="perifericosFilters" class="card mt-4 filter-section" style="display: none;">
+            <div class="card-header">Filtros de Periféricos</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    @{
+                        renderFilter("Tipo", "CurrentTiposPeriferico", Model.TiposPeriferico, Model.CurrentTiposPeriferico);
+                    }
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros para Monitores -->
-    <div id="monitoresFilters" class="card mt-4 filter-section" style="display: none;">
-        <div class="card-header">Filtros de Monitores</div>
-        <div class="card-body">
-            <div class="row g-3">
-                @{
-                    renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
-                    renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
-                    renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
-                }
+    <!-- Export by Collaborator Section -->
+    <div id="exportByColaboradorSection" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                Selecione o Colaborador
+            </div>
+            <div class="card-body">
+                <div class="form-group col-md-4">
+                    <label asp-for="ColaboradorNome" class="control-label"></label>
+                    <select asp-for="ColaboradorNome" asp-items="(new SelectList(Model.Colaboradores))" class="form-control"></select>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Filtros para Periféricos -->
-    <div id="perifericosFilters" class="card mt-4 filter-section" style="display: none;">
-        <div class="card-header">Filtros de Periféricos</div>
-        <div class="card-body">
-            <div class="row g-3">
-                @{
-                    renderFilter("Tipo", "CurrentTiposPeriferico", Model.TiposPeriferico, Model.CurrentTiposPeriferico);
-                }
-            </div>
-        </div>
-    </div>
 
     <div class="form-group mt-4">
         <button type="submit" class="btn btn-primary">Exportar</button>
@@ -95,23 +126,40 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            function toggleFilterSections() {
-                var selectedValue = $('#deviceTypeSelect').val();
+            function toggleExportModeSections() {
+                var selectedMode = $('#exportModeSelect').val();
+                if (selectedMode === '@((int)ExportMode.PorDispositivo)') {
+                    $('#exportByDeviceSection').show();
+                    $('#exportByColaboradorSection').hide();
+                    toggleDeviceFilterSections();
+                } else {
+                    $('#exportByDeviceSection').hide();
+                    $('#exportByColaboradorSection').show();
+                    $('.filter-section').hide();
+                }
+            }
+
+            function toggleDeviceFilterSections() {
+                var selectedDevice = $('#deviceTypeSelect').val();
                 $('.filter-section').hide();
 
-                if (selectedValue === '@((int)DeviceType.Computadores)') {
+                if (selectedDevice === '@((int)DeviceType.Computadores)') {
                     $('#computadoresFilters').show();
-                } else if (selectedValue === '@((int)DeviceType.Monitores)') {
+                } else if (selectedDevice === '@((int)DeviceType.Monitores)') {
                     $('#monitoresFilters').show();
-                } else if (selectedValue === '@((int)DeviceType.Perifericos)') {
+                } else if (selectedDevice === '@((int)DeviceType.Perifericos)') {
                     $('#perifericosFilters').show();
                 }
             }
 
-            toggleFilterSections();
+            toggleExportModeSections();
+
+            $('#exportModeSelect').change(function () {
+                toggleExportModeSections();
+            });
 
             $('#deviceTypeSelect').change(function () {
-                toggleFilterSections();
+                toggleDeviceFilterSections();
             });
         });
     </script>

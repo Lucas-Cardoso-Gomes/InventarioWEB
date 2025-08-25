@@ -3,6 +3,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace web.Models
 {
+    public enum ExportMode
+    {
+        [Display(Name = "Por Dispositivo")]
+        PorDispositivo,
+        [Display(Name = "Por Colaborador")]
+        PorColaborador
+    }
+
     public enum DeviceType
     {
         [Display(Name = "Computadores")]
@@ -15,8 +23,16 @@ namespace web.Models
 
     public class ExportarViewModel
     {
+        [Display(Name = "Modo de Exportação")]
+        public ExportMode ExportMode { get; set; }
+
         [Display(Name = "Tipo de Dispositivo")]
         public DeviceType DeviceType { get; set; }
+
+        [Display(Name = "Colaborador")]
+        public string ColaboradorNome { get; set; }
+        public List<string> Colaboradores { get; set; } = new List<string>();
+
 
         // --- Filters for Computadores ---
         public List<string> Fabricantes { get; set; }
