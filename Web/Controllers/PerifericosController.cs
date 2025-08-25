@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Web.Services;
 
 namespace Web.Controllers
 {
@@ -15,11 +16,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<PerifericosController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger)
+        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Perifericos
@@ -98,6 +101,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Periferico", "Create", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -146,6 +150,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Periferico", "Update", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -175,15 +180,20 @@ namespace Web.Controllers
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                var periferico = FindPerifericoById(id);
+                if (periferico != null)
                 {
-                    connection.Open();
-                    string sql = "DELETE FROM Perifericos WHERE ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
-                        cmd.Parameters.AddWithValue("@ID", id);
-                        cmd.ExecuteNonQuery();
+                        connection.Open();
+                        string sql = "DELETE FROM Perifericos WHERE ID = @ID";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@ID", id);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    _persistentLogService.AddLog("Periferico", "Delete", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
             }

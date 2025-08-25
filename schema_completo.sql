@@ -95,12 +95,3 @@ CREATE TABLE Perifericos (
     DataEntrega DATETIME,
     PartNumber NVARCHAR(50)
 );
-
-CREATE TABLE PersistentLogs (
-    Id INT PRIMARY KEY IDENTITY,
-    Timestamp DATETIME NOT NULL,
-    EntityType NVARCHAR(50) NOT NULL,
-    ActionType NVARCHAR(50) NOT NULL,
-    PerformedBy NVARCHAR(255) NOT NULL,
-    Details NVARCHAR(MAX)
-);

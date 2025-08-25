@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Web.Services;
 using Monitor = web.Models.Monitor;
 
 namespace Web.Controllers
@@ -16,11 +17,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<MonitoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger)
+        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
@@ -148,6 +151,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Monitor", "Create", User.Identity.Name, $"Monitor '{monitor.PartNumber}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -197,6 +201,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Monitor", "Update", User.Identity.Name, $"Monitor '{monitor.PartNumber}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -237,6 +242,7 @@ namespace Web.Controllers
                         cmd.ExecuteNonQuery();
                     }
                 }
+                _persistentLogService.AddLog("Monitor", "Delete", User.Identity.Name, $"Monitor '{id}' deleted.");
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)

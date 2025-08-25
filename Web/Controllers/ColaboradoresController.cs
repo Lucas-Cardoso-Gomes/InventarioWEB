@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
+using Web.Services;
 
 namespace Web.Controllers
 {
@@ -14,11 +15,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ColaboradoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger)
+        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Colaboradores
@@ -135,6 +138,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Colaborador", "Create", User.Identity.Name, $"Collaborator '{colaborador.Nome}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -205,6 +209,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    _persistentLogService.AddLog("Colaborador", "Update", User.Identity.Name, $"Collaborator '{colaborador.Nome}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -234,16 +239,21 @@ namespace Web.Controllers
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                var colaborador = FindColaboradorById(id);
+                if (colaborador != null)
                 {
-                    connection.Open();
-                    // You might want to check for foreign key dependencies before deleting
-                    string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
-                        cmd.Parameters.AddWithValue("@CPF", id);
-                        cmd.ExecuteNonQuery();
+                        connection.Open();
+                        // You might want to check for foreign key dependencies before deleting
+                        string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@CPF", id);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    _persistentLogService.AddLog("Colaborador", "Delete", User.Identity.Name, $"Collaborator '{colaborador.Nome}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
             }
