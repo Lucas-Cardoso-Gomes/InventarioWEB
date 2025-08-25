@@ -24,7 +24,7 @@ namespace Web.Controllers
         }
 
         public IActionResult Index(string sortOrder, string searchString,
-            List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores,
+            List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores, List<string> currentRams,
             int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
@@ -47,7 +47,8 @@ namespace Web.Controllers
                 CurrentSOs = currentSOs,
                 CurrentProcessadorFabricantes = currentProcessadorFabricantes,
                 CurrentRamTipos = currentRamTipos,
-                CurrentProcessadores = currentProcessadores
+                CurrentProcessadores = currentProcessadores,
+                CurrentRams = currentRams
             };
 
             try
@@ -61,6 +62,7 @@ namespace Web.Controllers
                     viewModel.ProcessadorFabricantes = GetDistinctComputerValues(connection, "ProcessadorFabricante");
                     viewModel.RamTipos = GetDistinctComputerValues(connection, "RamTipo");
                     viewModel.Processadores = GetDistinctComputerValues(connection, "Processador");
+                    viewModel.Rams = GetDistinctComputerValues(connection, "Ram");
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
@@ -92,6 +94,7 @@ namespace Web.Controllers
                     addInClause("ProcessadorFabricante", currentProcessadorFabricantes);
                     addInClause("RamTipo", currentRamTipos);
                     addInClause("Processador", currentProcessadores);
+                    addInClause("Ram", currentRams);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 

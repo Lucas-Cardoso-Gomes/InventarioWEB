@@ -15,6 +15,7 @@ namespace web.Models
         public List<string> ProcessadorFabricantes { get; set; }
         public List<string> RamTipos { get; set; }
         public List<string> Processadores { get; set; }
+        public List<string> Rams { get; set; }
 
         // Current filter selections
         public List<string> CurrentFabricantes { get; set; } = new List<string>();
@@ -22,6 +23,7 @@ namespace web.Models
         public List<string> CurrentProcessadorFabricantes { get; set; } = new List<string>();
         public List<string> CurrentRamTipos { get; set; } = new List<string>();
         public List<string> CurrentProcessadores { get; set; } = new List<string>();
+        public List<string> CurrentRams { get; set; } = new List<string>();
 
         public int PageNumber { get; set; }
         public int PageSize { get; set; }

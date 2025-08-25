@@ -23,32 +23,64 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        // GET: Monitores
-        public IActionResult Index(string searchString)
+        public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
         {
-            ViewData["CurrentFilter"] = searchString;
-            var monitores = new List<Monitor>();
+            var viewModel = new MonitorIndexViewModel
+            {
+                CurrentMarcas = currentMarcas,
+                CurrentTamanhos = currentTamanhos,
+                CurrentModelos = currentModelos,
+                Monitores = new List<Monitor>()
+            };
+
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT * FROM Monitores";
-                     if (!string.IsNullOrEmpty(searchString))
+
+                    viewModel.Marcas = GetDistinctMonitorValues(connection, "Marca");
+                    viewModel.Tamanhos = GetDistinctMonitorValues(connection, "Tamanho");
+                    viewModel.Modelos = GetDistinctMonitorValues(connection, "Modelo");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+
+                    Action<string, List<string>> addInClause = (columnName, values) =>
                     {
-                        sql += " WHERE PartNumber LIKE @search OR ColaboradorNome LIKE @search OR Marca LIKE @search OR Modelo LIKE @search";
-                    }
+                        if (values != null && values.Any())
+                        {
+                            var paramNames = new List<string>();
+                            for (int i = 0; i < values.Count; i++)
+                            {
+                                var paramName = $"@{columnName.ToLower()}{i}";
+                                paramNames.Add(paramName);
+                                parameters.Add(paramName, values[i]);
+                            }
+                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                        }
+                    };
+
+                    addInClause("Marca", currentMarcas);
+                    addInClause("Tamanho", currentTamanhos);
+                    addInClause("Modelo", currentModelos);
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    string sql = $"SELECT * FROM Monitores {whereSql}";
+
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
-                        if (!string.IsNullOrEmpty(searchString))
+                        foreach (var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
                         }
+
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                monitores.Add(new Monitor
+                                viewModel.Monitores.Add(new Monitor
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
                                     ColaboradorNome = reader["ColaboradorNome"].ToString(),
@@ -65,7 +97,23 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao obter a lista de monitores.");
             }
-            return View(monitores);
+            return View(viewModel);
+        }
+
+        private List<string> GetDistinctMonitorValues(SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Monitores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
         }
 
         // GET: Monitores/Create

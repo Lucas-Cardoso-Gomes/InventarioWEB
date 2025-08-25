@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Normal")]
+    [Authorize(Roles = "Admin,Coordenador")]
     public class ExportarController : Controller
     {
         private readonly string _connectionString;
