@@ -1,0 +1,58 @@
+@model web.Models.ExportarViewModel
+@using web.Models
+
+@{
+    ViewData["Title"] = "Exportar Dados";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Export" method="post">
+            <div class="form-group">
+                <label asp-for="ExportType" class="control-label"></label>
+                <select asp-for="ExportType" asp-items="Html.GetEnumSelectList<ExportType>()" class="form-control" id="exportTypeSelect"></select>
+            </div>
+
+            <div class="form-group" id="colaboradorFilter">
+                <label for="ColaboradorNome" class="control-label">Colaborador</label>
+                <select name="FilterValue" asp-items="(new SelectList(Model.Colaboradores))" class="form-control"></select>
+            </div>
+
+            <div class="form-group" id="textFilter" style="display: none;">
+                <label asp-for="FilterValue" class="control-label"></label>
+                <input asp-for="FilterValue" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Exportar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            function toggleFilter() {
+                var selectedValue = $('#exportTypeSelect').val();
+                if (selectedValue === '@((int)ExportType.EquipamentosPorColaborador)') {
+                    $('#colaboradorFilter').show();
+                    $('#textFilter').hide();
+                } else {
+                    $('#colaboradorFilter').hide();
+                    $('#textFilter').show();
+                }
+            }
+
+            toggleFilter();
+
+            $('#exportTypeSelect').change(function () {
+                toggleFilter();
+            });
+        });
+    </script>
+}
