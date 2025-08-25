@@ -10,10 +10,12 @@ namespace Web.Controllers
     public class UsersController : Controller
     {
         private readonly UserService _userService;
+        private readonly PersistentLogService _persistentLogService;
 
-        public UsersController(UserService userService)
+        public UsersController(UserService userService, PersistentLogService persistentLogService)
         {
             _userService = userService;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Users
@@ -62,6 +64,8 @@ namespace Web.Controllers
                 };
 
                 await _userService.CreateAsync(user);
+
+                _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
                 
                 // Optionally, you can add a success message.
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
@@ -122,6 +126,8 @@ namespace Web.Controllers
                 }
 
                 await _userService.UpdateAsync(user);
+
+                _persistentLogService.AddLog("User", "Update", User.Identity.Name, $"User '{user.Login}' updated.");
                 
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
@@ -147,8 +153,17 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            await _userService.DeleteAsync(id);
-            TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
+            var user = await _userService.FindByIdAsync(id);
+            if (user != null)
+            {
+                await _userService.DeleteAsync(id);
+                _persistentLogService.AddLog("User", "Delete", User.Identity.Name, $"User '{user.Login}' deleted.");
+                TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Usuário não encontrado.";
+            }
             return RedirectToAction(nameof(Index));
         }
     }
