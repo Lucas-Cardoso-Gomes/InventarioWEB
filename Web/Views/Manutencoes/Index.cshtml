@@ -1,0 +1,85 @@
+@model IEnumerable<web.Models.Manutencao>
+
+@{
+    ViewData["Title"] = "Manutenções";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Adicionar Nova Manutenção</a>
+</p>
+
+<table class="table table-striped table-bordered">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.ComputadorMAC)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.DataManutencaoHardware)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.DataManutencaoSoftware)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ManutencaoExterna)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Data)
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ComputadorMAC)
+                </td>
+                <td class="@GetDateClass(item.DataManutencaoHardware)">
+                    @Html.DisplayFor(modelItem => item.DataManutencaoHardware)
+                </td>
+                <td class="@GetDateClass(item.DataManutencaoSoftware)">
+                    @Html.DisplayFor(modelItem => item.DataManutencaoSoftware)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ManutencaoExterna)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Data)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@functions {
+    public string GetDateClass(DateTime? date)
+    {
+        if (!date.HasValue)
+        {
+            return "";
+        }
+
+        var today = DateTime.Today;
+        var months = (today.Year - date.Value.Year) * 12 + today.Month - date.Value.Month;
+        if (today.Day < date.Value.Day)
+        {
+            months--;
+        }
+
+        if (months >= 12)
+        {
+            return "table-danger"; // red
+        }
+        else if (months >= 6)
+        {
+            return "table-warning"; // yellow
+        }
+        else
+        {
+            return ""; // normal
+        }
+    }
+}

@@ -25,6 +25,7 @@ builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ComandoService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PersistentLogService>();
+builder.Services.AddScoped<ManutencaoService>();
 
 // Configuração do Kestrel para escutar em todas as interfaces de rede
 builder.WebHost.ConfigureKestrel(serverOptions =>

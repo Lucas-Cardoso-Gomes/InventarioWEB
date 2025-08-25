@@ -95,3 +95,13 @@ CREATE TABLE Perifericos (
     DataEntrega DATETIME,
     PartNumber NVARCHAR(50)
 );
+
+-- Tabela para Manutenções
+CREATE TABLE Manutencoes (
+    Id INT PRIMARY KEY IDENTITY,
+    ComputadorMAC NVARCHAR(17) FOREIGN KEY REFERENCES Computadores(MAC),
+    DataManutencaoHardware DATETIME,
+    DataManutencaoSoftware DATETIME,
+    ManutencaoExterna NVARCHAR(MAX),
+    Data DATETIME NOT NULL
+);
