@@ -9,7 +9,7 @@ using web.Models;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador")]
+    [Authorize(Roles = "Admin")]
     public class ColaboradoresController : Controller
     {
         private readonly string _connectionString;
