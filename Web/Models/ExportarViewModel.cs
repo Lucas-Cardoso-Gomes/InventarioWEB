@@ -3,24 +3,47 @@ using System.ComponentModel.DataAnnotations;
 
 namespace web.Models
 {
-    public enum ExportType
+    public enum DeviceType
     {
-        [Display(Name = "Equipamentos por Colaborador")]
-        EquipamentosPorColaborador,
-        [Display(Name = "Computadores por Processador")]
-        ComputadoresPorProcessador,
-        [Display(Name = "Computadores por Tamanho do Monitor")]
-        ComputadoresPorTamanhoMonitor
+        [Display(Name = "Computadores")]
+        Computadores,
+        [Display(Name = "Monitores")]
+        Monitores,
+        [Display(Name = "Periféricos")]
+        Perifericos
     }
 
     public class ExportarViewModel
     {
-        [Display(Name = "Tipo de Exportação")]
-        public ExportType ExportType { get; set; }
+        [Display(Name = "Tipo de Dispositivo")]
+        public DeviceType DeviceType { get; set; }
 
-        [Display(Name = "Filtro")]
-        public string FilterValue { get; set; }
+        // --- Filters for Computadores ---
+        public List<string> Fabricantes { get; set; }
+        public List<string> SOs { get; set; }
+        public List<string> ProcessadorFabricantes { get; set; }
+        public List<string> RamTipos { get; set; }
+        public List<string> Processadores { get; set; }
+        public List<string> Rams { get; set; }
 
-        public List<string> Colaboradores { get; set; } = new List<string>();
+        public List<string> CurrentFabricantes { get; set; } = new List<string>();
+        public List<string> CurrentSOs { get; set; } = new List<string>();
+        public List<string> CurrentProcessadorFabricantes { get; set; } = new List<string>();
+        public List<string> CurrentRamTipos { get; set; } = new List<string>();
+        public List<string> CurrentProcessadores { get; set; } = new List<string>();
+        public List<string> CurrentRams { get; set; } = new List<string>();
+
+        // --- Filters for Monitores ---
+        public List<string> Marcas { get; set; }
+        public List<string> Tamanhos { get; set; }
+        public List<string> Modelos { get; set; }
+
+        public List<string> CurrentMarcas { get; set; } = new List<string>();
+        public List<string> CurrentTamanhos { get; set; } = new List<string>();
+        public List<string> CurrentModelos { get; set; } = new List<string>();
+
+        // --- Filters for Perifericos ---
+        public List<string> TiposPeriferico { get; set; }
+        public List<string> CurrentTiposPeriferico { get; set; } = new List<string>();
     }
 }

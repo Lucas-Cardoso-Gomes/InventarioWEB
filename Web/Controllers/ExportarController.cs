@@ -25,140 +25,129 @@ namespace Web.Controllers
 
         public IActionResult Index()
         {
-            var viewModel = new ExportarViewModel
-            {
-                Colaboradores = GetColaboradores().Select(c => c.Nome).ToList()
-            };
-            return View(viewModel);
-        }
-
-        private List<Colaborador> GetColaboradores()
-        {
-            var colaboradores = new List<Colaborador>();
+            var viewModel = new ExportarViewModel();
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (var cmd = new SqlCommand(sql, connection))
+                // Computer filters
+                viewModel.Fabricantes = GetDistinctValues(connection, "Computadores", "Fabricante");
+                viewModel.SOs = GetDistinctValues(connection, "Computadores", "SO");
+                viewModel.ProcessadorFabricantes = GetDistinctValues(connection, "Computadores", "ProcessadorFabricante");
+                viewModel.RamTipos = GetDistinctValues(connection, "Computadores", "RamTipo");
+                viewModel.Processadores = GetDistinctValues(connection, "Computadores", "Processador");
+                viewModel.Rams = GetDistinctValues(connection, "Computadores", "Ram");
+
+                // Monitor filters
+                viewModel.Marcas = GetDistinctValues(connection, "Monitores", "Marca");
+                viewModel.Tamanhos = GetDistinctValues(connection, "Monitores", "Tamanho");
+                viewModel.Modelos = GetDistinctValues(connection, "Monitores", "Modelo");
+
+                // Periferico filters
+                viewModel.TiposPeriferico = GetDistinctValues(connection, "Perifericos", "Tipo");
+            }
+            return View(viewModel);
+        }
+
+        private List<string> GetDistinctValues(SqlConnection connection, string tableName, string columnName)
+        {
+            var values = new List<string>();
+            var sql = $"SELECT DISTINCT {columnName} FROM {tableName} WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            using (var command = new SqlCommand(sql, connection))
+            {
+                using (var reader = command.ExecuteReader())
                 {
-                    using (var reader = cmd.ExecuteReader())
+                    while (reader.Read())
                     {
-                        while (reader.Read())
-                        {
-                            colaboradores.Add(new Colaborador
-                            {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
-                            });
-                        }
+                        values.Add(reader[0].ToString());
                     }
                 }
             }
-            return colaboradores;
+            return values;
         }
 
         [HttpPost]
         public IActionResult Export(ExportarViewModel viewModel)
         {
             var csvBuilder = new StringBuilder();
-            string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            string fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            string sql = "";
 
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
+                var whereClauses = new List<string>();
+                var parameters = new Dictionary<string, object>();
 
-                switch (viewModel.ExportType)
+                Action<string, List<string>> addInClause = (columnName, values) =>
                 {
-                    case ExportType.EquipamentosPorColaborador:
-                        fileName = $"equipamentos_{viewModel.FilterValue}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-                        // Computadores
-                        csvBuilder.AppendLine("Computadores");
-                        csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
-                        string sqlComputadores = "SELECT MAC, IP, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores WHERE ColaboradorNome = @colaborador";
-                        using (var cmd = new SqlCommand(sqlComputadores, connection))
+                    if (values != null && values.Any())
+                    {
+                        var paramNames = new List<string>();
+                        for (int i = 0; i < values.Count; i++)
                         {
-                            cmd.Parameters.AddWithValue("@colaborador", viewModel.FilterValue);
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]}");
-                                }
-                            }
+                            var paramName = $"@{columnName.ToLower().Replace(" ", "")}{i}";
+                            paramNames.Add(paramName);
+                            parameters.Add(paramName, values[i]);
                         }
+                        whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                    }
+                };
 
-                        // Monitores
-                        csvBuilder.AppendLine();
-                        csvBuilder.AppendLine("Monitores");
-                        csvBuilder.AppendLine("PartNumber,Marca,Modelo,Tamanho");
-                        string sqlMonitores = "SELECT PartNumber, Marca, Modelo, Tamanho FROM Monitores WHERE ColaboradorNome = @colaborador";
-                        using (var cmd = new SqlCommand(sqlMonitores, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@colaborador", viewModel.FilterValue);
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["Marca"]},{reader["Modelo"]},{reader["Tamanho"]}");
-                                }
-                            }
-                        }
+                switch (viewModel.DeviceType)
+                {
+                    case DeviceType.Computadores:
+                        addInClause("Fabricante", viewModel.CurrentFabricantes);
+                        addInClause("SO", viewModel.CurrentSOs);
+                        addInClause("ProcessadorFabricante", viewModel.CurrentProcessadorFabricantes);
+                        addInClause("RamTipo", viewModel.CurrentRamTipos);
+                        addInClause("Processador", viewModel.CurrentProcessadores);
+                        addInClause("Ram", viewModel.CurrentRams);
 
-                        // Perifericos
-                        csvBuilder.AppendLine();
-                        csvBuilder.AppendLine("Perifericos");
-                        csvBuilder.AppendLine("Tipo,PartNumber,DataEntrega");
-                        string sqlPerifericos = "SELECT Tipo, PartNumber, DataEntrega FROM Perifericos WHERE ColaboradorNome = @colaborador";
-                        using (var cmd = new SqlCommand(sqlPerifericos, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@colaborador", viewModel.FilterValue);
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    csvBuilder.AppendLine($"{reader["Tipo"]},{reader["PartNumber"]},{reader["DataEntrega"]}");
-                                }
-                            }
-                        }
+                        csvBuilder.AppendLine("MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta");
+                        sql = "SELECT * FROM Computadores";
                         break;
 
-                    case ExportType.ComputadoresPorProcessador:
-                        fileName = $"computadores_processador_{viewModel.FilterValue}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-                        csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
-                        string sqlProcessador = "SELECT MAC, IP, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores WHERE Processador LIKE @processador";
-                        using (var cmd = new SqlCommand(sqlProcessador, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@processador", $"%{viewModel.FilterValue}%");
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]}");
-                                }
-                            }
-                        }
+                    case DeviceType.Monitores:
+                        addInClause("Marca", viewModel.CurrentMarcas);
+                        addInClause("Tamanho", viewModel.CurrentTamanhos);
+                        addInClause("Modelo", viewModel.CurrentModelos);
+
+                        csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
+                        sql = "SELECT * FROM Monitores";
                         break;
 
-                    case ExportType.ComputadoresPorTamanhoMonitor:
-                        fileName = $"computadores_monitor_{viewModel.FilterValue}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-                        csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta,TamanhoMonitor");
-                        string sqlMonitor = @"
-                            SELECT c.MAC, c.IP, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta, m.Tamanho
-                            FROM Computadores c
-                            JOIN Monitores m ON c.ColaboradorNome = m.ColaboradorNome
-                            WHERE m.Tamanho = @tamanho";
-                        using (var cmd = new SqlCommand(sqlMonitor, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@tamanho", viewModel.FilterValue);
-                            using (var reader = cmd.ExecuteReader())
-                            {
-                                while (reader.Read())
-                                {
-                                    csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]},{reader["Tamanho"]}");
-                                }
-                            }
-                        }
+                    case DeviceType.Perifericos:
+                        addInClause("Tipo", viewModel.CurrentTiposPeriferico);
+
+                        csvBuilder.AppendLine("ID,ColaboradorNome,Tipo,DataEntrega,PartNumber");
+                        sql = "SELECT * FROM Perifericos";
                         break;
+                }
+
+                if (whereClauses.Any())
+                {
+                    sql += " WHERE " + string.Join(" AND ", whereClauses);
+                }
+
+                using (var cmd = new SqlCommand(sql, connection))
+                {
+                    foreach (var p in parameters)
+                    {
+                        cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    }
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var line = new List<string>();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                line.Add(reader[i].ToString());
+                            }
+                            csvBuilder.AppendLine(string.Join(",", line));
+                        }
+                    }
                 }
             }
 
