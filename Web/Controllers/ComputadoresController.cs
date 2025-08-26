@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
-using web.Models;
+using Web.Models;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
@@ -20,7 +20,7 @@ namespace Web.Controllers
         private readonly ILogger<ComputadoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
 
-        public ComputadoresController(ComputadorService computadorService, UserService userService, IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
+        public ComputadoresController(ComputadorService computadorService, UserService userService, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
         {
             _computadorService = computadorService;
             _userService = userService;
