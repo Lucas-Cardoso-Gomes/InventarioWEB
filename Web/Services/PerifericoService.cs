@@ -183,5 +183,25 @@ namespace Web.Services
                 }
             }
         }
+
+        public async Task<List<string>> GetDistinctPerifericoValuesAsync(string columnName)
+        {
+            var values = new List<string>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Perifericos WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+                {
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            values.Add(reader.GetString(0));
+                        }
+                    }
+                }
+            }
+            return values;
+        }
     }
 }

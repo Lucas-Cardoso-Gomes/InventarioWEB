@@ -19,9 +19,9 @@ namespace Web.Services
             _userService = userService;
         }
 
-        public async Task<(List<Monitor> Monitores, int TotalCount)> GetMonitoresAsync(ClaimsPrincipal user, string searchString, List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos, int pageNumber = 1, int pageSize = 25)
+        public async Task<(List<Web.Models.Monitor> Monitores, int TotalCount)> GetMonitoresAsync(ClaimsPrincipal user, string searchString, List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos, int pageNumber = 1, int pageSize = 25)
         {
-            var monitores = new List<Monitor>();
+            var monitores = new List<Web.Models.Monitor>();
             int totalCount = 0;
 
             using (var connection = new SqlConnection(_connectionString))
@@ -101,7 +101,7 @@ namespace Web.Services
                     {
                         while (await reader.ReadAsync())
                         {
-                            var monitor = new Monitor
+                            var monitor = new Web.Models.Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
                                 Marca = reader["Marca"].ToString(),
@@ -121,7 +121,7 @@ namespace Web.Services
             return (monitores, totalCount);
         }
 
-        public async Task CreateMonitorAsync(Monitor monitor)
+        public async Task CreateMonitorAsync(Web.Models.Monitor monitor)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -139,9 +139,9 @@ namespace Web.Services
             }
         }
 
-        public async Task<Monitor> FindMonitorByIdAsync(string id)
+        public async Task<Web.Models.Monitor> FindMonitorByIdAsync(string id)
         {
-            Monitor monitor = null;
+            Web.Models.Monitor monitor = null;
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
@@ -153,7 +153,7 @@ namespace Web.Services
                     {
                         if (await reader.ReadAsync())
                         {
-                            monitor = new Monitor
+                            monitor = new Web.Models.Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
                                 Marca = reader["Marca"].ToString(),
@@ -172,7 +172,7 @@ namespace Web.Services
             return monitor;
         }
 
-        public async Task UpdateMonitorAsync(Monitor monitor)
+        public async Task UpdateMonitorAsync(Web.Models.Monitor monitor)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
