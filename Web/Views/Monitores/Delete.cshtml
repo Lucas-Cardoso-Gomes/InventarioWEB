@@ -1,4 +1,4 @@
-@model web.Models.Monitor
+@model Web.Models.Monitor
 
 @{
     ViewData["Title"] = "Excluir Monitor";
@@ -18,10 +18,10 @@
             @Html.DisplayFor(model => model.PartNumber)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.ColaboradorNome)
+            Usuário
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.ColaboradorNome)
+            @Html.DisplayFor(model => model.User.Nome)
         </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Marca)

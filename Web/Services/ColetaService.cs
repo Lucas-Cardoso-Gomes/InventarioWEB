@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using web.Models;
+using Web.Models;
 using Web.Services;
 
 namespace Web.Services
@@ -18,14 +18,16 @@ namespace Web.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<ColetaService> _logger;
         private readonly LogService _logService;
+        private readonly UserService _userService;
         private readonly string _connectionString;
         private readonly string _solicitarInformacoes;
 
-        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService)
+        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService, UserService userService)
         {
             _configuration = configuration;
             _logger = logger;
             _logService = logService;
+            _userService = userService;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
         }
@@ -81,7 +83,7 @@ namespace Web.Services
                             return;
                         }
 
-                        SalvarDados(hardwareInfo, computadorIp);
+                        await SalvarDados(hardwareInfo, computadorIp);
                         string successMessage = $"Dados de {computadorIp} (MAC: {hardwareInfo.MAC}) salvos com sucesso.";
                         _logService.AddLog("Info", successMessage, "Coleta");
                         onResult(successMessage);
@@ -97,8 +99,11 @@ namespace Web.Services
             }
         }
 
-        private void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
+        private async Task SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
         {
+            var user = (await _userService.GetAllUsersAsync()).FirstOrDefault(u => u.Login == hardwareInfo.Usuario.Usuario);
+            int? userId = user?.Id;
+
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
@@ -107,15 +112,16 @@ namespace Web.Services
                     USING (VALUES (@MAC)) AS source (MAC)
                     ON target.MAC = source.MAC
                     WHEN MATCHED THEN
-                        UPDATE SET IP = @IP, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, Usuario = @Usuario, Hostname = @Hostname, Fabricante = @Fabricante, SO = @SO, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, DataColeta = @DataColeta
+                        UPDATE SET IP = @IP, UserId = @UserId, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, Hostname = @Hostname, Fabricante = @Fabricante, SO = @SO, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, DataColeta = @DataColeta
                     WHEN NOT MATCHED THEN
-                        INSERT (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Usuario, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta)
-                        VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Usuario, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta);";
+                        INSERT (MAC, IP, UserId, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta)
+                        VALUES (@MAC, @IP, @UserId, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta);";
 
                 using (var cmd = new SqlCommand(mergeQuery, connection))
                 {
                     cmd.Parameters.Add("@MAC", SqlDbType.NVarChar).Value = hardwareInfo.MAC ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@IP", SqlDbType.NVarChar).Value = computadorIp;
+                    cmd.Parameters.Add("@UserId", SqlDbType.Int).Value = (object)userId ?? DBNull.Value;
                     cmd.Parameters.Add("@Processador", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Nome ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@ProcessadorFabricante", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Fabricante ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@ProcessadorCore", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value;
@@ -126,7 +132,6 @@ namespace Web.Services
                     cmd.Parameters.Add("@RamVelocidade", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@RamVoltagem", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Voltagem ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@RamPorModule", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.PorModulo ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@Usuario", SqlDbType.NVarChar).Value = hardwareInfo.Usuario?.Usuario ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@Hostname", SqlDbType.NVarChar).Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@Fabricante", SqlDbType.NVarChar).Value = hardwareInfo.Fabricante ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@SO", SqlDbType.NVarChar).Value = hardwareInfo.SO ?? (object)DBNull.Value;
@@ -138,7 +143,7 @@ namespace Web.Services
                     cmd.Parameters.Add("@ArmazenamentoDLivre", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveD?.LivreGB ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@ConsumoCPU", SqlDbType.NVarChar).Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@DataColeta", SqlDbType.DateTime).Value = DateTime.Now;
-                    cmd.ExecuteNonQuery();
+                    await cmd.ExecuteNonQueryAsync();
                 }
             }
         }

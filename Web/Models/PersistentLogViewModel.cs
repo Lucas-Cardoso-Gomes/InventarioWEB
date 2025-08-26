@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace web.Models
+namespace Web.Models
 {
     public class PersistentLogViewModel
     {

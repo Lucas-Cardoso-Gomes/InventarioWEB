@@ -1,4 +1,4 @@
-@model web.Models.MonitorIndexViewModel
+@model Web.Models.MonitorIndexViewModel
 
 @{
     ViewData["Title"] = "Monitores";
@@ -21,6 +21,10 @@
     </div>
     <div class="card-body">
         <div class="row g-3">
+            <div class="col-md-12">
+                <label class="form-label">Procurar</label>
+                <input type="text" name="SearchString" value="@Model.SearchString" class="form-control" />
+            </div>
             @{
                 Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
                 {
@@ -43,9 +47,9 @@
                     </div>
                 };
 
-                renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
-                renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
-                renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
+                renderFilter("Marca", "currentMarcas", Model.Marcas, Model.CurrentMarcas);
+                renderFilter("Tamanho", "currentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
+                renderFilter("Modelo", "currentModelos", Model.Modelos, Model.CurrentModelos);
             }
         </div>
     </div>
@@ -60,7 +64,7 @@
         <thead>
             <tr>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().PartNumber)</th>
-                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().ColaboradorNome)</th>
+                <th>Usuário</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Marca)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Modelo)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Tamanho)</th>
@@ -72,7 +76,7 @@
             {
                 <tr>
                     <td>@Html.DisplayFor(modelItem => item.PartNumber)</td>
-                    <td>@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
+                    <td>@Html.DisplayFor(modelItem => item.User.Nome)</td>
                     <td>@Html.DisplayFor(modelItem => item.Marca)</td>
                     <td>@Html.DisplayFor(modelItem => item.Modelo)</td>
                     <td>@Html.DisplayFor(modelItem => item.Tamanho)</td>
@@ -87,4 +91,19 @@
             }
         </tbody>
     </table>
+</div>
+<div class="pagination">
+    Página @Model.PageNumber de @Model.TotalPages
+    @if (Model.HasPreviousPage)
+    {
+        <a href="@Url.Action("Index", new { pageNumber = Model.PageNumber - 1, pageSize = Model.PageSize, searchString = Model.SearchString, currentMarcas = Model.CurrentMarcas, currentTamanhos = Model.CurrentTamanhos, currentModelos = Model.CurrentModelos })" class="btn btn-default">
+            &laquo; Anterior
+        </a>
+    }
+    @if (Model.HasNextPage)
+    {
+        <a href="@Url.Action("Index", new { pageNumber = Model.PageNumber + 1, pageSize = Model.PageSize, searchString = Model.SearchString, currentMarcas = Model.CurrentMarcas, currentTamanhos = Model.CurrentTamanhos, currentModelos = Model.CurrentModelos })" class="btn btn-default">
+            Próximo &raquo;
+        </a>
+    }
 </div>
