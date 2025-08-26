@@ -9,7 +9,6 @@ namespace web.Models
         [Key]
         public int Id { get; set; }
 
-        [Required(ErrorMessage = "O MAC do computador é obrigatório.")]
         [Display(Name = "MAC do Computador")]
         public string ComputadorMAC { get; set; }
 
@@ -27,8 +26,10 @@ namespace web.Models
         [Display(Name = "Manutenção Externa")]
         public string ManutencaoExterna { get; set; }
 
-        [Required]
         [DataType(DataType.Date)]
-        public DateTime Data { get; set; }
+        public DateTime? Data { get; set; }
+
+        [Display(Name = "Histórico")]
+        public string Historico { get; set; }
     }
 }

@@ -103,5 +103,6 @@ CREATE TABLE Manutencoes (
     DataManutencaoHardware DATETIME,
     DataManutencaoSoftware DATETIME,
     ManutencaoExterna NVARCHAR(MAX),
-    Data DATETIME NOT NULL
+    Data DATETIME,
+    Historico NVARCHAR(MAX)
 );

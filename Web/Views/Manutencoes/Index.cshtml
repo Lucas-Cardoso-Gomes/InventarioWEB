@@ -28,6 +28,9 @@
             <th>
                 @Html.DisplayNameFor(model => model.Data)
             </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Historico)
+            </th>
         </tr>
     </thead>
     <tbody>
@@ -48,6 +51,9 @@
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.Data)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Historico)
                 </td>
             </tr>
         }
