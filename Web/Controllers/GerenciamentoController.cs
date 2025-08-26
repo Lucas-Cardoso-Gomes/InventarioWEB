@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Web.Models;
+using web.Models;
 using Web.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -19,10 +19,11 @@ namespace Web.Controllers
         private readonly IConfiguration _configuration;
         private readonly PersistentLogService _persistentLogService;
         
-        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, PersistentLogService persistentLogService)
+        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration, PersistentLogService persistentLogService)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _configuration = configuration;
             _persistentLogService = persistentLogService;
         }
 
@@ -41,11 +42,75 @@ namespace Web.Controllers
                 PageSize = pageSize
             };
 
-            var (logs, totalCount) = _logService.GetLogs(level, source, searchString, pageNumber, pageSize);
-            viewModel.Logs = logs;
-            viewModel.TotalCount = totalCount;
-            viewModel.Levels = _logService.GetDistinctLogValues("Level");
-            viewModel.Sources = _logService.GetDistinctLogValues("Source");
+            try
+            {
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    connection.Open();
+                    
+                    viewModel.Levels = GetDistinctLogValues(connection, "Level");
+                    viewModel.Sources = GetDistinctLogValues(connection, "Source");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+
+                    if (!string.IsNullOrEmpty(level))
+                    {
+                        whereClauses.Add("Level = @level");
+                        parameters.Add("@level", level);
+                    }
+                    if (!string.IsNullOrEmpty(source))
+                    {
+                        whereClauses.Add("Source = @source");
+                        parameters.Add("@source", source);
+                    }
+                    if (!string.IsNullOrEmpty(searchString))
+                    {
+                        whereClauses.Add("Message LIKE @search");
+                        parameters.Add("@search", $"%{searchString}%");
+                    }
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    // Get total count for pagination
+                    string countSql = $"SELECT COUNT(*) FROM Logs {whereSql}";
+                    using (var countCommand = new System.Data.SqlClient.SqlCommand(countSql, connection))
+                    {
+                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                    }
+
+                    // Get paginated logs
+                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    {
+                        foreach (var p in parameters) command.Parameters.AddWithValue(p.Key, p.Value);
+                        command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        command.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                viewModel.Logs.Add(new Log
+                                {
+                                    Id = reader.GetInt32(0),
+                                    Timestamp = reader.GetDateTime(1),
+                                    Level = reader.GetString(2),
+                                    Message = reader.GetString(3),
+                                    Source = reader.IsDBNull(4) ? null : reader.GetString(4)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter os logs.");
+                ViewBag.ErrorMessage = "Erro ao carregar logs. Verifique a conexão com o banco de dados.";
+            }
+            
             return View(viewModel);
         }
 
@@ -53,9 +118,43 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult ClearLogs()
         {
-            _logService.ClearLogs();
-            TempData["SuccessMessage"] = "Logs limpos com sucesso!";
+            try
+            {
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    connection.Open();
+                    string sql = "TRUNCATE TABLE Logs";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                TempData["SuccessMessage"] = "Logs limpos com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao limpar os logs.");
+                TempData["ErrorMessage"] = "Ocorreu um erro ao limpar os logs.";
+            }
+
             return RedirectToAction(nameof(Logs));
+        }
+
+        private List<string> GetDistinctLogValues(System.Data.SqlClient.SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            string sql = $"SELECT DISTINCT {columnName} FROM Logs WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
         }
 
         // GET: /Gerenciamento

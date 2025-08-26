@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
-namespace Web.Models
+namespace web.Models
 {
     public class Monitor
     {
@@ -11,12 +11,13 @@ namespace Web.Models
         [StringLength(50)]
         public string PartNumber { get; set; }
 
-        [Display(Name = "Usuário")]
-        public int? UserId { get; set; }
-
-        [ForeignKey("UserId")]
+        [Display(Name = "Colaborador")]
         [ValidateNever]
-        public virtual User? User { get; set; }
+        public string? ColaboradorNome { get; set; }
+
+        [ForeignKey("ColaboradorNome")]
+        [ValidateNever]
+        public virtual Colaborador? Colaborador { get; set; }
 
         [StringLength(50)]
         [ValidateNever]
@@ -28,6 +29,6 @@ namespace Web.Models
 
         [StringLength(20)]
         [ValidateNever]
-        public string? Tamanho { get; set; }
+        public string Tamanho { get; set; }
     }
 }

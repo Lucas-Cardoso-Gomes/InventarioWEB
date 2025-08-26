@@ -3,9 +3,8 @@ using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Web.Models;
+using web.Models;
 using Web.Services;
-using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -14,13 +13,13 @@ namespace Web.Controllers
     {
         private readonly ManutencaoService _manutencaoService;
         private readonly PersistentLogService _persistentLogService;
-        private readonly ComputadorService _computadorService;
+        private readonly string _connectionString;
 
-        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, ComputadorService computadorService)
+        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _manutencaoService = manutencaoService;
             _persistentLogService = persistentLogService;
-            _computadorService = computadorService;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
         public IActionResult Index()
@@ -29,15 +28,15 @@ namespace Web.Controllers
             return View(manutencoes);
         }
 
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["ComputadorMAC"] = new SelectList(await GetComputadoresAsync(), "MAC", "Hostname");
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname");
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Manutencao manutencao)
+        public IActionResult Create(Manutencao manutencao)
         {
             if (ModelState.IsValid)
             {
@@ -45,30 +44,49 @@ namespace Web.Controllers
                 _persistentLogService.AddLog("Maintenance", "Create", User.Identity.Name, $"Maintenance for computer '{manutencao.ComputadorMAC}' created.");
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ComputadorMAC"] = new SelectList(await GetComputadoresAsync(), "MAC", "Hostname", manutencao.ComputadorMAC);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
             return View(manutencao);
         }
 
-        private async Task<System.Collections.Generic.List<Computador>> GetComputadoresAsync()
+        private System.Collections.Generic.List<Computador> GetComputadores()
         {
-            var (computadores, _) = await _computadorService.GetComputadoresAsync(User, null, null, null, null, null, null, null, null, 1, int.MaxValue);
+            var computadores = new System.Collections.Generic.List<Computador>();
+            using (var connection = new System.Data.SqlClient.SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT MAC, Hostname FROM Computadores ORDER BY Hostname";
+                using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                {
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            computadores.Add(new Computador
+                            {
+                                MAC = reader.GetString(0),
+                                Hostname = reader.GetString(1)
+                            });
+                        }
+                    }
+                }
+            }
             return computadores;
         }
 
-        public async Task<IActionResult> Edit(int id)
+        public IActionResult Edit(int id)
         {
             var manutencao = _manutencaoService.GetManutencaoById(id);
             if (manutencao == null)
             {
                 return NotFound();
             }
-            ViewData["ComputadorMAC"] = new SelectList(await GetComputadoresAsync(), "MAC", "Hostname", manutencao.ComputadorMAC);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
             return View(manutencao);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, Manutencao manutencao)
+        public IActionResult Edit(int id, Manutencao manutencao)
         {
             if (id != manutencao.Id)
             {
@@ -81,7 +99,7 @@ namespace Web.Controllers
                 _persistentLogService.AddLog("Maintenance", "Update", User.Identity.Name, $"Maintenance '{manutencao.Id}' for computer '{manutencao.ComputadorMAC}' updated.");
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ComputadorMAC"] = new SelectList(await GetComputadoresAsync(), "MAC", "Hostname", manutencao.ComputadorMAC);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
             return View(manutencao);
         }
 

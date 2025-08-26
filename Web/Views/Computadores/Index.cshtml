@@ -82,7 +82,7 @@
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]" asp-route-searchString="@Model.SearchString">MAC</a>
                 </th>
                 <th class="col-usuario">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Usuário</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Colaborador</a>
                 </th>
                 <th class="col-hostname">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>
@@ -123,7 +123,7 @@
                 <tr>
                     <td class="col-ip">@Html.DisplayFor(modelItem => item.IP)</td>
                     <td class="col-mac">@Html.DisplayFor(modelItem => item.MAC)</td>
-                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.User.Nome)</td>
+                    <td class="col-usuario">@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
                     <td class="col-hostname">@Html.DisplayFor(modelItem => item.Hostname)</td>
                     <td class="col-fabricante">@Html.DisplayFor(modelItem => item.Fabricante)</td>
                     <td class="col-processador">@Html.DisplayFor(modelItem => item.Processador)</td>

@@ -1,4 +1,4 @@
-@model IEnumerable<Web.Models.Periferico>
+@model IEnumerable<web.Models.Periferico>
 
 @{
     ViewData["Title"] = "Periféricos";
@@ -29,7 +29,7 @@
         <thead>
             <tr>
                 <th>@Html.DisplayNameFor(model => model.Tipo)</th>
-                <th>Usuário</th>
+                <th>@Html.DisplayNameFor(model => model.ColaboradorNome)</th>
                 <th>@Html.DisplayNameFor(model => model.DataEntrega)</th>
                 <th>@Html.DisplayNameFor(model => model.PartNumber)</th>
                 <th>Ações</th>
@@ -40,7 +40,7 @@
             {
                 <tr>
                     <td>@Html.DisplayFor(modelItem => item.Tipo)</td>
-                    <td>@Html.DisplayFor(modelItem => item.User.Nome)</td>
+                    <td>@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataEntrega)</td>
                     <td>@Html.DisplayFor(modelItem => item.PartNumber)</td>
                     <td>
@@ -54,20 +54,4 @@
             }
         </tbody>
     </table>
-</div>
-
-<div class="pagination">
-    Página @ViewBag.PageNumber de @(Math.Ceiling((double)ViewBag.TotalCount / ViewBag.PageSize))
-    @if ((int)ViewBag.PageNumber > 1)
-    {
-        <a href="@Url.Action("Index", new { pageNumber = ViewBag.PageNumber - 1, pageSize = ViewBag.PageSize, searchString = ViewData["CurrentFilter"] })" class="btn btn-default">
-            &laquo; Anterior
-        </a>
-    }
-    @if ((int)ViewBag.PageNumber < (int)Math.Ceiling((double)ViewBag.TotalCount / ViewBag.PageSize))
-    {
-        <a href="@Url.Action("Index", new { pageNumber = ViewBag.PageNumber + 1, pageSize = ViewBag.PageSize, searchString = ViewData["CurrentFilter"] })" class="btn btn-default">
-            Próximo &raquo;
-        </a>
-    }
 </div>

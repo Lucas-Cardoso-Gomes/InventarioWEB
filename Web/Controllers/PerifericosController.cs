@@ -1,69 +1,106 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using Web.Models;
-using Web.Services;
+using System.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using web.Models;
+using Web.Services;
 
 namespace Web.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin,Coordenador,Normal")]
     public class PerifericosController : Controller
     {
-        private readonly PerifericoService _perifericoService;
-        private readonly UserService _userService;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly string _connectionString;
         private readonly ILogger<PerifericosController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public PerifericosController(PerifericoService perifericoService, UserService userService, PersistentLogService persistentLogService, ILogger<PerifericosController> logger)
+        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
         {
-            _perifericoService = perifericoService;
-            _userService = userService;
-            _persistentLogService = persistentLogService;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
-        public async Task<IActionResult> Index(string searchString, int pageNumber = 1, int pageSize = 25)
+        // GET: Perifericos
+        public IActionResult Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
+            var perifericos = new List<Periferico>();
             try
             {
-                var (perifericos, totalCount) = await _perifericoService.GetPerifericosAsync(User, searchString, pageNumber, pageSize);
-                ViewBag.TotalCount = totalCount;
-                ViewBag.PageNumber = pageNumber;
-                ViewBag.PageSize = pageSize;
-                return View(perifericos);
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT * FROM Perifericos";
+                    if (!string.IsNullOrEmpty(searchString))
+                    {
+                        sql += " WHERE ColaboradorNome LIKE @search OR Tipo LIKE @search OR PartNumber LIKE @search";
+                    }
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        if (!string.IsNullOrEmpty(searchString))
+                        {
+                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
+                        }
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                perifericos.Add(new Periferico
+                                {
+                                    ID = Convert.ToInt32(reader["ID"]),
+                                    ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                    Tipo = reader["Tipo"].ToString(),
+                                    DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
+                                    PartNumber = reader["PartNumber"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao obter a lista de periféricos.");
-                ViewBag.Message = "Ocorreu um erro ao obter a lista de periféricos. Por favor, tente novamente mais tarde.";
-                return View(new List<Periferico>());
             }
+            return View(perifericos);
         }
 
         // GET: Perifericos/Create
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
-            return View(new Periferico());
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
+            return View();
         }
 
         // POST: Perifericos/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create(Periferico periferico)
+        public IActionResult Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    await _perifericoService.CreatePerifericoAsync(periferico);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = "INSERT INTO Perifericos (ColaboradorNome, Tipo, DataEntrega, PartNumber) VALUES (@ColaboradorNome, @Tipo, @DataEntrega, @PartNumber)";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
+                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     _persistentLogService.AddLog("Periferico", "Create", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' created.");
                     return RedirectToAction(nameof(Index));
                 }
@@ -73,20 +110,17 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
         // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(int id)
+        public IActionResult Edit(int id)
         {
-            var periferico = await _perifericoService.FindPerifericoByIdAsync(id);
-            if (periferico == null)
-            {
-                return NotFound();
-            }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            Periferico periferico = FindPerifericoById(id);
+            if (periferico == null) return NotFound();
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
@@ -94,18 +128,28 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(int id, Periferico periferico)
+        public IActionResult Edit(int id, Periferico periferico)
         {
-            if (id != periferico.ID)
-            {
-                return NotFound();
-            }
+            if (id != periferico.ID) return NotFound();
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    await _perifericoService.UpdatePerifericoAsync(periferico);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@ID", periferico.ID);
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
+                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     _persistentLogService.AddLog("Periferico", "Update", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
@@ -115,19 +159,16 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
         // GET: Perifericos/Delete/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Delete(int id)
+        public IActionResult Delete(int id)
         {
-            var periferico = await _perifericoService.FindPerifericoByIdAsync(id);
-            if (periferico == null)
-            {
-                return NotFound();
-            }
+            Periferico periferico = FindPerifericoById(id);
+            if (periferico == null) return NotFound();
             return View(periferico);
         }
 
@@ -135,14 +176,23 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public IActionResult DeleteConfirmed(int id)
         {
             try
             {
-                var periferico = await _perifericoService.FindPerifericoByIdAsync(id);
+                var periferico = FindPerifericoById(id);
                 if (periferico != null)
                 {
-                    await _perifericoService.DeletePerifericoAsync(id);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = "DELETE FROM Perifericos WHERE ID = @ID";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@ID", id);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     _persistentLogService.AddLog("Periferico", "Delete", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
@@ -151,9 +201,61 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao excluir periférico.");
                 ViewBag.ErrorMessage = "Ocorreu um erro ao excluir o periférico.";
-                var periferico = await _perifericoService.FindPerifericoByIdAsync(id);
-                return View(periferico);
+                return View(FindPerifericoById(id));
             }
+        }
+
+        private Periferico FindPerifericoById(int id)
+        {
+            Periferico periferico = null;
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT * FROM Perifericos WHERE ID = @ID";
+                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                {
+                    cmd.Parameters.AddWithValue("@ID", id);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            periferico = new Periferico
+                            {
+                                ID = Convert.ToInt32(reader["ID"]),
+                                ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                Tipo = reader["Tipo"].ToString(),
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
+                                PartNumber = reader["PartNumber"].ToString()
+                            };
+                        }
+                    }
+                }
+            }
+            return periferico;
+        }
+
+        private List<Colaborador> GetColaboradores()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            colaboradores.Add(new Colaborador {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            return colaboradores;
         }
     }
 }

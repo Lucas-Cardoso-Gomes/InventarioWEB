@@ -1,4 +1,4 @@
-@model Web.Models.Computador
+@model web.Models.Computador
 
 @{
     ViewData["Title"] = "Excluir Computador";
@@ -21,12 +21,6 @@
         </dt>
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.IP)
-        </dd>
-        <dt class="col-sm-2">
-            Usuário
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.User.Nome)
         </dd>
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.Hostname)

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
-namespace Web.Models
+namespace web.Models
 {
     public class Periferico
     {
@@ -11,12 +11,13 @@ namespace Web.Models
         [ValidateNever]
         public int ID { get; set; }
 
-        [Display(Name = "Usuário")]
-        public int? UserId { get; set; }
-
-        [ForeignKey("UserId")]
+        [Display(Name = "Colaborador")]
         [ValidateNever]
-        public virtual User? User { get; set; }
+        public string? ColaboradorNome { get; set; }
+
+        [ForeignKey("ColaboradorNome")]
+        [ValidateNever]
+        public virtual Colaborador? Colaborador { get; set; }
 
         [Required(ErrorMessage = "O Tipo é obrigatório.")]
         [StringLength(50)]
@@ -29,6 +30,6 @@ namespace Web.Models
 
         [StringLength(50)]
         [ValidateNever]
-        public string? PartNumber { get; set; }
+        public string PartNumber { get; set; }
     }
 }

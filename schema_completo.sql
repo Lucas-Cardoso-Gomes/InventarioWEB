@@ -1,6 +1,3 @@
--- Este script cria o esquema completo do banco de dados a partir do zero.
-
--- Tabela para armazenar os usuários do sistema.
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
     Nome NVARCHAR(100) NOT NULL,
@@ -9,11 +6,8 @@ CREATE TABLE Usuarios (
     Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal'))
 );
 
--- Inserir usuário admin padrão
--- SENHA PADRÃO: admin
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin User', 'admin', 'admin', 'Admin');
 
--- Tabela para armazenar logs do sistema.
 CREATE TABLE Logs (
     Id INT PRIMARY KEY IDENTITY,
     Timestamp DATETIME NOT NULL,
@@ -22,7 +16,6 @@ CREATE TABLE Logs (
     Source NVARCHAR(50)
 );
 
--- Tabela para armazenar Colaboradores
 CREATE TABLE Colaboradores (
     CPF NVARCHAR(14) PRIMARY KEY,
     Nome NVARCHAR(100) NOT NULL UNIQUE,
@@ -49,8 +42,6 @@ CREATE TABLE Colaboradores (
     DataAlteracao DATETIME
 );
 
--- Tabela para armazenar informações dos computadores.
--- Nota: A coluna 'Usuario' foi removida e substituída por 'ColaboradorNome'.
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
     IP NVARCHAR(45),
@@ -78,7 +69,6 @@ CREATE TABLE Computadores (
     DataColeta DATETIME
 );
 
--- Tabela para Monitores
 CREATE TABLE Monitores (
     PartNumber NVARCHAR(50) PRIMARY KEY,
     ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
@@ -87,7 +77,6 @@ CREATE TABLE Monitores (
     Tamanho NVARCHAR(20)
 );
 
--- Tabela para Periféricos
 CREATE TABLE Perifericos (
     ID INT PRIMARY KEY IDENTITY,
     ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
@@ -96,7 +85,6 @@ CREATE TABLE Perifericos (
     PartNumber NVARCHAR(50)
 );
 
--- Tabela para Manutenções
 CREATE TABLE Manutencoes (
     Id INT PRIMARY KEY IDENTITY,
     ComputadorMAC NVARCHAR(17) FOREIGN KEY REFERENCES Computadores(MAC),
@@ -105,4 +93,13 @@ CREATE TABLE Manutencoes (
     ManutencaoExterna NVARCHAR(MAX),
     Data DATETIME,
     Historico NVARCHAR(MAX)
+);
+
+CREATE TABLE PersistentLogs (
+    Id INT PRIMARY KEY IDENTITY,
+    Timestamp DATETIME NOT NULL,
+    EntityType NVARCHAR(50) NOT NULL,
+    ActionType NVARCHAR(50) NOT NULL,
+    PerformedBy NVARCHAR(255) NOT NULL,
+    Details NVARCHAR(MAX)
 );

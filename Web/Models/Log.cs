@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace Web.Models
+namespace web.Models
 {
     public class Log
     {

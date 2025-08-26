@@ -3,8 +3,6 @@ using System.Threading.Tasks;
 using Web.Models;
 using Web.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Linq;
 
 namespace Web.Controllers
 {
@@ -21,18 +19,16 @@ namespace Web.Controllers
         }
 
         // GET: Users
-        public async Task<IActionResult> Index(string searchString)
+        public async Task<IActionResult> Index()
         {
-            ViewData["CurrentFilter"] = searchString;
-            var users = await _userService.GetAllUsersAsync(searchString);
+            var users = await _userService.GetAllUsersAsync();
             return View(users);
         }
 
         // GET: Users/Create
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
             return View();
         }
 
@@ -40,33 +36,43 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create(User user, string password)
+        public async Task<IActionResult> Create(UserViewModel model)
         {
-            if (string.IsNullOrEmpty(password))
+            if (string.IsNullOrEmpty(model.Password))
             {
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
             }
 
             if (ModelState.IsValid)
             {
-                var existingUser = await _userService.FindByLoginAsync(user.Login);
+                var existingUser = await _userService.FindByLoginAsync(model.Login);
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
-                    ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", user.CoordenadorId);
-                    return View(user);
+                    return View(model);
                 }
 
-                await _userService.CreateAsync(user, password);
+                var user = new User
+                {
+                    Nome = model.Nome,
+                    Login = model.Login,
+                    // IMPORTANT: This is a simple string assignment.
+                    // In a real application, use a secure password hashing library like BCrypt.
+                    // Example: PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
+                    PasswordHash = model.Password, // Placeholder for real hash
+                    Role = model.Role
+                };
+
+                await _userService.CreateAsync(user);
 
                 _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
                 
+                // Optionally, you can add a success message.
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", user.CoordenadorId);
-            return View(user);
+            return View(model);
         }
 
         // GET: Users/Edit/5
@@ -78,32 +84,55 @@ namespace Web.Controllers
             {
                 return NotFound();
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", user.CoordenadorId);
-            return View(user);
+
+            var model = new UserViewModel
+            {
+                Nome = user.Nome,
+                Login = user.Login,
+                Role = user.Role
+                // Password is not loaded for editing
+            };
+
+            return View(model);
         }
 
         // POST: Users/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(int id, User user, string password)
+        public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
-            if (id != user.Id)
-            {
-                return NotFound();
-            }
-
             if (ModelState.IsValid)
             {
-                await _userService.UpdateAsync(user, password);
+                var user = await _userService.FindByIdAsync(id);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+
+                user.Nome = model.Nome;
+                user.Login = model.Login;
+                user.Role = model.Role;
+
+                // Only update password if a new one is provided
+                if (!string.IsNullOrEmpty(model.Password))
+                {
+                    // In a real app, hash this password
+                    user.PasswordHash = model.Password;
+                }
+                else
+                {
+                    user.PasswordHash = null; // Tell the service not to update the password
+                }
+
+                await _userService.UpdateAsync(user);
 
                 _persistentLogService.AddLog("User", "Update", User.Identity.Name, $"User '{user.Login}' updated.");
                 
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", user.CoordenadorId);
-            return View(user);
+            return View(model);
         }
 
         // GET: Users/Delete/5

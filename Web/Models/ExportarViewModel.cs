@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace Web.Models
+namespace web.Models
 {
     public enum ExportMode
     {
         [Display(Name = "Por Dispositivo")]
         PorDispositivo,
-        [Display(Name = "Por Usuário")]
+        [Display(Name = "Por Colaborador")]
         PorColaborador
     }
 
@@ -29,8 +29,8 @@ namespace Web.Models
         [Display(Name = "Tipo de Dispositivo")]
         public DeviceType DeviceType { get; set; }
 
-        [Display(Name = "Usuário")]
-        public string UserName { get; set; }
+        [Display(Name = "Colaborador")]
+        public string ColaboradorNome { get; set; }
         public List<string> Colaboradores { get; set; } = new List<string>();
 
 
