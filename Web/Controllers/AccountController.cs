@@ -31,16 +31,13 @@ namespace Web.Controllers
             {
                 var user = await _userService.FindByLoginAsync(model.Login);
 
-                // IMPORTANT: This is a simple string comparison.
-                // In a real application, use a secure password hashing library like BCrypt.
-                // Example: if (user != null && BCrypt.Net.BCrypt.Verify(model.Password, user.PasswordHash))
-                if (user != null && model.Password == user.PasswordHash) // Placeholder for real hash check
+                if (user != null && _userService.VerifyPassword(model.Password, user.PasswordHash))
                 {
                     var claims = new List<Claim>
                     {
                         new Claim(ClaimTypes.Name, user.Nome),
                         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                        new Claim(ClaimTypes.Role, user.Role),
+                        new Claim(ClaimTypes.Role, user.Role.ToString()),
                         new Claim("Login", user.Login) // Custom claim for login
                     };
 

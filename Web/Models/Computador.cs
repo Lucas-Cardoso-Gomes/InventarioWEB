@@ -1,7 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace web.Models
+namespace Web.Models
 {
     public class Computador
     {
@@ -9,7 +10,12 @@ namespace web.Models
         [Required(ErrorMessage = "O endereço MAC é obrigatório.")]
         public string MAC { get; set; }
         public string? IP { get; set; }
-        public string? ColaboradorNome { get; set; }
+
+        // Foreign key for User
+        public int? UserId { get; set; }
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; }
+
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }
         public string? Fabricante { get; set; }
