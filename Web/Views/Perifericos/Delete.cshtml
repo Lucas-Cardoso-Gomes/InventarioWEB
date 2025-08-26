@@ -1,4 +1,4 @@
-@model web.Models.Periferico
+@model Web.Models.Periferico
 
 @{
     ViewData["Title"] = "Excluir Periférico";
@@ -18,10 +18,10 @@
             @Html.DisplayFor(model => model.Tipo)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.ColaboradorNome)
+            Usuário
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.ColaboradorNome)
+            @Html.DisplayFor(model => model.User.Nome)
         </dd>
     </dl>
 
