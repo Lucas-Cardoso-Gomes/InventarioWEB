@@ -1,4 +1,4 @@
-namespace web.Models
+namespace Web.Models
 {
     public class HardwareInfo
     {

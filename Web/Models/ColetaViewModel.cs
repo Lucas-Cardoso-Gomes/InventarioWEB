@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace web.Models
+namespace Web.Models
 {
     public class ColetaViewModel
     {
