@@ -12,11 +12,13 @@ namespace Web.Controllers
     public class ManutencoesController : Controller
     {
         private readonly ManutencaoService _manutencaoService;
+        private readonly PersistentLogService _persistentLogService;
         private readonly string _connectionString;
 
-        public ManutencoesController(ManutencaoService manutencaoService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _manutencaoService = manutencaoService;
+            _persistentLogService = persistentLogService;
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
@@ -39,6 +41,7 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 _manutencaoService.AddManutencao(manutencao);
+                _persistentLogService.AddLog("Maintenance", "Create", User.Identity.Name, $"Maintenance for computer '{manutencao.ComputadorMAC}' created.");
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
@@ -93,6 +96,7 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 _manutencaoService.UpdateManutencao(manutencao);
+                _persistentLogService.AddLog("Maintenance", "Update", User.Identity.Name, $"Maintenance '{manutencao.Id}' for computer '{manutencao.ComputadorMAC}' updated.");
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
@@ -113,6 +117,11 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult DeleteConfirmed(int id)
         {
+            var manutencao = _manutencaoService.GetManutencaoById(id);
+            if (manutencao != null)
+            {
+                _persistentLogService.AddLog("Maintenance", "Delete", User.Identity.Name, $"Maintenance '{manutencao.Id}' for computer '{manutencao.ComputadorMAC}' deleted.");
+            }
             _manutencaoService.DeleteManutencao(id);
             return RedirectToAction(nameof(Index));
         }

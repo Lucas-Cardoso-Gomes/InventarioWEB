@@ -1,6 +1,5 @@
 using Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +18,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 });
 
+using Web.Services;
 
 builder.Services.AddScoped<ColetaService>();
 builder.Services.AddScoped<LogService>();
