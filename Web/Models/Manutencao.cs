@@ -10,10 +10,10 @@ namespace web.Models
         public int Id { get; set; }
 
         [Display(Name = "MAC do Computador")]
-        public string ComputadorMAC { get; set; }
+        public string? ComputadorMAC { get; set; }
 
         [ForeignKey("ComputadorMAC")]
-        public Computador Computador { get; set; }
+        public Computador? Computador { get; set; }
 
         [Display(Name = "Data de Manutenção de Hardware")]
         [DataType(DataType.Date)]
@@ -24,12 +24,12 @@ namespace web.Models
         public DateTime? DataManutencaoSoftware { get; set; }
 
         [Display(Name = "Manutenção Externa")]
-        public string ManutencaoExterna { get; set; }
+        public string? ManutencaoExterna { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? Data { get; set; }
 
         [Display(Name = "Histórico")]
-        public string Historico { get; set; }
+        public string? Historico { get; set; }
     }
 }
