@@ -62,14 +62,14 @@ namespace Web.Controllers
         public async Task<IActionResult> Create()
         {
             ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
-            return View(new Monitor());
+            return View(new Web.Models.Monitor());
         }
 
         // POST: Monitores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create(Monitor monitor)
+        public async Task<IActionResult> Create(Web.Models.Monitor monitor)
         {
             if (ModelState.IsValid)
             {
@@ -112,7 +112,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(string id, Monitor monitor)
+        public async Task<IActionResult> Edit(string id, Web.Models.Monitor monitor)
         {
             if (id != monitor.PartNumber)
             {
