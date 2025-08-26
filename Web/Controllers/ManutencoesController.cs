@@ -69,5 +69,52 @@ namespace Web.Controllers
             }
             return computadores;
         }
+
+        public IActionResult Edit(int id)
+        {
+            var manutencao = _manutencaoService.GetManutencaoById(id);
+            if (manutencao == null)
+            {
+                return NotFound();
+            }
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
+            return View(manutencao);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Edit(int id, Manutencao manutencao)
+        {
+            if (id != manutencao.Id)
+            {
+                return NotFound();
+            }
+
+            if (ModelState.IsValid)
+            {
+                _manutencaoService.UpdateManutencao(manutencao);
+                return RedirectToAction(nameof(Index));
+            }
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
+            return View(manutencao);
+        }
+
+        public IActionResult Delete(int id)
+        {
+            var manutencao = _manutencaoService.GetManutencaoById(id);
+            if (manutencao == null)
+            {
+                return NotFound();
+            }
+            return View(manutencao);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeleteConfirmed(int id)
+        {
+            _manutencaoService.DeleteManutencao(id);
+            return RedirectToAction(nameof(Index));
+        }
     }
 }
