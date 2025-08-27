@@ -267,6 +267,37 @@ namespace Web.Controllers
             }
         }
 
+        public List<Colaborador> GetColaboradores()
+        {
+            var colaboradores = new List<Colaborador>();
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                colaboradores.Add(new Colaborador {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de colaboradores.");
+            }
+            return colaboradores;
+        }
+
         private Colaborador FindColaboradorById(string id)
         {
             Colaborador colaborador = null;

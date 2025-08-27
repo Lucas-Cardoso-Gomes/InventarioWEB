@@ -8,6 +8,8 @@ using System.Linq;
 using System.Text;
 using web.Models;
 using Microsoft.AspNetCore.Authorization;
+using Web.Services;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -16,47 +18,80 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ExportarController> _logger;
+        private readonly UserService _userService;
 
-        public ExportarController(IConfiguration configuration, ILogger<ExportarController> logger)
+        public ExportarController(IConfiguration configuration, ILogger<ExportarController> logger, UserService userService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _userService = userService;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var viewModel = new ExportarViewModel();
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
+                var whereClauses = new List<string>();
+                var parameters = new Dictionary<string, object>();
+
+                var user = await _userService.FindByLoginAsync(User.Identity.Name);
+                if (User.IsInRole("Coordenador"))
+                {
+                    var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
+                    var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                    if (user.ColaboradorCPF != null)
+                    {
+                        cpfs.Add(user.ColaboradorCPF);
+                    }
+                    if (cpfs.Any())
+                    {
+                        var cpfParams = new List<string>();
+                        for (int i = 0; i < cpfs.Count; i++)
+                        {
+                            var paramName = $"@cpf{i}";
+                            cpfParams.Add(paramName);
+                            parameters.Add(paramName, cpfs[i]);
+                        }
+                        whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
+                    }
+                }
+
+                string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
                 // Computer filters
-                viewModel.Fabricantes = GetDistinctValues(connection, "Computadores", "Fabricante");
-                viewModel.SOs = GetDistinctValues(connection, "Computadores", "SO");
-                viewModel.ProcessadorFabricantes = GetDistinctValues(connection, "Computadores", "ProcessadorFabricante");
-                viewModel.RamTipos = GetDistinctValues(connection, "Computadores", "RamTipo");
-                viewModel.Processadores = GetDistinctValues(connection, "Computadores", "Processador");
-                viewModel.Rams = GetDistinctValues(connection, "Computadores", "Ram");
+                viewModel.Fabricantes = GetDistinctValues(connection, "Computadores", "Fabricante", whereSql, parameters);
+                viewModel.SOs = GetDistinctValues(connection, "Computadores", "SO", whereSql, parameters);
+                viewModel.ProcessadorFabricantes = GetDistinctValues(connection, "Computadores", "ProcessadorFabricante", whereSql, parameters);
+                viewModel.RamTipos = GetDistinctValues(connection, "Computadores", "RamTipo", whereSql, parameters);
+                viewModel.Processadores = GetDistinctValues(connection, "Computadores", "Processador", whereSql, parameters);
+                viewModel.Rams = GetDistinctValues(connection, "Computadores", "Ram", whereSql, parameters);
 
                 // Monitor filters
-                viewModel.Marcas = GetDistinctValues(connection, "Monitores", "Marca");
-                viewModel.Tamanhos = GetDistinctValues(connection, "Monitores", "Tamanho");
-                viewModel.Modelos = GetDistinctValues(connection, "Monitores", "Modelo");
+                viewModel.Marcas = GetDistinctValues(connection, "Monitores", "Marca", whereSql, parameters);
+                viewModel.Tamanhos = GetDistinctValues(connection, "Monitores", "Tamanho", whereSql, parameters);
+                viewModel.Modelos = GetDistinctValues(connection, "Monitores", "Modelo", whereSql, parameters);
 
                 // Periferico filters
-                viewModel.TiposPeriferico = GetDistinctValues(connection, "Perifericos", "Tipo");
+                viewModel.TiposPeriferico = GetDistinctValues(connection, "Perifericos", "Tipo", whereSql, parameters);
 
                 // Colaborador filter
-                viewModel.Colaboradores = GetColaboradores(connection).Select(c => c.Nome).ToList();
+                viewModel.Colaboradores = GetColaboradores(connection, whereSql, parameters).Select(c => c.Nome).ToList();
             }
             return View(viewModel);
         }
 
-        private List<Colaborador> GetColaboradores(SqlConnection connection)
+        private List<Colaborador> GetColaboradores(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var colaboradores = new List<Colaborador>();
-            string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+            string sql = $"SELECT CPF, Nome FROM Colaboradores {whereSql} ORDER BY Nome";
             using (var cmd = new SqlCommand(sql, connection))
             {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -72,12 +107,26 @@ namespace Web.Controllers
             return colaboradores;
         }
 
-        private List<string> GetDistinctValues(SqlConnection connection, string tableName, string columnName)
+        private List<string> GetDistinctValues(SqlConnection connection, string tableName, string columnName, string whereSql, Dictionary<string, object> parameters)
         {
             var values = new List<string>();
-            var sql = $"SELECT DISTINCT {columnName} FROM {tableName} WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            var sql = $"SELECT DISTINCT {columnName} FROM {tableName} ";
+            if (!string.IsNullOrEmpty(whereSql))
+            {
+                sql += whereSql + " AND ";
+            }
+            else
+            {
+                sql += " WHERE ";
+            }
+            sql += $"{columnName} IS NOT NULL ORDER BY {columnName}";
+
             using (var command = new SqlCommand(sql, connection))
             {
+                foreach (var p in parameters)
+                {
+                    command.Parameters.AddWithValue(p.Key, p.Value);
+                }
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -90,7 +139,7 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public IActionResult Export(ExportarViewModel viewModel)
+        public async Task<IActionResult> Export(ExportarViewModel viewModel)
         {
             var csvBuilder = new StringBuilder();
             string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.csv";
@@ -98,13 +147,35 @@ namespace Web.Controllers
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
+                var whereClauses = new List<string>();
+                var parameters = new Dictionary<string, object>();
+
+                var user = await _userService.FindByLoginAsync(User.Identity.Name);
+                if (User.IsInRole("Coordenador"))
+                {
+                    var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
+                    var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                    if (user.ColaboradorCPF != null)
+                    {
+                        cpfs.Add(user.ColaboradorCPF);
+                    }
+                    if (cpfs.Any())
+                    {
+                        var cpfParams = new List<string>();
+                        for (int i = 0; i < cpfs.Count; i++)
+                        {
+                            var paramName = $"@cpf{i}";
+                            cpfParams.Add(paramName);
+                            parameters.Add(paramName, cpfs[i]);
+                        }
+                        whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
+                    }
+                }
 
                 if (viewModel.ExportMode == ExportMode.PorDispositivo)
                 {
                     fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
                     string sql = "";
-                    var whereClauses = new List<string>();
-                    var parameters = new Dictionary<string, object>();
 
                     Action<string, List<string>> addInClause = (columnName, values) =>
                     {
@@ -133,11 +204,8 @@ namespace Web.Controllers
 
                             string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
                             csvBuilder.AppendLine(computerHeader);
-                            sql = $"SELECT {computerHeader} FROM Computadores";
-                            if (whereClauses.Any())
-                            {
-                                sql += " WHERE " + string.Join(" AND ", whereClauses);
-                            }
+                            string whereSqlComputadores = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+                            sql = $"SELECT {computerHeader} FROM Computadores {whereSqlComputadores}";
 
                             using (var cmd = new SqlCommand(sql, connection))
                             {
@@ -168,11 +236,8 @@ namespace Web.Controllers
 
                             string monitorHeader = "PartNumber,ColaboradorNome,Marca,Modelo,Tamanho";
                             csvBuilder.AppendLine(monitorHeader);
-                            sql = $"SELECT {monitorHeader} FROM Monitores";
-                            if (whereClauses.Any())
-                            {
-                                sql += " WHERE " + string.Join(" AND ", whereClauses);
-                            }
+                            string whereSqlMonitores = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+                            sql = $"SELECT {monitorHeader} FROM Monitores {whereSqlMonitores}";
 
                             using (var cmd = new SqlCommand(sql, connection))
                             {
@@ -201,11 +266,8 @@ namespace Web.Controllers
 
                             string perifericoHeader = "ID,ColaboradorNome,Tipo,DataEntrega,PartNumber";
                             csvBuilder.AppendLine(perifericoHeader);
-                            sql = $"SELECT {perifericoHeader} FROM Perifericos";
-                            if (whereClauses.Any())
-                            {
-                                sql += " WHERE " + string.Join(" AND ", whereClauses);
-                            }
+                            string whereSqlPerifericos = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+                            sql = $"SELECT {perifericoHeader} FROM Perifericos {whereSqlPerifericos}";
 
                             using (var cmd = new SqlCommand(sql, connection))
                             {
@@ -234,13 +296,19 @@ namespace Web.Controllers
                 {
                     fileName = $"export_colaborador_{viewModel.ColaboradorNome}_{DateTime.Now:yyyyMMddHHmmss}.csv";
 
+                    var whereSql = "WHERE ColaboradorNome = @colaborador";
+                    parameters.Add("@colaborador", viewModel.ColaboradorNome);
+
                     // Computadores
                     csvBuilder.AppendLine("Computadores");
                     csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
-                    string sqlComputadores = "SELECT MAC, IP, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores WHERE ColaboradorNome = @colaborador";
+                    string sqlComputadores = $"SELECT MAC, IP, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores {whereSql}";
                     using (var cmd = new SqlCommand(sqlComputadores, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        foreach (var p in parameters)
+                        {
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        }
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -254,10 +322,13 @@ namespace Web.Controllers
                     csvBuilder.AppendLine();
                     csvBuilder.AppendLine("Monitores");
                     csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
-                    string sqlMonitores = "SELECT PartNumber, ColaboradorNome, Marca, Modelo, Tamanho FROM Monitores WHERE ColaboradorNome = @colaborador";
+                    string sqlMonitores = $"SELECT PartNumber, ColaboradorNome, Marca, Modelo, Tamanho FROM Monitores {whereSql}";
                     using (var cmd = new SqlCommand(sqlMonitores, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        foreach (var p in parameters)
+                        {
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        }
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -271,10 +342,13 @@ namespace Web.Controllers
                     csvBuilder.AppendLine();
                     csvBuilder.AppendLine("Perifericos");
                     csvBuilder.AppendLine("ID,ColaboradorNome,Tipo,DataEntrega,PartNumber");
-                    string sqlPerifericos = "SELECT ID, ColaboradorNome, Tipo, DataEntrega, PartNumber FROM Perifericos WHERE ColaboradorNome = @colaborador";
+                    string sqlPerifericos = $"SELECT ID, ColaboradorNome, Tipo, DataEntrega, PartNumber FROM Perifericos {whereSql}";
                     using (var cmd = new SqlCommand(sqlPerifericos, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        foreach (var p in parameters)
+                        {
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        }
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())

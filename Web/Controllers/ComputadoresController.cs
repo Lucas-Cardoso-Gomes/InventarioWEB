@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Web.Services;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -18,15 +19,17 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<ComputadoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly UserService _userService;
 
-        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
+        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService, UserService userService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _userService = userService;
         }
 
-        public IActionResult Index(string sortOrder, string searchString,
+        public async Task<IActionResult> Index(string sortOrder, string searchString,
             List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores, List<string> currentRams,
             int pageNumber = 1, int pageSize = 25)
         {
@@ -76,7 +79,6 @@ namespace Web.Controllers
                         parameters.Add("@search", $"%{searchString}%");
                     }
 
-                    // Helper function to build IN clauses safely
                     Action<string, List<string>> addInClause = (columnName, values) =>
                     {
                         if (values != null && values.Any())
@@ -98,6 +100,28 @@ namespace Web.Controllers
                     addInClause("RamTipo", currentRamTipos);
                     addInClause("Processador", currentProcessadores);
                     addInClause("Ram", currentRams);
+
+                    var user = await _userService.FindByLoginAsync(User.Identity.Name);
+                    if (User.IsInRole("Coordenador"))
+                    {
+                        var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
+                        var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (user.ColaboradorCPF != null)
+                        {
+                            cpfs.Add(user.ColaboradorCPF);
+                        }
+                        if (cpfs.Any())
+                        {
+                            var cpfParams = new List<string>();
+                            for (int i = 0; i < cpfs.Count; i++)
+                            {
+                                var paramName = $"@cpf{i}";
+                                cpfParams.Add(paramName);
+                                parameters.Add(paramName, cpfs[i]);
+                            }
+                            whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
+                        }
+                    }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
