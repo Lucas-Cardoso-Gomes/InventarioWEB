@@ -27,7 +27,7 @@ namespace Web.Models
         [Display(Name = "Coordenador")]
         public int? CoordenadorId { get; set; }
 
-        public IEnumerable<SelectListItem> Coordenadores { get; set; }
-        public IEnumerable<SelectListItem> Colaboradores { get; set; }
+        public IEnumerable<SelectListItem>? Coordenadores { get; set; }
+        public IEnumerable<SelectListItem>? Colaboradores { get; set; }
     }
 }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Web.Models;
 
 namespace web.Models
 {
@@ -32,5 +34,6 @@ namespace web.Models
         public string? ConsumoCPU { get; set; }
         public string? SO { get; set; }
         public DateTime? DataColeta { get; set; }
+        public List<Manutencao>? Manutencoes { get; set; }
     }
 }

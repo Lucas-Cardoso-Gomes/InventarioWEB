@@ -224,6 +224,30 @@ namespace Web.Controllers
                                             line.Add(reader[col].ToString());
                                         }
                                         csvBuilder.AppendLine(string.Join(",", line));
+
+                                        // Manutenções
+                                        string mac = reader["MAC"].ToString();
+                                        string sqlManutencoes = "SELECT * FROM Manutencoes WHERE ComputadorMAC = @MAC";
+                                        using (var manutencaoConnection = new SqlConnection(_connectionString))
+                                        {
+                                            manutencaoConnection.Open();
+                                            using (var manutencaoCmd = new SqlCommand(sqlManutencoes, manutencaoConnection))
+                                            {
+                                                manutencaoCmd.Parameters.AddWithValue("@MAC", mac);
+                                                using (var manutencaoReader = manutencaoCmd.ExecuteReader())
+                                                {
+                                                    if (manutencaoReader.HasRows)
+                                                    {
+                                                        csvBuilder.AppendLine("Manutenções do Computador:");
+                                                        csvBuilder.AppendLine("ID,Data,Descricao,Custo");
+                                                        while (manutencaoReader.Read())
+                                                        {
+                                                            csvBuilder.AppendLine($"{manutencaoReader["Id"]},{manutencaoReader["Data"]},{manutencaoReader["Descricao"]},{manutencaoReader["Custo"]}");
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

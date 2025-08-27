@@ -74,7 +74,8 @@ namespace Web.Controllers
                                     Videoporteiro = reader["Videoporteiro"].ToString(),
                                     Obs = reader["Obs"].ToString(),
                                     DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
-                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    Funcao = reader["Funcao"].ToString()
                                 });
                             }
                         }
@@ -109,8 +110,8 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao) 
-                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao)";
+                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, Funcao)
+                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @Funcao)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
@@ -135,6 +136,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Funcao", (object)colaborador.Funcao ?? "Normal");
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -180,7 +182,7 @@ namespace Web.Controllers
                                        EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
                                        Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
                                        Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
-                                       Obs = @Obs, DataAlteracao = @DataAlteracao 
+                                       Obs = @Obs, DataAlteracao = @DataAlteracao, Funcao = @Funcao
                                        WHERE CPF = @CPF";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -206,6 +208,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Funcao", (object)colaborador.Funcao ?? "Normal");
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -338,7 +341,8 @@ namespace Web.Controllers
                                     Videoporteiro = reader["Videoporteiro"].ToString(),
                                     Obs = reader["Obs"].ToString(),
                                     DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
-                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    Funcao = reader["Funcao"].ToString()
                                 };
                             }
                         }
