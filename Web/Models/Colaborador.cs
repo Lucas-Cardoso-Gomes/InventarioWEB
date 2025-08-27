@@ -99,6 +99,6 @@ namespace web.Models
         public DateTime? DataAlteracao { get; set; }
 
         [StringLength(50)]
-        public string? Funcao { get; set; }
+        public string? Coordenador { get; set; }
     }
 }
