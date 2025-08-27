@@ -46,6 +46,8 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(UserViewModel model)
         {
+            ModelState.AddModelError("", "Este é um erro de teste.");
+
             if (string.IsNullOrEmpty(model.Password))
             {
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
