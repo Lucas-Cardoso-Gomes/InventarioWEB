@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Web.Models
 {
@@ -16,6 +17,13 @@ namespace Web.Models
         public string PasswordHash { get; set; }
 
         [Required]
-        public string Role { get; set; } // "Admin" or "Normal"
+        public string Role { get; set; } // "Admin", "Coordenador", "Normal"
+
+        public string? ColaboradorCPF { get; set; }
+
+        // Self-referencing foreign key for Coordinator
+        public int? CoordenadorId { get; set; }
+        [ForeignKey("CoordenadorId")]
+        public virtual User Coordenador { get; set; }
     }
 }

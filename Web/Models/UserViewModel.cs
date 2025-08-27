@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Web.Models
 {
@@ -16,6 +18,16 @@ namespace Web.Models
 
         [Required(ErrorMessage = "A função é obrigatória.")]
         [Display(Name = "Função")]
-        public string Role { get; set; } // "Admin" or "Normal"
+        public string Role { get; set; }
+
+        [Required(ErrorMessage = "O colaborador é obrigatório.")]
+        [Display(Name = "Colaborador (CPF)")]
+        public string ColaboradorCPF { get; set; }
+
+        [Display(Name = "Coordenador")]
+        public int? CoordenadorId { get; set; }
+
+        public IEnumerable<SelectListItem> Coordenadores { get; set; }
+        public IEnumerable<SelectListItem> Colaboradores { get; set; }
     }
 }
