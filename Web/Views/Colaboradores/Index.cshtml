@@ -22,6 +22,7 @@
         @if (User.IsInRole("Admin"))
         {
             <a asp-action="Create" class="btn btn-primary">Adicionar Novo Colaborador</a>
+            <a asp-controller="Exportar" asp-action="CoordenadoresCSV" class="btn btn-success">Exportar Coordenadores</a>
         }
     </div>
     <div class="col-md-6">
@@ -45,6 +46,7 @@
                 <th>@Html.DisplayNameFor(model => model.Email)</th>
                 <th>@Html.DisplayNameFor(model => model.Teams)</th>
                 <th>@Html.DisplayNameFor(model => model.Setor)</th>
+                <th>@Html.DisplayNameFor(model => model.Coordenador)</th>
                 <th>Smartphone</th>
                 <th>Telefone Fixo</th>
                 <th>@Html.DisplayNameFor(model => model.Ramal)</th>
@@ -65,6 +67,7 @@
                     <td>@Html.DisplayFor(modelItem => item.Email)</td>
                     <td>@Html.DisplayFor(modelItem => item.Teams)</td>
                     <td>@Html.DisplayFor(modelItem => item.Setor)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Coordenador)</td>
                     <td>@Html.DisplayFor(modelItem => item.Smartphone)</td>
                     <td>@Html.DisplayFor(modelItem => item.TelefoneFixo)</td>
                     <td>@Html.DisplayFor(modelItem => item.Ramal)</td>

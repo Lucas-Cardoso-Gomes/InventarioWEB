@@ -386,5 +386,40 @@ namespace Web.Controllers
 
             return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
         }
+
+        public async Task<IActionResult> CoordenadoresCSV()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                string sql = "SELECT Nome, Coordenador FROM Colaboradores ORDER BY Coordenador, Nome";
+                using (var cmd = new SqlCommand(sql, connection))
+                {
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            colaboradores.Add(new Colaborador
+                            {
+                                Nome = reader["Nome"].ToString(),
+                                Coordenador = reader["Coordenador"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("Coordenador,Colaborador");
+
+            foreach (var colaborador in colaboradores)
+            {
+                csvBuilder.AppendLine($"{colaborador.Coordenador},{colaborador.Nome}");
+            }
+
+            string fileName = $"export_coordenadores_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
+        }
     }
 }

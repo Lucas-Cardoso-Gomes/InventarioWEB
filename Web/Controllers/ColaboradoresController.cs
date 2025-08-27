@@ -75,7 +75,7 @@ namespace Web.Controllers
                                     Obs = reader["Obs"].ToString(),
                                     DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                    Funcao = reader["Funcao"].ToString()
+                                    Coordenador = reader["Coordenador"].ToString()
                                 });
                             }
                         }
@@ -94,6 +94,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
+            ViewData["Coordenadores"] = GetCoordenadores();
             return View();
         }
 
@@ -110,8 +111,8 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, Funcao)
-                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @Funcao)";
+                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, Coordenador)
+                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @Coordenador)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
@@ -136,7 +137,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
-                            cmd.Parameters.AddWithValue("@Funcao", (object)colaborador.Funcao ?? "Normal");
+                            cmd.Parameters.AddWithValue("@Coordenador", (object)colaborador.Coordenador ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -159,6 +160,7 @@ namespace Web.Controllers
             if (id == null) return NotFound();
             Colaborador colaborador = FindColaboradorById(id);
             if (colaborador == null) return NotFound();
+            ViewData["Coordenadores"] = GetCoordenadores();
             return View(colaborador);
         }
 
@@ -182,7 +184,7 @@ namespace Web.Controllers
                                        EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
                                        Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
                                        Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
-                                       Obs = @Obs, DataAlteracao = @DataAlteracao, Funcao = @Funcao
+                                       Obs = @Obs, DataAlteracao = @DataAlteracao, Coordenador = @Coordenador
                                        WHERE CPF = @CPF";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -208,7 +210,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                            cmd.Parameters.AddWithValue("@Funcao", (object)colaborador.Funcao ?? "Normal");
+                            cmd.Parameters.AddWithValue("@Coordenador", (object)colaborador.Coordenador ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -342,7 +344,7 @@ namespace Web.Controllers
                                     Obs = reader["Obs"].ToString(),
                                     DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                    Funcao = reader["Funcao"].ToString()
+                                    Coordenador = reader["Coordenador"].ToString()
                                 };
                             }
                         }
@@ -354,6 +356,35 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao encontrar colaborador por ID.");
             }
             return colaborador;
+        }
+        private List<User> GetCoordenadores()
+        {
+            var coordenadores = new List<User>();
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT Nome FROM Users WHERE Role = 'Coordenador' ORDER BY Nome";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                coordenadores.Add(new User {
+                                    Nome = reader["Nome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de coordenadores.");
+            }
+            return coordenadores;
         }
     }
 }

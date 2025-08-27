@@ -29,15 +29,11 @@
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label asp-for="Funcao" class="control-label"></label>
-                        <select asp-for="Funcao" class="form-control">
-                            <option value="Normal">Normal</option>
-                            <option value="Admin">Admin</option>
-                            <option value="Coordenador">Coordenador</option>
-                            <option value="Diretor">Diretor</option>
-                            <option value="RH">RH</option>
+                        <label asp-for="Coordenador" class="control-label"></label>
+                        <select asp-for="Coordenador" class="form-control" asp-items="@(new SelectList(ViewData["Coordenadores"] as IEnumerable<web.Models.User>, "Nome", "Nome"))">
+                            <option value="">Selecione um Coordenador</option>
                         </select>
-                        <span asp-validation-for="Funcao" class="text-danger"></span>
+                        <span asp-validation-for="Coordenador" class="text-danger"></span>
                     </div>
                 </div>
             </div>
