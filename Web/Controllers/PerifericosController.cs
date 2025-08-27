@@ -8,6 +8,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
 using Web.Services;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -17,16 +19,18 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<PerifericosController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly UserService _userService;
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
+        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService, UserService userService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _userService = userService;
         }
 
         // GET: Perifericos
-        public IActionResult Index(string searchString)
+        public async Task<IActionResult> Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
             var perifericos = new List<Periferico>();
@@ -35,16 +39,41 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT * FROM Perifericos";
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        sql += " WHERE ColaboradorNome LIKE @search OR Tipo LIKE @search OR PartNumber LIKE @search";
+                        whereClauses.Add("(ColaboradorNome LIKE @search OR Tipo LIKE @search OR PartNumber LIKE @search)");
+                        parameters.Add("@search", $"%{searchString}%");
                     }
+
+                    var user = await _userService.FindByLoginAsync(User.Identity.Name);
+                    if (User.IsInRole("Coordenador"))
+                    {
+                        var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
+                        var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (cpfs.Any())
+                        {
+                            var cpfParams = new List<string>();
+                            for (int i = 0; i < cpfs.Count; i++)
+                            {
+                                var paramName = $"@cpf{i}";
+                                cpfParams.Add(paramName);
+                                parameters.Add(paramName, cpfs[i]);
+                            }
+                            whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
+                        }
+                    }
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+                    string sql = $"SELECT * FROM Perifericos {whereSql}";
+
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
-                        if (!string.IsNullOrEmpty(searchString))
+                        foreach (var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
                         }
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
