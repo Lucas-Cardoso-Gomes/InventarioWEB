@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using web.Models;
 using Web.Services;
 using Monitor = web.Models.Monitor;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -18,15 +20,17 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<MonitoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly UserService _userService;
 
-        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
+        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService, UserService userService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _userService = userService;
         }
 
-        public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
+        public async Task<IActionResult> Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
         {
             var viewModel = new MonitorIndexViewModel
             {
@@ -67,6 +71,24 @@ namespace Web.Controllers
                     addInClause("Marca", currentMarcas);
                     addInClause("Tamanho", currentTamanhos);
                     addInClause("Modelo", currentModelos);
+
+                    var user = await _userService.FindByLoginAsync(User.Identity.Name);
+                    if (User.IsInRole("Coordenador"))
+                    {
+                        var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
+                        var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (cpfs.Any())
+                        {
+                            var cpfParams = new List<string>();
+                            for (int i = 0; i < cpfs.Count; i++)
+                            {
+                                var paramName = $"@cpf{i}";
+                                cpfParams.Add(paramName);
+                                parameters.Add(paramName, cpfs[i]);
+                            }
+                            whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
+                        }
+                    }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
