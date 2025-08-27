@@ -206,7 +206,7 @@ namespace Web.Controllers
                             csvBuilder.AppendLine(computerHeader);
                             string whereSqlComputadores = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                             sql = $"SELECT {computerHeader} FROM Computadores {whereSqlComputadores}";
-
+                            
                             using (var cmd = new SqlCommand(sql, connection))
                             {
                                 foreach (var p in parameters)
@@ -238,7 +238,7 @@ namespace Web.Controllers
                             csvBuilder.AppendLine(monitorHeader);
                             string whereSqlMonitores = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                             sql = $"SELECT {monitorHeader} FROM Monitores {whereSqlMonitores}";
-
+                            
                             using (var cmd = new SqlCommand(sql, connection))
                             {
                                 foreach (var p in parameters)
@@ -268,7 +268,7 @@ namespace Web.Controllers
                             csvBuilder.AppendLine(perifericoHeader);
                             string whereSqlPerifericos = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                             sql = $"SELECT {perifericoHeader} FROM Perifericos {whereSqlPerifericos}";
-
+                            
                             using (var cmd = new SqlCommand(sql, connection))
                             {
                                 foreach (var p in parameters)
@@ -295,7 +295,7 @@ namespace Web.Controllers
                 else if (viewModel.ExportMode == ExportMode.PorColaborador)
                 {
                     fileName = $"export_colaborador_{viewModel.ColaboradorNome}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-
+                    
                     var whereSql = "WHERE ColaboradorNome = @colaborador";
                     parameters.Add("@colaborador", viewModel.ColaboradorNome);
 

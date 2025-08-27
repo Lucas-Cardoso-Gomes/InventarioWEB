@@ -72,7 +72,7 @@ namespace Web.Controllers
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                     string sql = $"SELECT * FROM Perifericos {whereSql}";
-
+                    
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         foreach (var p in parameters)
