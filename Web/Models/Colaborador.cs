@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Web.Models;
 
 namespace web.Models
 {
@@ -96,5 +97,8 @@ namespace web.Models
 
         [ValidateNever]
         public DateTime? DataAlteracao { get; set; }
+
+        [StringLength(50)]
+        public string? Funcao { get; set; }
     }
 }

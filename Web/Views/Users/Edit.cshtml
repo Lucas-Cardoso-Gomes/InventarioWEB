@@ -11,7 +11,7 @@
 <div class="row">
     <div class="col-md-4">
         <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div asp-validation-summary="All" class="text-danger"></div>
 
             <div class="form-group">
                 <label asp-for="Nome" class="control-label"></label>
@@ -30,13 +30,28 @@
             </div>
             <div class="form-group">
                 <label asp-for="Role" class="control-label"></label>
-                <select asp-for="Role" class="form-control">
+                <select asp-for="Role" id="roleSelect" class="form-control">
                     <option value="Normal">Normal</option>
                     <option value="Coordenador">Coordenador</option>
                     <option value="Admin">Admin</option>
                 </select>
                 <span asp-validation-for="Role" class="text-danger"></span>
             </div>
+
+            <div id="coordenadorGroup" class="form-group" style="display: none;">
+                <label asp-for="CoordenadorId" class="control-label"></label>
+                <select asp-for="CoordenadorId" class="form-control" asp-items="ViewBag.CoordenadorId">
+                    <option value="">Selecione um Coordenador</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="ColaboradorCPF" class="control-label"></label>
+                <select asp-for="ColaboradorCPF" class="form-control" asp-items="ViewBag.ColaboradorCPF">
+                    <option value="">Selecione um Colaborador</option>
+                </select>
+            </div>
+
             <div class="form-group mt-3">
                 <input type="submit" value="Salvar" class="btn btn-primary" />
             </div>
@@ -50,4 +65,17 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+            $('#roleSelect').change(function () {
+                if ($(this).val() === 'Normal') {
+                    $('#coordenadorGroup').show();
+                } else {
+                    $('#coordenadorGroup').hide();
+                }
+            });
+            // Trigger the change event on page load to set the initial state
+            $('#roleSelect').trigger('change');
+        });
+    </script>
 }
