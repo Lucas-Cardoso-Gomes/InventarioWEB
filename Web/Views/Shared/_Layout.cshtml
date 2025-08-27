@@ -34,16 +34,12 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Perifericos"
                                 asp-action="Index">Periféricos</a>
                         </li>
-                        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"
-                                    asp-action="Index">Exportar</a>
-                            </li>
-                        }
-
                         @if (User.IsInRole("Admin"))
                         {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Manutencoes"
+                                    asp-action="Index">Manutenções</a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Colaboradores"
                                     asp-action="Index">Colaboradores</a>
@@ -54,19 +50,18 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
-                                    asp-action="Index">Gerenciamento</a>
+                                    asp-action="PersistentLogs">Logs Persistentes</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
                                     asp-action="Logs">Logs</a>
                             </li>
+                        }
+                        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+                        {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
-                                    asp-action="PersistentLogs">Log Persistente</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Manutencoes"
-                                    asp-action="Index">Manutenções</a>
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"
+                                    asp-action="Index">Exportar</a>
                             </li>
                         }
                     </ul>
