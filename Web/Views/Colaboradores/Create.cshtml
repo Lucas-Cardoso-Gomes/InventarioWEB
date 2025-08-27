@@ -30,7 +30,7 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label asp-for="Coordenador" class="control-label"></label>
-                        <select asp-for="Coordenador" class="form-control" asp-items="@(new SelectList(ViewData["Coordenadores"] as IEnumerable<web.Models.User>, "Nome", "Nome"))">
+                        <select asp-for="Coordenador" class="form-control" asp-items="@(new SelectList(ViewData["Coordenadores"] as IEnumerable<Web.Models.User>, "Nome", "Nome"))">
                             <option value="">Selecione um Coordenador</option>
                         </select>
                         <span asp-validation-for="Coordenador" class="text-danger"></span>
