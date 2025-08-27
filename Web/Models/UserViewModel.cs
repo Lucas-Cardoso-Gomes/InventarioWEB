@@ -20,8 +20,9 @@ namespace Web.Models
         [Display(Name = "Função")]
         public string Role { get; set; }
 
+        [Required(ErrorMessage = "O colaborador é obrigatório.")]
         [Display(Name = "Colaborador (CPF)")]
-        public string? ColaboradorCPF { get; set; }
+        public string ColaboradorCPF { get; set; }
 
         [Display(Name = "Coordenador")]
         public int? CoordenadorId { get; set; }

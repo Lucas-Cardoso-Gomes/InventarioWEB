@@ -53,6 +53,10 @@ namespace Web.Controllers
                     {
                         var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
                         var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (user.ColaboradorCPF != null)
+                        {
+                            cpfs.Add(user.ColaboradorCPF);
+                        }
                         if (cpfs.Any())
                         {
                             var cpfParams = new List<string>();
@@ -68,7 +72,7 @@ namespace Web.Controllers
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                     string sql = $"SELECT * FROM Perifericos {whereSql}";
-
+                    
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         foreach (var p in parameters)

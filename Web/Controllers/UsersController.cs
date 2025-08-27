@@ -51,6 +51,16 @@ namespace Web.Controllers
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
             }
 
+            if (model.Login == "admin")
+            {
+                ModelState.Remove("ColaboradorCPF");
+            }
+
+            if (model.Role == "Normal" && model.CoordenadorId == null)
+            {
+                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
+            }
+
             if (ModelState.IsValid)
             {
                 var existingUser = await _userService.FindByLoginAsync(model.Login);
@@ -114,6 +124,16 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
+            if (model.Login == "admin")
+            {
+                ModelState.Remove("ColaboradorCPF");
+            }
+
+            if (model.Role == "Normal" && model.CoordenadorId == null)
+            {
+                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
+            }
+
             if (ModelState.IsValid)
             {
                 var user = await _userService.FindByIdAsync(id);

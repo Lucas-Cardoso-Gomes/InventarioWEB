@@ -86,7 +86,7 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@{columnName.ToLower().Replace(" ", "")}{i}";
+                                var paramName = $"@{columnName.ToLower()}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
@@ -106,6 +106,10 @@ namespace Web.Controllers
                     {
                         var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
                         var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (user.ColaboradorCPF != null)
+                        {
+                            cpfs.Add(user.ColaboradorCPF);
+                        }
                         if (cpfs.Any())
                         {
                             var cpfParams = new List<string>();

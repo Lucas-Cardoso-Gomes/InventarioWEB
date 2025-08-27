@@ -77,6 +77,10 @@ namespace Web.Controllers
                     {
                         var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
                         var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
+                        if (user.ColaboradorCPF != null)
+                        {
+                            cpfs.Add(user.ColaboradorCPF);
+                        }
                         if (cpfs.Any())
                         {
                             var cpfParams = new List<string>();
