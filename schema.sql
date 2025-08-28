@@ -1,4 +1,3 @@
--- schema.sql
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
