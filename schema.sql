@@ -1,3 +1,4 @@
+    INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
