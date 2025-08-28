@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Web.Models;
 
 namespace web.Models
@@ -11,6 +12,9 @@ namespace web.Models
         [Required(ErrorMessage = "O endereço MAC é obrigatório.")]
         public string MAC { get; set; }
         public string? IP { get; set; }
+        public int? UserId { get; set; }
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; }
         public string? ColaboradorNome { get; set; }
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }
