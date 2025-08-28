@@ -7,6 +7,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using web.Models;
+using Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Web.Services;
 using System.Threading.Tasks;
@@ -78,8 +79,34 @@ namespace Web.Controllers
 
                 // Colaborador filter
                 viewModel.Colaboradores = GetColaboradores(connection, whereSql, parameters).Select(c => c.Nome).ToList();
+
+                if (User.IsInRole("Admin") || User.IsInRole("Diretoria") || User.IsInRole("RH"))
+                {
+                    viewModel.AllCoordenadores = GetAllCoordenadores();
+                }
             }
             return View(viewModel);
+        }
+
+        private List<string> GetAllCoordenadores()
+        {
+            var coordenadores = new List<string>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT Nome FROM Users WHERE Role = 'Coordenador' ORDER BY Nome";
+                using (var cmd = new SqlCommand(sql, connection))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            coordenadores.Add(reader["Nome"].ToString());
+                        }
+                    }
+                }
+            }
+            return coordenadores;
         }
 
         private List<Colaborador> GetColaboradores(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
@@ -382,43 +409,118 @@ namespace Web.Controllers
                         }
                     }
                 }
-            }
-
-            return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
-        }
-
-        public async Task<IActionResult> CoordenadoresCSV()
-        {
-            var colaboradores = new List<Colaborador>();
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                await connection.OpenAsync();
-                string sql = "SELECT Nome, Coordenador FROM Colaboradores ORDER BY Coordenador, Nome";
-                using (var cmd = new SqlCommand(sql, connection))
+                else if (viewModel.ExportMode == ExportMode.PorCoordenador)
                 {
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    fileName = $"export_por_coordenador_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    var selectedCoordenadores = new List<string>();
+
+                    if (User.IsInRole("Admin") || User.IsInRole("Diretoria") || User.IsInRole("RH"))
                     {
-                        while (await reader.ReadAsync())
+                        selectedCoordenadores = viewModel.SelectedCoordenadores;
+                    }
+                    else if (User.IsInRole("Coordenador"))
+                    {
+                        selectedCoordenadores.Add(User.Identity.Name);
+                    }
+
+                    if (selectedCoordenadores.Any())
+                    {
+                        var colaboradores = new List<Colaborador>();
+                        var computadores = new List<Computador>();
+
+                        var coordenadorParams = new List<string>();
+                        for (int i = 0; i < selectedCoordenadores.Count; i++)
                         {
-                            colaboradores.Add(new Colaborador
+                            coordenadorParams.Add($"@coordenador{i}");
+                        }
+                        var whereClauseCoordenadores = $"WHERE Coordenador IN ({string.Join(", ", coordenadorParams)})";
+
+                        var sqlColaboradores = $"SELECT Nome, CPF, Email, Setor, Coordenador FROM Colaboradores {whereClauseCoordenadores}";
+                        using (var cmd = new SqlCommand(sqlColaboradores, connection))
+                        {
+                            for (int i = 0; i < selectedCoordenadores.Count; i++)
                             {
-                                Nome = reader["Nome"].ToString(),
-                                Coordenador = reader["Coordenador"].ToString()
-                            });
+                                cmd.Parameters.AddWithValue($"@coordenador{i}", selectedCoordenadores[i]);
+                            }
+
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    colaboradores.Add(new Colaborador
+                                    {
+                                        Nome = reader["Nome"].ToString(),
+                                        CPF = reader["CPF"].ToString(),
+                                        Email = reader["Email"].ToString(),
+                                        Setor = reader["Setor"].ToString(),
+                                        Coordenador = reader["Coordenador"].ToString()
+                                    });
+                                }
+                            }
+                        }
+
+                        var collaboratorNames = colaboradores.Select(c => c.Nome).ToList();
+                        if (viewModel.IncluirCoordenador)
+                        {
+                            collaboratorNames.AddRange(selectedCoordenadores.Where(sc => !collaboratorNames.Contains(sc)));
+                        }
+
+                        if (collaboratorNames.Any())
+                        {
+                            var colaboradorParams = new List<string>();
+                            for (int i = 0; i < collaboratorNames.Count; i++)
+                            {
+                                colaboradorParams.Add($"@colaborador{i}");
+                            }
+                            var whereClauseComputadores = $"WHERE ColaboradorNome IN ({string.Join(", ", colaboradorParams)})";
+                            var computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,SO,DataColeta";
+                            var sqlComputadores = $"SELECT {computerHeader} FROM Computadores {whereClauseComputadores}";
+
+                            using (var cmd = new SqlCommand(sqlComputadores, connection))
+                            {
+                                for (int i = 0; i < collaboratorNames.Count; i++)
+                                {
+                                    cmd.Parameters.AddWithValue($"@colaborador{i}", collaboratorNames[i]);
+                                }
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    while (reader.Read())
+                                    {
+                                        computadores.Add(new Computador
+                                        {
+                                            MAC = reader["MAC"].ToString(),
+                                            IP = reader["IP"].ToString(),
+                                            ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                            Hostname = reader["Hostname"].ToString(),
+                                            Fabricante = reader["Fabricante"].ToString(),
+                                            Processador = reader["Processador"].ToString(),
+                                            SO = reader["SO"].ToString(),
+                                            DataColeta = reader["DataColeta"] as DateTime?
+                                        });
+                                    }
+                                }
+                            }
+                        }
+
+                        csvBuilder.AppendLine("Colaboradores");
+                        csvBuilder.AppendLine("Nome,CPF,Email,Setor,Coordenador");
+                        foreach (var c in colaboradores)
+                        {
+                            csvBuilder.AppendLine($"{c.Nome},{c.CPF},{c.Email},{c.Setor},{c.Coordenador}");
+                        }
+
+                        csvBuilder.AppendLine();
+                        csvBuilder.AppendLine("Computadores");
+                        csvBuilder.AppendLine("MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,SO,DataColeta");
+                        foreach (var c in computadores)
+                        {
+                            csvBuilder.AppendLine($"{c.MAC},{c.IP},{c.ColaboradorNome},{c.Hostname},{c.Fabricante},{c.Processador},{c.SO},{c.DataColeta}");
                         }
                     }
                 }
             }
 
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Coordenador,Colaborador");
-
-            foreach (var colaborador in colaboradores)
-            {
-                csvBuilder.AppendLine($"{colaborador.Coordenador},{colaborador.Nome}");
-            }
-
-            string fileName = $"export_coordenadores_{DateTime.Now:yyyyMMddHHmmss}.csv";
             return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
         }
     }

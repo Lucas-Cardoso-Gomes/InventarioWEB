@@ -8,7 +8,9 @@ namespace web.Models
         [Display(Name = "Por Dispositivo")]
         PorDispositivo,
         [Display(Name = "Por Colaborador")]
-        PorColaborador
+        PorColaborador,
+        [Display(Name = "Por Coordenador")]
+        PorCoordenador
     }
 
     public enum DeviceType
@@ -61,5 +63,13 @@ namespace web.Models
         // --- Filters for Perifericos ---
         public List<string> TiposPeriferico { get; set; }
         public List<string> CurrentTiposPeriferico { get; set; } = new List<string>();
+
+        // --- Filters for Coordenadores ---
+        [Display(Name = "Coordenadores")]
+        public List<string> AllCoordenadores { get; set; } = new List<string>();
+        public List<string> SelectedCoordenadores { get; set; } = new List<string>();
+
+        [Display(Name = "Incluir coordenador na exportação")]
+        public bool IncluirCoordenador { get; set; }
     }
 }
