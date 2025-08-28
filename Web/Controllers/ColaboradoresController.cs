@@ -366,7 +366,7 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT Nome FROM Users WHERE Role = 'Coordenador' ORDER BY Nome";
+                    string sql = "SELECT Nome FROM Usuarios WHERE Role = 'Coordenador' ORDER BY Nome";
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         using (SqlDataReader reader = cmd.ExecuteReader())

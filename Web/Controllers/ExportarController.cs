@@ -94,7 +94,7 @@ namespace Web.Controllers
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT Nome FROM Users WHERE Role = 'Coordenador' ORDER BY Nome";
+                string sql = "SELECT Nome FROM Usuarios WHERE Role = 'Coordenador' ORDER BY Nome";
                 using (var cmd = new SqlCommand(sql, connection))
                 {
                     using (var reader = cmd.ExecuteReader())
