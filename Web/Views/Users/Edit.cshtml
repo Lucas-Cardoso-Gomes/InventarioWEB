@@ -8,60 +8,210 @@
 
 <h4>Usuário</h4>
 <hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
+<form asp-action="Edit">
+    <div class="row">
+        <div class="col-md-12">
             <div asp-validation-summary="All" class="text-danger"></div>
 
-            <div class="form-group">
-                <label asp-for="Nome" class="control-label"></label>
-                <input asp-for="Nome" class="form-control" />
-                <span asp-validation-for="Nome" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Login" class="control-label"></label>
-                <input asp-for="Login" class="form-control" />
-                <span asp-validation-for="Login" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Password" class="control-label"></label>
-                <input asp-for="Password" class="form-control" placeholder="Deixe em branco para não alterar" />
-                <span asp-validation-for="Password" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Role" class="control-label"></label>
-                <select asp-for="Role" id="roleSelect" class="form-control">
-                    <option value="Normal">Normal</option>
-                    <option value="Coordenador">Coordenador</option>
-                    <option value="Admin">Admin</option>
-                </select>
-                <span asp-validation-for="Role" class="text-danger"></span>
-            </div>
-
-            <div id="coordenadorGroup" class="form-group" style="display: none;">
-                <label asp-for="CoordenadorId" class="control-label"></label>
-                <select asp-for="CoordenadorId" class="form-control" asp-items="ViewBag.CoordenadorId">
-                    <option value="">Selecione um Coordenador</option>
-                </select>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="Nome" class="control-label"></label>
+                        <input asp-for="Nome" class="form-control" />
+                        <span asp-validation-for="Nome" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="Login" class="control-label"></label>
+                        <input asp-for="Login" class="form-control" />
+                        <span asp-validation-for="Login" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="Password" class="control-label"></label>
+                        <input asp-for="Password" class="form-control" placeholder="Deixe em branco para não alterar" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+                </div>
             </div>
 
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="Role" class="control-label"></label>
+                        <select asp-for="Role" id="roleSelect" class="form-control">
+                            <option value="Normal">Normal</option>
+                            <option value="Coordenador">Coordenador</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                        <span asp-validation-for="Role" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div id="supervisorGroup" class="form-group" style="display: none;">
+                        <label asp-for="SupervisorId" class="control-label"></label>
+                        <select asp-for="SupervisorId" class="form-control" asp-items="ViewBag.SupervisorId">
+                            <option value="">Selecione um Supervisor</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label asp-for="CPF" class="control-label"></label>
+                        <input asp-for="CPF" class="form-control" />
+                        <span asp-validation-for="CPF" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+            <h5>Contato</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Email" class="control-label"></label>
+                        <input asp-for="Email" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaEmail" class="control-label"></label>
+                        <input asp-for="SenhaEmail" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Teams" class="control-label"></label>
+                        <input asp-for="Teams" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaTeams" class="control-label"></label>
+                        <input asp-for="SenhaTeams" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="TelefoneFixo" class="control-label"></label>
+                        <input asp-for="TelefoneFixo" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Ramal" class="control-label"></label>
+                        <input asp-for="Ramal" class="form-control" />
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+            <h5>Acessos</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="EDespacho" class="control-label"></label>
+                        <input asp-for="EDespacho" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaEDespacho" class="control-label"></label>
+                        <input asp-for="SenhaEDespacho" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Genius" class="control-label"></label>
+                        <input asp-for="Genius" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaGenius" class="control-label"></label>
+                        <input asp-for="SenhaGenius" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Ibrooker" class="control-label"></label>
+                        <input asp-for="Ibrooker" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaIbrooker" class="control-label"></label>
+                        <input asp-for="SenhaIbrooker" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Adicional" class="control-label"></label>
+                        <input asp-for="Adicional" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="SenhaAdicional" class="control-label"></label>
+                        <input asp-for="SenhaAdicional" class="form-control" />
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+            <h5>Outros</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Setor" class="control-label"></label>
+                        <input asp-for="Setor" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Smartphone" class="control-label"></label>
+                        <input asp-for="Smartphone" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Alarme" class="control-label"></label>
+                        <input asp-for="Alarme" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label asp-for="Videoporteiro" class="control-label"></label>
+                        <input asp-for="Videoporteiro" class="form-control" />
+                    </div>
+                </div>
+            </div>
             <div class="form-group">
-                <label asp-for="ColaboradorCPF" class="control-label"></label>
-                <select asp-for="ColaboradorCPF" class="form-control" asp-items="ViewBag.ColaboradorCPF">
-                    <option value="">Selecione um Colaborador</option>
-                </select>
+                <label asp-for="Obs" class="control-label"></label>
+                <textarea asp-for="Obs" class="form-control"></textarea>
             </div>
 
             <div class="form-group mt-3">
                 <input type="submit" value="Salvar" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-secondary">Voltar para a Lista</a>
             </div>
-        </form>
+        </div>
     </div>
-</div>
-
-<div>
-    <a asp-action="Index">Voltar para a Lista</a>
-</div>
+</form>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
@@ -69,9 +219,9 @@
         $(document).ready(function () {
             $('#roleSelect').change(function () {
                 if ($(this).val() === 'Normal') {
-                    $('#coordenadorGroup').show();
+                    $('#supervisorGroup').show();
                 } else {
-                    $('#coordenadorGroup').hide();
+                    $('#supervisorGroup').hide();
                 }
             });
             // Trigger the change event on page load to set the initial state

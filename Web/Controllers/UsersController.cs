@@ -15,17 +15,14 @@ namespace Web.Controllers
     {
         private readonly UserService _userService;
         private readonly PersistentLogService _persistentLogService;
-        private readonly ColaboradoresController _colaboradoresController;
 
-        public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration, ILogger<ColaboradoresController> logger)
+        public UsersController(UserService userService, PersistentLogService persistentLogService)
         {
             _userService = userService;
             _persistentLogService = persistentLogService;
-            _colaboradoresController = new ColaboradoresController(configuration, logger, persistentLogService);
         }
 
         // GET: Users
-        // Re-commit to trigger new build.
         public async Task<IActionResult> Index()
         {
             var users = await _userService.GetAllUsersAsync();
@@ -36,8 +33,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create()
         {
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome");
-            ViewData["ColaboradorCPF"] = new SelectList(_colaboradoresController.GetColaboradores(), "CPF", "Nome");
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome");
             return View();
         }
 
@@ -47,21 +43,14 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(UserViewModel model)
         {
-            ModelState.AddModelError("", "Este é um erro de teste.");
-
             if (string.IsNullOrEmpty(model.Password))
             {
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
             }
 
-            if (model.Login == "admin")
+            if (model.Role == "Normal" && model.SupervisorId == null)
             {
-                ModelState.Remove("ColaboradorCPF");
-            }
-
-            if (model.Role == "Normal" && model.CoordenadorId == null)
-            {
-                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
+                ModelState.AddModelError("SupervisorId", "O supervisor é obrigatório para usuários normais.");
             }
 
             if (ModelState.IsValid)
@@ -70,8 +59,7 @@ namespace Web.Controllers
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
-                    ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
-                    ViewData["ColaboradorCPF"] = new SelectList(_colaboradoresController.GetColaboradores(), "CPF", "Nome", model.ColaboradorCPF);
+                    ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
                     return View(model);
                 }
 
@@ -81,8 +69,28 @@ namespace Web.Controllers
                     Login = model.Login,
                     PasswordHash = model.Password, // Placeholder for real hash
                     Role = model.Role,
-                    ColaboradorCPF = model.ColaboradorCPF,
-                    CoordenadorId = model.CoordenadorId
+                    CPF = model.CPF,
+                    Email = model.Email,
+                    SenhaEmail = model.SenhaEmail,
+                    Teams = model.Teams,
+                    SenhaTeams = model.SenhaTeams,
+                    EDespacho = model.EDespacho,
+                    SenhaEDespacho = model.SenhaEDespacho,
+                    Genius = model.Genius,
+                    SenhaGenius = model.SenhaGenius,
+                    Ibrooker = model.Ibrooker,
+                    SenhaIbrooker = model.SenhaIbrooker,
+                    Adicional = model.Adicional,
+                    SenhaAdicional = model.SenhaAdicional,
+                    Setor = model.Setor,
+                    Smartphone = model.Smartphone,
+                    TelefoneFixo = model.TelefoneFixo,
+                    Ramal = model.Ramal,
+                    Alarme = model.Alarme,
+                    Videoporteiro = model.Videoporteiro,
+                    Obs = model.Obs,
+                    DataInclusao = DateTime.Now,
+                    SupervisorId = model.SupervisorId
                 };
 
                 await _userService.CreateAsync(user);
@@ -93,8 +101,7 @@ namespace Web.Controllers
 
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
-            ViewData["ColaboradorCPF"] = new SelectList(_colaboradoresController.GetColaboradores(), "CPF", "Nome", model.ColaboradorCPF);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
             return View(model);
         }
 
@@ -113,11 +120,29 @@ namespace Web.Controllers
                 Nome = user.Nome,
                 Login = user.Login,
                 Role = user.Role,
-                ColaboradorCPF = user.ColaboradorCPF,
-                CoordenadorId = user.CoordenadorId
+                CPF = user.CPF,
+                Email = user.Email,
+                SenhaEmail = user.SenhaEmail,
+                Teams = user.Teams,
+                SenhaTeams = user.SenhaTeams,
+                EDespacho = user.EDespacho,
+                SenhaEDespacho = user.SenhaEDespacho,
+                Genius = user.Genius,
+                SenhaGenius = user.SenhaGenius,
+                Ibrooker = user.Ibrooker,
+                SenhaIbrooker = user.SenhaIbrooker,
+                Adicional = user.Adicional,
+                SenhaAdicional = user.SenhaAdicional,
+                Setor = user.Setor,
+                Smartphone = user.Smartphone,
+                TelefoneFixo = user.TelefoneFixo,
+                Ramal = user.Ramal,
+                Alarme = user.Alarme,
+                Videoporteiro = user.Videoporteiro,
+                Obs = user.Obs,
+                SupervisorId = user.SupervisorId
             };
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", user.CoordenadorId);
-            ViewData["ColaboradorCPF"] = new SelectList(_colaboradoresController.GetColaboradores(), "CPF", "Nome", user.ColaboradorCPF);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", user.SupervisorId);
             return View(model);
         }
 
@@ -127,14 +152,9 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
-            if (model.Login == "admin")
+            if (model.Role == "Normal" && model.SupervisorId == null)
             {
-                ModelState.Remove("ColaboradorCPF");
-            }
-
-            if (model.Role == "Normal" && model.CoordenadorId == null)
-            {
-                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
+                ModelState.AddModelError("SupervisorId", "O supervisor é obrigatório para usuários normais.");
             }
 
             if (ModelState.IsValid)
@@ -148,8 +168,28 @@ namespace Web.Controllers
                 user.Nome = model.Nome;
                 user.Login = model.Login;
                 user.Role = model.Role;
-                user.ColaboradorCPF = model.ColaboradorCPF;
-                user.CoordenadorId = model.CoordenadorId;
+                user.CPF = model.CPF;
+                user.Email = model.Email;
+                user.SenhaEmail = model.SenhaEmail;
+                user.Teams = model.Teams;
+                user.SenhaTeams = model.SenhaTeams;
+                user.EDespacho = model.EDespacho;
+                user.SenhaEDespacho = model.SenhaEDespacho;
+                user.Genius = model.Genius;
+                user.SenhaGenius = model.SenhaGenius;
+                user.Ibrooker = model.Ibrooker;
+                user.SenhaIbrooker = model.SenhaIbrooker;
+                user.Adicional = model.Adicional;
+                user.SenhaAdicional = model.SenhaAdicional;
+                user.Setor = model.Setor;
+                user.Smartphone = model.Smartphone;
+                user.TelefoneFixo = model.TelefoneFixo;
+                user.Ramal = model.Ramal;
+                user.Alarme = model.Alarme;
+                user.Videoporteiro = model.Videoporteiro;
+                user.Obs = model.Obs;
+                user.DataAlteracao = DateTime.Now;
+                user.SupervisorId = model.SupervisorId;
 
                 // Only update password if a new one is provided
                 if (!string.IsNullOrEmpty(model.Password))
@@ -169,8 +209,7 @@ namespace Web.Controllers
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
-            ViewData["ColaboradorCPF"] = new SelectList(_colaboradoresController.GetColaboradores(), "CPF", "Nome", model.ColaboradorCPF);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
             return View(model);
         }
 
