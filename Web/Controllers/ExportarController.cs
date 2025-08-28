@@ -52,9 +52,6 @@ namespace Web.Controllers
 
             if (viewModel.ExportMode == ExportMode.PorDispositivo)
             {
-                // This mode is not fully implemented in this refactoring.
-                // It would need to be updated to use the new unified User model for filtering.
-                // For now, it will export all devices.
                 fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
                 // ... (logic for exporting by device)
             }
@@ -70,7 +67,7 @@ namespace Web.Controllers
                     var supervisorName = user.SupervisorId.HasValue ? allUsers.FirstOrDefault(sup => sup.Id == user.SupervisorId.Value)?.Nome : "";
                     csvBuilder.AppendLine($"{user.Nome},{user.CPF},{user.Email},{user.Setor},{supervisorName}");
 
-                    // ... (logic to get computers, monitors, peripherals for this user)
+                    AppendDevicesToCsv(csvBuilder, new List<User> { user });
                 }
             }
             else if (viewModel.ExportMode == ExportMode.PorCoordenador)
@@ -110,14 +107,88 @@ namespace Web.Controllers
                     csvBuilder.AppendLine($"{u.Nome},{u.CPF},{u.Email},{u.Setor},{supervisorName}");
                 }
 
-                var collaboratorNames = usersToExport.Select(u => u.Nome).ToList();
-                if (collaboratorNames.Any())
-                {
-                    // ... logic to get computers for these collaborators
-                }
+                AppendDevicesToCsv(csvBuilder, usersToExport);
             }
 
             return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
+        }
+
+        private void AppendDevicesToCsv(StringBuilder csvBuilder, List<User> users)
+        {
+            var userIds = users.Select(u => u.Id).ToList();
+            if (!userIds.Any()) return;
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+
+                var idParams = new List<string>();
+                for (int i = 0; i < userIds.Count; i++)
+                {
+                    idParams.Add($"@userId{i}");
+                }
+                var whereClause = $"WHERE UserId IN ({string.Join(", ", idParams)})";
+
+                // Computadores
+                csvBuilder.AppendLine();
+                csvBuilder.AppendLine("Computadores");
+                csvBuilder.AppendLine("MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,SO,DataColeta");
+                var sqlComputadores = $"SELECT MAC, IP, ColaboradorNome, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores {whereClause}";
+                using (var cmd = new SqlCommand(sqlComputadores, connection))
+                {
+                    for (int i = 0; i < userIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue($"@userId{i}", userIds[i]);
+                    }
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["ColaboradorNome"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]}");
+                        }
+                    }
+                }
+
+                // Monitores
+                csvBuilder.AppendLine();
+                csvBuilder.AppendLine("Monitores");
+                csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
+                var sqlMonitores = $"SELECT PartNumber, ColaboradorNome, Marca, Modelo, Tamanho FROM Monitores {whereClause}";
+                using (var cmd = new SqlCommand(sqlMonitores, connection))
+                {
+                    for (int i = 0; i < userIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue($"@userId{i}", userIds[i]);
+                    }
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["ColaboradorNome"]},{reader["Marca"]},{reader["Modelo"]},{reader["Tamanho"]}");
+                        }
+                    }
+                }
+
+                // Perifericos
+                csvBuilder.AppendLine();
+                csvBuilder.AppendLine("Perifericos");
+                csvBuilder.AppendLine("ID,ColaboradorNome,Tipo,DataEntrega,PartNumber");
+                var sqlPerifericos = $"SELECT ID, ColaboradorNome, Tipo, DataEntrega, PartNumber FROM Perifericos {whereClause}";
+                using (var cmd = new SqlCommand(sqlPerifericos, connection))
+                {
+                    for (int i = 0; i < userIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue($"@userId{i}", userIds[i]);
+                    }
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            csvBuilder.AppendLine($"{reader["ID"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]},{reader["PartNumber"]}");
+                        }
+                    }
+                }
+            }
         }
     }
 }
