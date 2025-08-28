@@ -65,3 +65,35 @@ DROP TABLE Colaboradores;
 
 -- Drop the ColaboradorCPF column from Usuarios
 ALTER TABLE Usuarios DROP COLUMN ColaboradorCPF;
+
+-- Add UserId to Monitores and Perifericos
+ALTER TABLE Monitores ADD UserId INT NULL;
+ALTER TABLE Perifericos ADD UserId INT NULL;
+
+-- Add foreign key constraints
+ALTER TABLE Monitores ADD CONSTRAINT FK_Monitores_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id);
+ALTER TABLE Perifericos ADD CONSTRAINT FK_Perifericos_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id);
+
+-- Populate UserId in Monitores
+UPDATE m
+SET m.UserId = u.Id
+FROM Monitores m
+JOIN Usuarios u ON m.ColaboradorNome = u.Nome;
+
+-- Populate UserId in Perifericos
+UPDATE p
+SET p.UserId = u.Id
+FROM Perifericos p
+JOIN Usuarios u ON p.ColaboradorNome = u.Nome;
+
+-- Add UserId to Computadores
+ALTER TABLE Computadores ADD UserId INT NULL;
+
+-- Add foreign key constraint
+ALTER TABLE Computadores ADD CONSTRAINT FK_Computadores_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id);
+
+-- Populate UserId in Computadores
+UPDATE c
+SET c.UserId = u.Id
+FROM Computadores c
+JOIN Usuarios u ON c.ColaboradorNome = u.Nome;

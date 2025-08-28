@@ -11,13 +11,13 @@ namespace web.Models
         [ValidateNever]
         public int ID { get; set; }
 
-        [Display(Name = "Colaborador")]
+        [Display(Name = "Usuário")]
+        public int? UserId { get; set; }
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; }
+
         [ValidateNever]
         public string? ColaboradorNome { get; set; }
-
-        [ForeignKey("ColaboradorNome")]
-        [ValidateNever]
-        public virtual Colaborador? Colaborador { get; set; }
 
         [Required(ErrorMessage = "O Tipo é obrigatório.")]
         [StringLength(50)]

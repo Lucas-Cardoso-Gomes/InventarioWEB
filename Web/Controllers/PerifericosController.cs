@@ -51,23 +51,18 @@ namespace Web.Controllers
                     var user = await _userService.FindByLoginAsync(User.Identity.Name);
                     if (User.IsInRole("Coordenador"))
                     {
-                        var colaboradores = await _userService.GetColaboradoresByCoordenadorAsync(user.Id);
-                        var cpfs = colaboradores.Select(c => c.ColaboradorCPF).ToList();
-                        if (user.ColaboradorCPF != null)
+                        var users = await _userService.GetUsersBySupervisorAsync(user.Id);
+                        var userIds = users.Select(u => u.Id).ToList();
+                        userIds.Add(user.Id);
+
+                        var idParams = new List<string>();
+                        for (int i = 0; i < userIds.Count; i++)
                         {
-                            cpfs.Add(user.ColaboradorCPF);
+                            var paramName = $"@userId{i}";
+                            idParams.Add(paramName);
+                            parameters.Add(paramName, userIds[i]);
                         }
-                        if (cpfs.Any())
-                        {
-                            var cpfParams = new List<string>();
-                            for (int i = 0; i < cpfs.Count; i++)
-                            {
-                                var paramName = $"@cpf{i}";
-                                cpfParams.Add(paramName);
-                                parameters.Add(paramName, cpfs[i]);
-                            }
-                            whereClauses.Add($"ColaboradorCPF IN ({string.Join(", ", cpfParams)})");
-                        }
+                        whereClauses.Add($"UserId IN ({string.Join(", ", idParams)})");
                     }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
@@ -105,9 +100,9 @@ namespace Web.Controllers
 
         // GET: Perifericos/Create
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
+            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
             return View();
         }
 
@@ -115,18 +110,22 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Create(Periferico periferico)
+        public async Task<IActionResult> Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
+                    var user = await _userService.FindByIdAsync(periferico.UserId.Value);
+                    periferico.ColaboradorNome = user?.Nome;
+
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Perifericos (ColaboradorNome, Tipo, DataEntrega, PartNumber) VALUES (@ColaboradorNome, @Tipo, @DataEntrega, @PartNumber)";
+                        string sql = "INSERT INTO Perifericos (UserId, ColaboradorNome, Tipo, DataEntrega, PartNumber) VALUES (@UserId, @ColaboradorNome, @Tipo, @DataEntrega, @PartNumber)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
+                            cmd.Parameters.AddWithValue("@UserId", (object)periferico.UserId ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
@@ -143,17 +142,17 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
             return View(periferico);
         }
 
         // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
             Periferico periferico = FindPerifericoById(id);
             if (periferico == null) return NotFound();
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
             return View(periferico);
         }
 
@@ -161,7 +160,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Edit(int id, Periferico periferico)
+        public async Task<IActionResult> Edit(int id, Periferico periferico)
         {
             if (id != periferico.ID) return NotFound();
 
@@ -169,13 +168,17 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var user = await _userService.FindByIdAsync(periferico.UserId.Value);
+                    periferico.ColaboradorNome = user?.Nome;
+
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
+                        string sql = "UPDATE Perifericos SET UserId = @UserId, ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@ID", periferico.ID);
+                            cmd.Parameters.AddWithValue("@UserId", (object)periferico.UserId ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
@@ -192,7 +195,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
             return View(periferico);
         }
 
@@ -267,28 +270,5 @@ namespace Web.Controllers
             return periferico;
         }
 
-        private List<Colaborador> GetColaboradores()
-        {
-            var colaboradores = new List<Colaborador>();
-            using (SqlConnection connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
-                {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            colaboradores.Add(new Colaborador {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
-                            });
-                        }
-                    }
-                }
-            }
-            return colaboradores;
-        }
     }
 }
