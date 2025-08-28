@@ -1,3 +1,4 @@
+-- schema.sql
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
@@ -102,6 +103,6 @@ CREATE TABLE PersistentLogs (
     Timestamp DATETIME NOT NULL,
     EntityType NVARCHAR(100),
     ActionType NVARCHAR(100),
-    UserName NVARCHAR(100),
-    LogMessage NVARCHAR(MAX)
+    PerformedBy NVARCHAR(100),
+    Details NVARCHAR(MAX)
 );
