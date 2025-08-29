@@ -40,7 +40,7 @@ namespace Web.Services
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand(
-                    "INSERT INTO Users (Nome, Login, PasswordHash, Role, CPF, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorId) " +
+                    "INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, CPF, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorId) " +
                     "VALUES (@Nome, @Login, @PasswordHash, @Role, @CPF, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorId)", connection);
 
                 AddUserParameters(command, user);
@@ -55,7 +55,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Users", connection);
+                var command = new SqlCommand("SELECT * FROM Usuarios", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -72,7 +72,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Users WHERE Id = @Id", connection);
+                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Id = @Id", connection);
                 command.Parameters.AddWithValue("@Id", id);
 
                 using (var reader = await command.ExecuteReaderAsync())
@@ -91,7 +91,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var query = "UPDATE Users SET Nome = @Nome, Login = @Login, Role = @Role, CPF = @CPF, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro, Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorId = @CoordenadorId";
+                var query = "UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, CPF = @CPF, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro, Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorId = @CoordenadorId";
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
                     query += ", PasswordHash = @PasswordHash";
@@ -111,7 +111,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("DELETE FROM Users WHERE Id = @Id", connection);
+                var command = new SqlCommand("DELETE FROM Usuarios WHERE Id = @Id", connection);
                 command.Parameters.AddWithValue("@Id", id);
                 await command.ExecuteNonQueryAsync();
             }
@@ -123,7 +123,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Users WHERE Role = 'Coordenador' OR Role = 'Admin'", connection);
+                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Role = 'Coordenador' OR Role = 'Admin'", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -141,7 +141,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Users WHERE CoordenadorId = @CoordenadorId", connection);
+                var command = new SqlCommand("SELECT * FROM Usuarios WHERE CoordenadorId = @CoordenadorId", connection);
                 command.Parameters.AddWithValue("@CoordenadorId", coordenadorId);
                 using (var reader = await command.ExecuteReaderAsync())
                 {

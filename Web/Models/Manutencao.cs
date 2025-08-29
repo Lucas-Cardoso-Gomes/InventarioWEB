@@ -15,21 +15,16 @@ namespace web.Models
         [ForeignKey("ComputadorMAC")]
         public Computador? Computador { get; set; }
 
-        [Display(Name = "Data de Manutenção de Hardware")]
         [DataType(DataType.Date)]
-        public DateTime? DataManutencaoHardware { get; set; }
+        [Display(Name = "Data")]
+        public DateTime Data { get; set; }
 
-        [Display(Name = "Data de Manutenção de Software")]
-        [DataType(DataType.Date)]
-        public DateTime? DataManutencaoSoftware { get; set; }
+        [Required(ErrorMessage = "A descrição é obrigatória.")]
+        [Display(Name = "Descrição")]
+        public string Descricao { get; set; }
 
-        [Display(Name = "Manutenção Externa")]
-        public string? ManutencaoExterna { get; set; }
-
-        [DataType(DataType.Date)]
-        public DateTime? Data { get; set; }
-
-        [Display(Name = "Histórico")]
-        public string? Historico { get; set; }
+        [Display(Name = "Custo")]
+        [Column(TypeName = "decimal(18, 2)")]
+        public decimal? Custo { get; set; }
     }
 }

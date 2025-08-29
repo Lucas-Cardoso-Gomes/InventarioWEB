@@ -1,6 +1,6 @@
 -- schema.sql
 
-CREATE TABLE Users (
+CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
     Nome NVARCHAR(100) NOT NULL,
     Login NVARCHAR(100) NOT NULL UNIQUE,
@@ -29,7 +29,7 @@ CREATE TABLE Users (
     DataInclusao DATETIME,
     DataAlteracao DATETIME,
     CoordenadorId INT,
-    CONSTRAINT FK_Users_Coordenador FOREIGN KEY (CoordenadorId) REFERENCES Users(Id)
+    CONSTRAINT FK_Usuarios_Coordenador FOREIGN KEY (CoordenadorId) REFERENCES Usuarios(Id)
 );
 
 CREATE TABLE Computadores (
@@ -57,7 +57,7 @@ CREATE TABLE Computadores (
     ConsumoCPU NVARCHAR(50),
     SO NVARCHAR(100),
     DataColeta DATETIME,
-    CONSTRAINT FK_Computadores_Users FOREIGN KEY (UserId) REFERENCES Users(Id)
+    CONSTRAINT FK_Computadores_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id)
 );
 
 CREATE TABLE Monitores (
@@ -66,7 +66,7 @@ CREATE TABLE Monitores (
     Marca NVARCHAR(50),
     Modelo NVARCHAR(50) NOT NULL,
     Tamanho NVARCHAR(20),
-    CONSTRAINT FK_Monitores_Users FOREIGN KEY (UserId) REFERENCES Users(Id)
+    CONSTRAINT FK_Monitores_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id)
 );
 
 CREATE TABLE Perifericos (
@@ -75,7 +75,7 @@ CREATE TABLE Perifericos (
     Tipo NVARCHAR(50) NOT NULL,
     DataEntrega DATETIME,
     PartNumber NVARCHAR(50),
-    CONSTRAINT FK_Perifericos_Users FOREIGN KEY (UserId) REFERENCES Users(Id)
+    CONSTRAINT FK_Perifericos_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios(Id)
 );
 
 CREATE TABLE Manutencoes (
