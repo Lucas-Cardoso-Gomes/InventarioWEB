@@ -3,6 +3,10 @@ using System.Threading.Tasks;
 using Web.Models;
 using Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Web.Controllers
 {
@@ -11,25 +15,49 @@ namespace Web.Controllers
     {
         private readonly UserService _userService;
         private readonly PersistentLogService _persistentLogService;
+        private readonly string _connectionString;
 
-        public UsersController(UserService userService, PersistentLogService persistentLogService)
+        public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration)
         {
             _userService = userService;
             _persistentLogService = persistentLogService;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
+        }
+
+        private async Task<List<Colaborador>> GetAllColaboradoresAsync()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                var command = new SqlCommand("SELECT CPF, Nome FROM Colaboradores ORDER BY Nome", connection);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        colaboradores.Add(new Colaborador { CPF = reader.GetString(0), Nome = reader.GetString(1) });
+                    }
+                }
+            }
+            return colaboradores;
         }
 
         // GET: Users
         public async Task<IActionResult> Index()
         {
-            var users = await _userService.GetAllUsersAsync();
+            var users = await _userService.GetAllUsersWithColaboradoresAsync();
             return View(users);
         }
 
         // GET: Users/Create
         [Authorize(Roles = "Admin")]
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            return View();
+            var model = new UserViewModel
+            {
+                Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome")
+            };
+            return View(model);
         }
 
         // POST: Users/Create
@@ -49,6 +77,7 @@ namespace Web.Controllers
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
+                    model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
                     return View(model);
                 }
 
@@ -56,22 +85,21 @@ namespace Web.Controllers
                 {
                     Nome = model.Nome,
                     Login = model.Login,
-                    // IMPORTANT: This is a simple string assignment.
-                    // In a real application, use a secure password hashing library like BCrypt.
-                    // Example: PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
                     PasswordHash = model.Password, // Placeholder for real hash
-                    Role = model.Role
+                    Role = model.Role,
+                    Diretoria = model.Diretoria,
+                    ColaboradorCPF = model.ColaboradorCPF
                 };
 
                 await _userService.CreateAsync(user);
 
                 _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
                 
-                // Optionally, you can add a success message.
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
                 return RedirectToAction(nameof(Index));
             }
+            model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
             return View(model);
         }
 
@@ -87,10 +115,13 @@ namespace Web.Controllers
 
             var model = new UserViewModel
             {
+                Id = user.Id,
                 Nome = user.Nome,
                 Login = user.Login,
-                Role = user.Role
-                // Password is not loaded for editing
+                Role = user.Role,
+                Diretoria = user.Diretoria,
+                ColaboradorCPF = user.ColaboradorCPF,
+                Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", user.ColaboradorCPF)
             };
 
             return View(model);
@@ -113,16 +144,16 @@ namespace Web.Controllers
                 user.Nome = model.Nome;
                 user.Login = model.Login;
                 user.Role = model.Role;
+                user.Diretoria = model.Diretoria;
+                user.ColaboradorCPF = model.ColaboradorCPF;
 
-                // Only update password if a new one is provided
                 if (!string.IsNullOrEmpty(model.Password))
                 {
-                    // In a real app, hash this password
                     user.PasswordHash = model.Password;
                 }
                 else
                 {
-                    user.PasswordHash = null; // Tell the service not to update the password
+                    user.PasswordHash = null;
                 }
 
                 await _userService.UpdateAsync(user);
@@ -132,6 +163,7 @@ namespace Web.Controllers
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
+            model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
             return View(model);
         }
 

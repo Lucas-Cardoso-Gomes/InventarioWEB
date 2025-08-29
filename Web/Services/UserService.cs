@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Configuration;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 using Web.Models;
+using System.Collections.Generic;
 
 namespace Web.Services
 {
@@ -32,7 +33,9 @@ namespace Web.Services
                             Nome = reader.GetString(reader.GetOrdinal("Nome")),
                             Login = reader.GetString(reader.GetOrdinal("Login")),
                             PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
-                            Role = reader.GetString(reader.GetOrdinal("Role"))
+                            Role = reader.GetString(reader.GetOrdinal("Role")),
+                            Diretoria = reader.IsDBNull(reader.GetOrdinal("Diretoria")) ? null : reader.GetString(reader.GetOrdinal("Diretoria")),
+                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
                         };
                     }
                 }
@@ -45,35 +48,43 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES (@Nome, @Login, @PasswordHash, @Role)", connection);
+                var command = new SqlCommand("INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, Diretoria, ColaboradorCPF) VALUES (@Nome, @Login, @PasswordHash, @Role, @Diretoria, @ColaboradorCPF)", connection);
                 command.Parameters.AddWithValue("@Nome", user.Nome);
                 command.Parameters.AddWithValue("@Login", user.Login);
                 command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
                 command.Parameters.AddWithValue("@Role", user.Role);
+                command.Parameters.AddWithValue("@Diretoria", (object)user.Diretoria ?? System.DBNull.Value);
+                command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
 
                 await command.ExecuteNonQueryAsync();
             }
         }
 
-        public async Task<IEnumerable<User>> GetAllUsersAsync()
+        public async Task<IEnumerable<User>> GetAllUsersWithColaboradoresAsync()
         {
             var users = new List<User>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios", connection);
+                var command = new SqlCommand("SELECT u.*, c.Nome as ColaboradorNome FROM Usuarios u LEFT JOIN Colaboradores c ON u.ColaboradorCPF = c.CPF", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        users.Add(new User
+                        var user = new User
                         {
                             Id = reader.GetInt32(reader.GetOrdinal("Id")),
                             Nome = reader.GetString(reader.GetOrdinal("Nome")),
                             Login = reader.GetString(reader.GetOrdinal("Login")),
-                            Role = reader.GetString(reader.GetOrdinal("Role"))
-                            // PasswordHash is not retrieved for security reasons
-                        });
+                            Role = reader.GetString(reader.GetOrdinal("Role")),
+                            Diretoria = reader.IsDBNull(reader.GetOrdinal("Diretoria")) ? null : reader.GetString(reader.GetOrdinal("Diretoria")),
+                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF")),
+                        };
+                        if (!reader.IsDBNull(reader.GetOrdinal("ColaboradorNome")))
+                        {
+                            user.Colaborador = new Colaborador { Nome = reader.GetString(reader.GetOrdinal("ColaboradorNome")) };
+                        }
+                        users.Add(user);
                     }
                 }
             }
@@ -98,7 +109,9 @@ namespace Web.Services
                             Nome = reader.GetString(reader.GetOrdinal("Nome")),
                             Login = reader.GetString(reader.GetOrdinal("Login")),
                             PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
-                            Role = reader.GetString(reader.GetOrdinal("Role"))
+                            Role = reader.GetString(reader.GetOrdinal("Role")),
+                            Diretoria = reader.IsDBNull(reader.GetOrdinal("Diretoria")) ? null : reader.GetString(reader.GetOrdinal("Diretoria")),
+                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
                         };
                     }
                 }
@@ -111,26 +124,27 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                // Decide whether to update the password or not
+                var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, Diretoria = @Diretoria, ColaboradorCPF = @ColaboradorCPF");
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
-                    var command = new SqlCommand("UPDATE Usuarios SET Nome = @Nome, Login = @Login, PasswordHash = @PasswordHash, Role = @Role WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
-                    command.Parameters.AddWithValue("@Id", user.Id);
-                    command.Parameters.AddWithValue("@Nome", user.Nome);
-                    command.Parameters.AddWithValue("@Login", user.Login);
-                    command.Parameters.AddWithValue("@Role", user.Role);
-                    await command.ExecuteNonQueryAsync();
+                    query.Append(", PasswordHash = @PasswordHash");
                 }
-                else
+                query.Append(" WHERE Id = @Id");
+
+                var command = new SqlCommand(query.ToString(), connection);
+
+                command.Parameters.AddWithValue("@Nome", user.Nome);
+                command.Parameters.AddWithValue("@Login", user.Login);
+                command.Parameters.AddWithValue("@Role", user.Role);
+                command.Parameters.AddWithValue("@Diretoria", (object)user.Diretoria ?? System.DBNull.Value);
+                command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
+                command.Parameters.AddWithValue("@Id", user.Id);
+                if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
-                    var command = new SqlCommand("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@Id", user.Id);
-                    command.Parameters.AddWithValue("@Nome", user.Nome);
-                    command.Parameters.AddWithValue("@Login", user.Login);
-                    command.Parameters.AddWithValue("@Role", user.Role);
-                    await command.ExecuteNonQueryAsync();
+                    command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
                 }
+
+                await command.ExecuteNonQueryAsync();
             }
         }
 
