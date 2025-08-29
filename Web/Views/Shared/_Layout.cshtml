@@ -37,6 +37,10 @@
                         @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                         {
                             <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Manutencoes"
+                                    asp-action="Index">Manutenções</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"
                                     asp-action="Index">Exportar</a>
                             </li>
@@ -63,10 +67,6 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
                                     asp-action="PersistentLogs">Log Persistente</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Manutencoes"
-                                    asp-action="Index">Manutenções</a>
                             </li>
                         }
                     </ul>

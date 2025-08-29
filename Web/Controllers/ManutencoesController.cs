@@ -10,7 +10,7 @@ using System.Data.SqlClient;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Coordenador")]
     public class ManutencoesController : Controller
     {
         private readonly ManutencaoService _manutencaoService;
