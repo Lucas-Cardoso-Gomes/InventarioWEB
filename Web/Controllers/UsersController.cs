@@ -3,11 +3,6 @@ using System.Threading.Tasks;
 using Web.Models;
 using Web.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using System.Linq;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System;
 
 namespace Web.Controllers
 {
@@ -32,9 +27,8 @@ namespace Web.Controllers
 
         // GET: Users/Create
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome");
             return View();
         }
 
@@ -49,18 +43,12 @@ namespace Web.Controllers
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
             }
 
-            if (model.Role == "Normal" && model.CoordenadorId == null)
-            {
-                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
-            }
-
             if (ModelState.IsValid)
             {
                 var existingUser = await _userService.FindByLoginAsync(model.Login);
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
-                    ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
                     return View(model);
                 }
 
@@ -68,41 +56,22 @@ namespace Web.Controllers
                 {
                     Nome = model.Nome,
                     Login = model.Login,
+                    // IMPORTANT: This is a simple string assignment.
+                    // In a real application, use a secure password hashing library like BCrypt.
+                    // Example: PasswordHash = BCrypt.Net.BCrypt.HashPassword(model.Password),
                     PasswordHash = model.Password, // Placeholder for real hash
-                    Role = model.Role,
-                    CPF = model.CPF,
-                    Email = model.Email,
-                    SenhaEmail = model.SenhaEmail,
-                    Teams = model.Teams,
-                    SenhaTeams = model.SenhaTeams,
-                    EDespacho = model.EDespacho,
-                    SenhaEDespacho = model.SenhaEDespacho,
-                    Genius = model.Genius,
-                    SenhaGenius = model.SenhaGenius,
-                    Ibrooker = model.Ibrooker,
-                    SenhaIbrooker = model.SenhaIbrooker,
-                    Adicional = model.Adicional,
-                    SenhaAdicional = model.SenhaAdicional,
-                    Setor = model.Setor,
-                    Smartphone = model.Smartphone,
-                    TelefoneFixo = model.TelefoneFixo,
-                    Ramal = model.Ramal,
-                    Alarme = model.Alarme,
-                    Videoporteiro = model.Videoporteiro,
-                    Obs = model.Obs,
-                    DataInclusao = DateTime.Now,
-                    CoordenadorId = model.CoordenadorId
+                    Role = model.Role
                 };
 
                 await _userService.CreateAsync(user);
 
                 _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
                 
+                // Optionally, you can add a success message.
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
             return View(model);
         }
 
@@ -120,30 +89,10 @@ namespace Web.Controllers
             {
                 Nome = user.Nome,
                 Login = user.Login,
-                Role = user.Role,
-                CPF = user.CPF,
-                Email = user.Email,
-                SenhaEmail = user.SenhaEmail,
-                Teams = user.Teams,
-                SenhaTeams = user.SenhaTeams,
-                EDespacho = user.EDespacho,
-                SenhaEDespacho = user.SenhaEDespacho,
-                Genius = user.Genius,
-                SenhaGenius = user.SenhaGenius,
-                Ibrooker = user.Ibrooker,
-                SenhaIbrooker = user.SenhaIbrooker,
-                Adicional = user.Adicional,
-                SenhaAdicional = user.SenhaAdicional,
-                Setor = user.Setor,
-                Smartphone = user.Smartphone,
-                TelefoneFixo = user.TelefoneFixo,
-                Ramal = user.Ramal,
-                Alarme = user.Alarme,
-                Videoporteiro = user.Videoporteiro,
-                Obs = user.Obs,
-                CoordenadorId = user.CoordenadorId
+                Role = user.Role
+                // Password is not loaded for editing
             };
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", user.CoordenadorId);
+
             return View(model);
         }
 
@@ -153,11 +102,6 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
-            if (model.Role == "Normal" && model.CoordenadorId == null)
-            {
-                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
-            }
-
             if (ModelState.IsValid)
             {
                 var user = await _userService.FindByIdAsync(id);
@@ -169,28 +113,6 @@ namespace Web.Controllers
                 user.Nome = model.Nome;
                 user.Login = model.Login;
                 user.Role = model.Role;
-                user.CPF = model.CPF;
-                user.Email = model.Email;
-                user.SenhaEmail = model.SenhaEmail;
-                user.Teams = model.Teams;
-                user.SenhaTeams = model.SenhaTeams;
-                user.EDespacho = model.EDespacho;
-                user.SenhaEDespacho = model.SenhaEDespacho;
-                user.Genius = model.Genius;
-                user.SenhaGenius = model.SenhaGenius;
-                user.Ibrooker = model.Ibrooker;
-                user.SenhaIbrooker = model.SenhaIbrooker;
-                user.Adicional = model.Adicional;
-                user.SenhaAdicional = model.SenhaAdicional;
-                user.Setor = model.Setor;
-                user.Smartphone = model.Smartphone;
-                user.TelefoneFixo = model.TelefoneFixo;
-                user.Ramal = model.Ramal;
-                user.Alarme = model.Alarme;
-                user.Videoporteiro = model.Videoporteiro;
-                user.Obs = model.Obs;
-                user.DataAlteracao = DateTime.Now;
-                user.CoordenadorId = model.CoordenadorId;
 
                 // Only update password if a new one is provided
                 if (!string.IsNullOrEmpty(model.Password))
@@ -210,7 +132,6 @@ namespace Web.Controllers
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
             return View(model);
         }
 

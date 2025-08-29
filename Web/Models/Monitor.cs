@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
-using Web.Models;
 
 namespace web.Models
 {
@@ -12,9 +11,13 @@ namespace web.Models
         [StringLength(50)]
         public string PartNumber { get; set; }
 
-        [Display(Name = "Usuário")]
-        public int? UserId { get; set; }
+        [Display(Name = "Colaborador")]
+        [ValidateNever]
         public string? ColaboradorNome { get; set; }
+
+        [ForeignKey("ColaboradorNome")]
+        [ValidateNever]
+        public virtual Colaborador? Colaborador { get; set; }
 
         [StringLength(50)]
         [ValidateNever]

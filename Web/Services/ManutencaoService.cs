@@ -21,7 +21,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT Id, ComputadorMAC, Data, Descricao, Custo FROM Manutencoes";
+                string sql = "SELECT Id, ComputadorMAC, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico FROM Manutencoes";
                 using (var command = new SqlCommand(sql, connection))
                 {
                     using (var reader = command.ExecuteReader())
@@ -31,10 +31,12 @@ namespace Web.Services
                             manutencoes.Add(new Manutencao
                             {
                                 Id = reader.GetInt32(0),
-                                ComputadorMAC = reader.GetString(1),
-                                Data = reader.GetDateTime(2),
-                                Descricao = reader.GetString(3),
-                                Custo = reader.GetDecimal(4)
+                                ComputadorMAC = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                DataManutencaoHardware = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                                DataManutencaoSoftware = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                                ManutencaoExterna = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                Data = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5),
+                                Historico = reader.IsDBNull(6) ? null : reader.GetString(6)
                             });
                         }
                     }
@@ -48,13 +50,15 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "INSERT INTO Manutencoes (ComputadorMAC, Data, Descricao, Custo) VALUES (@ComputadorMAC, @Data, @Descricao, @Custo)";
+                string sql = "INSERT INTO Manutencoes (ComputadorMAC, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico) VALUES (@ComputadorMAC, @DataManutencaoHardware, @DataManutencaoSoftware, @ManutencaoExterna, @Data, @Historico)";
                 using (var command = new SqlCommand(sql, connection))
                 {
-                    command.Parameters.AddWithValue("@ComputadorMAC", manutencao.ComputadorMAC);
-                    command.Parameters.AddWithValue("@Data", manutencao.Data);
-                    command.Parameters.AddWithValue("@Descricao", manutencao.Descricao);
-                    command.Parameters.AddWithValue("@Custo", (object)manutencao.Custo ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@ComputadorMAC", (object)manutencao.ComputadorMAC ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@DataManutencaoHardware", (object)manutencao.DataManutencaoHardware ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@DataManutencaoSoftware", (object)manutencao.DataManutencaoSoftware ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@ManutencaoExterna", (object)manutencao.ManutencaoExterna ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@Data", (object)manutencao.Data ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@Historico", (object)manutencao.Historico ?? DBNull.Value);
                     command.ExecuteNonQuery();
                 }
             }
@@ -66,7 +70,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT Id, ComputadorMAC, Data, Descricao, Custo FROM Manutencoes WHERE Id = @Id";
+                string sql = "SELECT Id, ComputadorMAC, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico FROM Manutencoes WHERE Id = @Id";
                 using (var command = new SqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@Id", id);
@@ -77,10 +81,12 @@ namespace Web.Services
                             manutencao = new Manutencao
                             {
                                 Id = reader.GetInt32(0),
-                                ComputadorMAC = reader.GetString(1),
-                                Data = reader.GetDateTime(2),
-                                Descricao = reader.GetString(3),
-                                Custo = reader.GetDecimal(4)
+                                ComputadorMAC = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                DataManutencaoHardware = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                                DataManutencaoSoftware = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                                ManutencaoExterna = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                Data = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5),
+                                Historico = reader.IsDBNull(6) ? null : reader.GetString(6)
                             };
                         }
                     }
@@ -94,14 +100,16 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "UPDATE Manutencoes SET ComputadorMAC = @ComputadorMAC, Data = @Data, Descricao = @Descricao, Custo = @Custo WHERE Id = @Id";
+                string sql = "UPDATE Manutencoes SET ComputadorMAC = @ComputadorMAC, DataManutencaoHardware = @DataManutencaoHardware, DataManutencaoSoftware = @DataManutencaoSoftware, ManutencaoExterna = @ManutencaoExterna, Data = @Data, Historico = @Historico WHERE Id = @Id";
                 using (var command = new SqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@Id", manutencao.Id);
-                    command.Parameters.AddWithValue("@ComputadorMAC", manutencao.ComputadorMAC);
-                    command.Parameters.AddWithValue("@Data", manutencao.Data);
-                    command.Parameters.AddWithValue("@Descricao", manutencao.Descricao);
-                    command.Parameters.AddWithValue("@Custo", (object)manutencao.Custo ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@ComputadorMAC", (object)manutencao.ComputadorMAC ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@DataManutencaoHardware", (object)manutencao.DataManutencaoHardware ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@DataManutencaoSoftware", (object)manutencao.DataManutencaoSoftware ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@ManutencaoExterna", (object)manutencao.ManutencaoExterna ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@Data", (object)manutencao.Data ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@Historico", (object)manutencao.Historico ?? DBNull.Value);
                     command.ExecuteNonQuery();
                 }
             }

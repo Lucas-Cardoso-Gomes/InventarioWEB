@@ -31,7 +31,7 @@
         <div class="row g-3">
             <div class="col-md-12">
                 <label for="searchString" class="form-label">Pesquisa Geral</label>
-                <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Usuário..." value="@Model.SearchString">
+                <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Colaborador..." value="@Model.SearchString">
             </div>
 
             @{
@@ -82,7 +82,7 @@
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["MacSortParm"]" asp-route-searchString="@Model.SearchString">MAC</a>
                 </th>
                 <th class="col-usuario">
-                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Usuário</a>
+                    <a asp-action="Index" asp-route-sortOrder="@ViewData["UserSortParm"]" asp-route-searchString="@Model.SearchString">Colaborador</a>
                 </th>
                 <th class="col-hostname">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>

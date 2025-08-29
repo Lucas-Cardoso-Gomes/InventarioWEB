@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
-using Web.Models;
 
 namespace web.Models
 {
@@ -12,9 +11,13 @@ namespace web.Models
         [ValidateNever]
         public int ID { get; set; }
 
-        [Display(Name = "Usuário")]
-        public int? UserId { get; set; }
+        [Display(Name = "Colaborador")]
+        [ValidateNever]
         public string? ColaboradorNome { get; set; }
+
+        [ForeignKey("ColaboradorNome")]
+        [ValidateNever]
+        public virtual Colaborador? Colaborador { get; set; }
 
         [Required(ErrorMessage = "O Tipo é obrigatório.")]
         [StringLength(50)]

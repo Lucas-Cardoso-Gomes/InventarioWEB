@@ -9,8 +9,6 @@ using Microsoft.Extensions.Logging;
 using web.Models;
 using Web.Services;
 using Monitor = web.Models.Monitor;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace Web.Controllers
 {
@@ -20,17 +18,15 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<MonitoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
-        private readonly UserService _userService;
 
-        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService, UserService userService)
+        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _persistentLogService = persistentLogService;
-            _userService = userService;
         }
 
-        public async Task<IActionResult> Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
+        public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
         {
             var viewModel = new MonitorIndexViewModel
             {
@@ -60,11 +56,11 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@m{columnName.ToLower()}{i}";
+                                var paramName = $"@{columnName.ToLower()}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
-                            whereClauses.Add($"m.{columnName} IN ({string.Join(", ", paramNames)})");
+                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
                         }
                     };
 
@@ -72,26 +68,9 @@ namespace Web.Controllers
                     addInClause("Tamanho", currentTamanhos);
                     addInClause("Modelo", currentModelos);
 
-                    var user = await _userService.FindByLoginAsync(User.Identity.Name);
-                    if (User.IsInRole("Coordenador"))
-                    {
-                        var users = await _userService.GetUsersByCoordenadorAsync(user.Id);
-                        var userIds = users.Select(u => u.Id).ToList();
-                        userIds.Add(user.Id);
-
-                        var idParams = new List<string>();
-                        for (int i = 0; i < userIds.Count; i++)
-                        {
-                            var paramName = $"@userId{i}";
-                            idParams.Add(paramName);
-                            parameters.Add(paramName, userIds[i]);
-                        }
-                        whereClauses.Add($"m.UserId IN ({string.Join(", ", idParams)})");
-                    }
-
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    string sql = $"SELECT m.PartNumber, m.UserId, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id {whereSql}";
+                    string sql = $"SELECT * FROM Monitores {whereSql}";
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
@@ -107,7 +86,6 @@ namespace Web.Controllers
                                 viewModel.Monitores.Add(new Monitor
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
-                                    UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                     Marca = reader["Marca"].ToString(),
                                     Modelo = reader["Modelo"].ToString(),
@@ -143,9 +121,9 @@ namespace Web.Controllers
 
         // GET: Monitores/Create
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
             return View();
         }
 
@@ -153,30 +131,20 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create(Monitor monitor)
+        public IActionResult Create(Monitor monitor)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    if (monitor.UserId.HasValue)
-                    {
-                        var user = await _userService.FindByIdAsync(monitor.UserId.Value);
-                        monitor.ColaboradorNome = user?.Nome;
-                    }
-                    else
-                    {
-                        monitor.ColaboradorNome = null;
-                    }
-
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Monitores (PartNumber, UserId, Marca, Modelo, Tamanho) VALUES (@PartNumber, @UserId, @Marca, @Modelo, @Tamanho)";
+                        string sql = "INSERT INTO Monitores (PartNumber, ColaboradorNome, Marca, Modelo, Tamanho) VALUES (@PartNumber, @ColaboradorNome, @Marca, @Modelo, @Tamanho)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@UserId", (object)monitor.UserId ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -192,18 +160,18 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o monitor. Verifique se o PartNumber já existe.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", monitor.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
             return View(monitor);
         }
 
         // GET: Monitores/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(string id)
+        public IActionResult Edit(string id)
         {
             if (id == null) return NotFound();
             Monitor monitor = FindMonitorById(id);
             if (monitor == null) return NotFound();
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", monitor.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
             return View(monitor);
         }
 
@@ -211,7 +179,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(string id, Monitor monitor)
+        public IActionResult Edit(string id, Monitor monitor)
         {
             if (id != monitor.PartNumber) return NotFound();
 
@@ -219,24 +187,14 @@ namespace Web.Controllers
             {
                 try
                 {
-                    if (monitor.UserId.HasValue)
-                    {
-                        var user = await _userService.FindByIdAsync(monitor.UserId.Value);
-                        monitor.ColaboradorNome = user?.Nome;
-                    }
-                    else
-                    {
-                        monitor.ColaboradorNome = null;
-                    }
-
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Monitores SET UserId = @UserId, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Monitores SET ColaboradorNome = @ColaboradorNome, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@UserId", (object)monitor.UserId ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -252,7 +210,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o monitor.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", monitor.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
             return View(monitor);
         }
 
@@ -301,7 +259,7 @@ namespace Web.Controllers
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT m.PartNumber, m.UserId, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id WHERE m.PartNumber = @PartNumber";
+                string sql = "SELECT * FROM Monitores WHERE PartNumber = @PartNumber";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@PartNumber", id);
@@ -312,7 +270,6 @@ namespace Web.Controllers
                             monitor = new Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
-                                UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                 ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
@@ -325,5 +282,28 @@ namespace Web.Controllers
             return monitor;
         }
 
+        private List<Colaborador> GetColaboradores()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            colaboradores.Add(new Colaborador {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            return colaboradores;
+        }
     }
 }

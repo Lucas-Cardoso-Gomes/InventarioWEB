@@ -1,7 +1,3 @@
-create database coletados;
-
-use coletados;
-
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
     Nome NVARCHAR(100) NOT NULL,
@@ -52,7 +48,6 @@ CREATE TABLE Computadores (
     ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
     Hostname NVARCHAR(100),
     Fabricante NVARCHAR(100),
-	Usuario NVARCHAR(100),
     Processador NVARCHAR(255),
     ProcessadorFabricante NVARCHAR(100),
     ProcessadorCore NVARCHAR(10),

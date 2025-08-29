@@ -117,35 +117,6 @@
         </div>
     </div>
 
-    <!-- Export by Coordenador Section -->
-    <div id="exportByCoordenadorSection" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                Selecione o Coordenador
-            </div>
-            <div class="card-body">
-                @if (User.IsInRole("Admin"))
-                {
-                    <div class="form-group col-md-4">
-                        <label asp-for="SelectedCoordenadores" class="control-label"></label>
-                        <select asp-for="SelectedCoordenadores" asp-items="(new SelectList(Model.AllCoordenadores))" class="form-control" multiple="multiple"></select>
-                    </div>
-                }
-                else if (User.IsInRole("Coordenador"))
-                {
-                    <div class="form-group col-md-4">
-                        <label class="control-label">Coordenador</label>
-                        <input type="text" class="form-control" value="@User.Identity.Name" readonly />
-                    </div>
-                }
-                <div class="form-group form-check mt-3">
-                    <input type="checkbox" asp-for="IncluirCoordenador" class="form-check-input" />
-                    <label asp-for="IncluirCoordenador" class="form-check-label"></label>
-                </div>
-            </div>
-        </div>
-    </div>
-
 
     <div class="form-group mt-4">
         <button type="submit" class="btn btn-primary">Exportar</button>
@@ -157,18 +128,14 @@
         $(document).ready(function () {
             function toggleExportModeSections() {
                 var selectedMode = $('#exportModeSelect').val();
-                $('#exportByDeviceSection').hide();
-                $('#exportByColaboradorSection').hide();
-                $('#exportByCoordenadorSection').hide();
-                $('.filter-section').hide();
-
                 if (selectedMode === '@((int)ExportMode.PorDispositivo)') {
                     $('#exportByDeviceSection').show();
+                    $('#exportByColaboradorSection').hide();
                     toggleDeviceFilterSections();
-                } else if (selectedMode === '@((int)ExportMode.PorColaborador)'){
+                } else {
+                    $('#exportByDeviceSection').hide();
                     $('#exportByColaboradorSection').show();
-                } else if (selectedMode === '@((int)ExportMode.PorCoordenador)'){
-                    $('#exportByCoordenadorSection').show();
+                    $('.filter-section').hide();
                 }
             }
 

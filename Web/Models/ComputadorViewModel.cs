@@ -15,9 +15,6 @@ namespace web.Models
         [ValidateNever]
         public string? IP { get; set; }
 
-        [Display(Name = "Usuário")]
-        public int? UserId { get; set; }
-
         [Display(Name = "Colaborador")]
         [ValidateNever]
         public string? ColaboradorNome { get; set; }

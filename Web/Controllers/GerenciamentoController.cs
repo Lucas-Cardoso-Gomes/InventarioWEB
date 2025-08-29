@@ -49,6 +49,7 @@ namespace Web.Controllers
                     connection.Open();
                     
                     viewModel.Levels = GetDistinctLogValues(connection, "Level");
+                    viewModel.Sources = GetDistinctLogValues(connection, "Source");
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
@@ -57,6 +58,11 @@ namespace Web.Controllers
                     {
                         whereClauses.Add("Level = @level");
                         parameters.Add("@level", level);
+                    }
+                    if (!string.IsNullOrEmpty(source))
+                    {
+                        whereClauses.Add("Source = @source");
+                        parameters.Add("@source", source);
                     }
                     if (!string.IsNullOrEmpty(searchString))
                     {
@@ -75,7 +81,7 @@ namespace Web.Controllers
                     }
 
                     // Get paginated logs
-                    string sql = $"SELECT Id, Timestamp, Level, Message FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
                     using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
                     {
                         foreach (var p in parameters) command.Parameters.AddWithValue(p.Key, p.Value);
@@ -91,7 +97,8 @@ namespace Web.Controllers
                                     Id = reader.GetInt32(0),
                                     Timestamp = reader.GetDateTime(1),
                                     Level = reader.GetString(2),
-                                    Message = reader.GetString(3)
+                                    Message = reader.GetString(3),
+                                    Source = reader.IsDBNull(4) ? null : reader.GetString(4)
                                 });
                             }
                         }

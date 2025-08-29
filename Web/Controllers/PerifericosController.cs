@@ -8,8 +8,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using web.Models;
 using Web.Services;
-using System.Threading.Tasks;
-using System.Linq;
 
 namespace Web.Controllers
 {
@@ -19,18 +17,16 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<PerifericosController> _logger;
         private readonly PersistentLogService _persistentLogService;
-        private readonly UserService _userService;
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService, UserService userService)
+        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _persistentLogService = persistentLogService;
-            _userService = userService;
         }
 
         // GET: Perifericos
-        public async Task<IActionResult> Index(string searchString)
+        public IActionResult Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
             var perifericos = new List<Periferico>();
@@ -39,40 +35,16 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var whereClauses = new List<string>();
-                    var parameters = new Dictionary<string, object>();
-
+                    string sql = "SELECT * FROM Perifericos";
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        whereClauses.Add("(u.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search)");
-                        parameters.Add("@search", $"%{searchString}%");
+                        sql += " WHERE ColaboradorNome LIKE @search OR Tipo LIKE @search OR PartNumber LIKE @search";
                     }
-
-                    var user = await _userService.FindByLoginAsync(User.Identity.Name);
-                    if (User.IsInRole("Coordenador"))
-                    {
-                        var users = await _userService.GetUsersByCoordenadorAsync(user.Id);
-                        var userIds = users.Select(u => u.Id).ToList();
-                        userIds.Add(user.Id);
-
-                        var idParams = new List<string>();
-                        for (int i = 0; i < userIds.Count; i++)
-                        {
-                            var paramName = $"@userId{i}";
-                            idParams.Add(paramName);
-                            parameters.Add(paramName, userIds[i]);
-                        }
-                        whereClauses.Add($"p.UserId IN ({string.Join(", ", idParams)})");
-                    }
-
-                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
-                    string sql = $"SELECT p.ID, p.UserId, u.Nome as ColaboradorNome, p.Tipo, p.DataEntrega, p.PartNumber FROM Perifericos p LEFT JOIN Users u ON p.UserId = u.Id {whereSql}";
-
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
-                        foreach (var p in parameters)
+                        if (!string.IsNullOrEmpty(searchString))
                         {
-                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
                         }
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
@@ -81,7 +53,6 @@ namespace Web.Controllers
                                 perifericos.Add(new Periferico
                                 {
                                     ID = Convert.ToInt32(reader["ID"]),
-                                    UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                     Tipo = reader["Tipo"].ToString(),
                                     DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
@@ -101,9 +72,9 @@ namespace Web.Controllers
 
         // GET: Perifericos/Create
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome");
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
             return View();
         }
 
@@ -111,29 +82,19 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Create(Periferico periferico)
+        public IActionResult Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    if (periferico.UserId.HasValue)
-                    {
-                        var user = await _userService.FindByIdAsync(periferico.UserId.Value);
-                        periferico.ColaboradorNome = user?.Nome;
-                    }
-                    else
-                    {
-                        periferico.ColaboradorNome = null;
-                    }
-
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Perifericos (UserId, Tipo, DataEntrega, PartNumber) VALUES (@UserId, @Tipo, @DataEntrega, @PartNumber)";
+                        string sql = "INSERT INTO Perifericos (ColaboradorNome, Tipo, DataEntrega, PartNumber) VALUES (@ColaboradorNome, @Tipo, @DataEntrega, @PartNumber)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@UserId", (object)periferico.UserId ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
@@ -149,17 +110,17 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
         // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(int id)
+        public IActionResult Edit(int id)
         {
             Periferico periferico = FindPerifericoById(id);
             if (periferico == null) return NotFound();
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
@@ -167,7 +128,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Edit(int id, Periferico periferico)
+        public IActionResult Edit(int id, Periferico periferico)
         {
             if (id != periferico.ID) return NotFound();
 
@@ -175,24 +136,14 @@ namespace Web.Controllers
             {
                 try
                 {
-                    if (periferico.UserId.HasValue)
-                    {
-                        var user = await _userService.FindByIdAsync(periferico.UserId.Value);
-                        periferico.ColaboradorNome = user?.Nome;
-                    }
-                    else
-                    {
-                        periferico.ColaboradorNome = null;
-                    }
-
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Perifericos SET UserId = @UserId, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
+                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@ID", periferico.ID);
-                            cmd.Parameters.AddWithValue("@UserId", (object)periferico.UserId ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
@@ -208,7 +159,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
                 }
             }
-            ViewData["UserId"] = new SelectList(await _userService.GetAllUsersAsync(), "Id", "Nome", periferico.UserId);
+            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
             return View(periferico);
         }
 
@@ -260,7 +211,7 @@ namespace Web.Controllers
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT p.ID, p.UserId, u.Nome as ColaboradorNome, p.Tipo, p.DataEntrega, p.PartNumber FROM Perifericos p LEFT JOIN Users u ON p.UserId = u.Id WHERE p.ID = @ID";
+                string sql = "SELECT * FROM Perifericos WHERE ID = @ID";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@ID", id);
@@ -271,7 +222,6 @@ namespace Web.Controllers
                             periferico = new Periferico
                             {
                                 ID = Convert.ToInt32(reader["ID"]),
-                                UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                 ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                 Tipo = reader["Tipo"].ToString(),
                                 DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
@@ -284,5 +234,28 @@ namespace Web.Controllers
             return periferico;
         }
 
+        private List<Colaborador> GetColaboradores()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            colaboradores.Add(new Colaborador {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            return colaboradores;
+        }
     }
 }

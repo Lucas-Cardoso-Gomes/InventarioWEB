@@ -1,14 +1,14 @@
-@model Web.Models.User
+@model web.Models.Colaborador
 
 @{
-    ViewData["Title"] = "Excluir Usuário";
+    ViewData["Title"] = "Excluir Colaborador";
 }
 
 <h1>@ViewData["Title"]</h1>
 
-<h3>Você tem certeza que deseja excluir este usuário?</h3>
+<h3>Você tem certeza que quer excluir este colaborador?</h3>
 <div>
-    <h4>Usuário</h4>
+    <h4>Colaborador</h4>
     <hr />
     <dl class="row">
         <dt class = "col-sm-2">
@@ -18,21 +18,26 @@
             @Html.DisplayFor(model => model.Nome)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Login)
+            @Html.DisplayNameFor(model => model.CPF)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Login)
+            @Html.DisplayFor(model => model.CPF)
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Role)
+            @Html.DisplayNameFor(model => model.Email)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Role)
+            @Html.DisplayFor(model => model.Email)
         </dd>
     </dl>
 
+    @if (!string.IsNullOrEmpty(ViewBag.ErrorMessage))
+    {
+        <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+    }
+
     <form asp-action="Delete">
-        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="CPF" />
         <input type="submit" value="Excluir" class="btn btn-danger" /> |
         <a asp-action="Index">Voltar para a Lista</a>
     </form>

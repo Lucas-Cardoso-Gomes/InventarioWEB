@@ -17,5 +17,8 @@ namespace web.Models
 
         [Required]
         public string Message { get; set; }
+
+        [MaxLength(50)]
+        public string Source { get; set; } // e.g., "Coleta", "Comandos"
     }
 }
