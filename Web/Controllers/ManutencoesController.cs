@@ -79,9 +79,9 @@ namespace Web.Controllers
             return computadores;
         }
 
-        private List<Monitor> GetMonitores()
+        private List<web.Models.Monitor> GetMonitores()
         {
-            var monitores = new List<Monitor>();
+            var monitores = new List<web.Models.Monitor>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
@@ -92,7 +92,7 @@ namespace Web.Controllers
                     {
                         while (reader.Read())
                         {
-                            monitores.Add(new Monitor
+                            monitores.Add(new web.Models.Monitor
                             {
                                 PartNumber = reader.GetString(0),
                                 Modelo = reader.GetString(1)
