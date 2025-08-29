@@ -15,6 +15,18 @@ namespace web.Models
         [ForeignKey("ComputadorMAC")]
         public Computador? Computador { get; set; }
 
+        [Display(Name = "PartNumber do Monitor")]
+        public string? MonitorPartNumber { get; set; }
+
+        [ForeignKey("MonitorPartNumber")]
+        public Monitor? Monitor { get; set; }
+
+        [Display(Name = "PartNumber do Periférico")]
+        public string? PerifericoPartNumber { get; set; }
+
+        [ForeignKey("PerifericoPartNumber")]
+        public Periferico? Periferico { get; set; }
+
         [Display(Name = "Data de Manutenção de Hardware")]
         [DataType(DataType.Date)]
         public DateTime? DataManutencaoHardware { get; set; }

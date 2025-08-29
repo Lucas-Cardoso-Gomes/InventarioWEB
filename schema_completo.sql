@@ -81,16 +81,17 @@ CREATE TABLE Monitores (
 );
 
 CREATE TABLE Perifericos (
-    ID INT PRIMARY KEY IDENTITY,
+    PartNumber NVARCHAR(50) PRIMARY KEY,
     ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
     Tipo NVARCHAR(50),
-    DataEntrega DATETIME,
-    PartNumber NVARCHAR(50)
+    DataEntrega DATETIME
 );
 
 CREATE TABLE Manutencoes (
     Id INT PRIMARY KEY IDENTITY,
     ComputadorMAC NVARCHAR(17) FOREIGN KEY REFERENCES Computadores(MAC),
+    MonitorPartNumber NVARCHAR(50) FOREIGN KEY REFERENCES Monitores(PartNumber),
+    PerifericoPartNumber NVARCHAR(50) FOREIGN KEY REFERENCES Perifericos(PartNumber),
     DataManutencaoHardware DATETIME,
     DataManutencaoSoftware DATETIME,
     ManutencaoExterna NVARCHAR(MAX),

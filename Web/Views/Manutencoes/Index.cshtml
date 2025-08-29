@@ -14,7 +14,7 @@
     <thead>
         <tr>
             <th>
-                @Html.DisplayNameFor(model => model.ComputadorMAC)
+                Equipamento
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.DataManutencaoHardware)
@@ -39,7 +39,18 @@
         {
             <tr>
                 <td>
-                    @Html.DisplayFor(modelItem => item.ComputadorMAC)
+                    @if (!string.IsNullOrEmpty(item.ComputadorMAC))
+                    {
+                        @Html.DisplayFor(modelItem => item.ComputadorMAC)
+                    }
+                    else if (!string.IsNullOrEmpty(item.MonitorPartNumber))
+                    {
+                        @Html.DisplayFor(modelItem => item.MonitorPartNumber)
+                    }
+                    else if (!string.IsNullOrEmpty(item.PerifericoPartNumber))
+                    {
+                        @Html.DisplayFor(modelItem => item.PerifericoPartNumber)
+                    }
                 </td>
                 <td class="@GetDateClass(item.DataManutencaoHardware)">
                     @Html.DisplayFor(modelItem => item.DataManutencaoHardware)

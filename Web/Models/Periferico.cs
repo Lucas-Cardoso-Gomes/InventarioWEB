@@ -8,8 +8,9 @@ namespace web.Models
     public class Periferico
     {
         [Key]
-        [ValidateNever]
-        public int ID { get; set; }
+        [Required(ErrorMessage = "O Part Number é obrigatório.")]
+        [StringLength(50)]
+        public string PartNumber { get; set; }
 
         [Display(Name = "Colaborador")]
         [ValidateNever]
@@ -27,9 +28,5 @@ namespace web.Models
         [DataType(DataType.Date)]
         [ValidateNever]
         public DateTime? DataEntrega { get; set; }
-
-        [StringLength(50)]
-        [ValidateNever]
-        public string PartNumber { get; set; }
     }
 }

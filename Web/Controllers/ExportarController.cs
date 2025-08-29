@@ -199,7 +199,7 @@ namespace Web.Controllers
                         case DeviceType.Perifericos:
                             addInClause("Tipo", viewModel.CurrentTiposPeriferico);
 
-                            string perifericoHeader = "ID,ColaboradorNome,Tipo,DataEntrega,PartNumber";
+                            string perifericoHeader = "PartNumber,ColaboradorNome,Tipo,DataEntrega";
                             csvBuilder.AppendLine(perifericoHeader);
                             sql = $"SELECT {perifericoHeader} FROM Perifericos";
                             if (whereClauses.Any())
@@ -270,8 +270,8 @@ namespace Web.Controllers
                     // Perifericos
                     csvBuilder.AppendLine();
                     csvBuilder.AppendLine("Perifericos");
-                    csvBuilder.AppendLine("ID,ColaboradorNome,Tipo,DataEntrega,PartNumber");
-                    string sqlPerifericos = "SELECT ID, ColaboradorNome, Tipo, DataEntrega, PartNumber FROM Perifericos WHERE ColaboradorNome = @colaborador";
+                    csvBuilder.AppendLine("PartNumber,ColaboradorNome,Tipo,DataEntrega");
+                    string sqlPerifericos = "SELECT PartNumber, ColaboradorNome, Tipo, DataEntrega FROM Perifericos WHERE ColaboradorNome = @colaborador";
                     using (var cmd = new SqlCommand(sqlPerifericos, connection))
                     {
                         cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
@@ -279,7 +279,52 @@ namespace Web.Controllers
                         {
                             while (reader.Read())
                             {
-                                csvBuilder.AppendLine($"{reader["ID"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]},{reader["PartNumber"]}");
+                                csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]}");
+                            }
+                        }
+                    }
+
+                    // Manutenções
+                    csvBuilder.AppendLine();
+                    csvBuilder.AppendLine("Manutenções");
+                    csvBuilder.AppendLine("Equipamento,Tipo,DataManutencaoHardware,DataManutencaoSoftware,ManutencaoExterna,Data,Historico");
+                    string sqlManutencoes = @"
+                        SELECT
+                            COALESCE(c.MAC, m.PartNumber, p.PartNumber) as Equipamento,
+                            CASE
+                                WHEN c.MAC IS NOT NULL THEN 'Computador'
+                                WHEN m.PartNumber IS NOT NULL THEN 'Monitor'
+                                WHEN p.PartNumber IS NOT NULL THEN 'Periferico'
+                            END as Tipo,
+                            ma.DataManutencaoHardware,
+                            ma.DataManutencaoSoftware,
+                            ma.ManutencaoExterna,
+                            ma.Data,
+                            ma.Historico
+                        FROM Manutencoes ma
+                        LEFT JOIN Computadores c ON ma.ComputadorMAC = c.MAC AND c.ColaboradorNome = @colaborador
+                        LEFT JOIN Monitores m ON ma.MonitorPartNumber = m.PartNumber AND m.ColaboradorNome = @colaborador
+                        LEFT JOIN Perifericos p ON ma.PerifericoPartNumber = p.PartNumber AND p.ColaboradorNome = @colaborador
+                        WHERE c.ColaboradorNome = @colaborador OR m.ColaboradorNome = @colaborador OR p.ColaboradorNome = @colaborador";
+
+                    using (var cmd = new SqlCommand(sqlManutencoes, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var line = new List<string>
+                                {
+                                    reader["Equipamento"].ToString(),
+                                    reader["Tipo"].ToString(),
+                                    reader["DataManutencaoHardware"].ToString(),
+                                    reader["DataManutencaoSoftware"].ToString(),
+                                    reader["ManutencaoExterna"].ToString(),
+                                    reader["Data"].ToString(),
+                                    reader["Historico"].ToString()
+                                };
+                                csvBuilder.AppendLine(string.Join(",", line));
                             }
                         }
                     }

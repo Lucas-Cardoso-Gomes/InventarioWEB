@@ -13,8 +13,24 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="form-group">
                 <label asp-for="ComputadorMAC" class="control-label"></label>
-                <select asp-for="ComputadorMAC" class="form-control" asp-items="ViewBag.ComputadorMAC"></select>
+                <select asp-for="ComputadorMAC" class="form-control" asp-items="@(new SelectList(ViewBag.ComputadorMAC, "Value", "Text"))">
+                    <option value="">Selecione um Computador</option>
+                </select>
                 <span asp-validation-for="ComputadorMAC" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="MonitorPartNumber" class="control-label"></label>
+                <select asp-for="MonitorPartNumber" class="form-control" asp-items="@(new SelectList(ViewBag.MonitorPartNumber, "Value", "Text"))">
+                    <option value="">Selecione um Monitor</option>
+                </select>
+                <span asp-validation-for="MonitorPartNumber" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PerifericoPartNumber" class="control-label"></label>
+                <select asp-for="PerifericoPartNumber" class="form-control" asp-items="@(new SelectList(ViewBag.PerifericoPartNumber, "Value", "Text"))">
+                    <option value="">Selecione um Periférico</option>
+                </select>
+                <span asp-validation-for="PerifericoPartNumber" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="DataManutencaoHardware" class="control-label"></label>
@@ -54,4 +70,41 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+            var computadorSelect = $('#ComputadorMAC');
+            var monitorSelect = $('#MonitorPartNumber');
+            var perifericoSelect = $('#PerifericoPartNumber');
+
+            function disableOthers(currentSelect) {
+                if (currentSelect.val() !== '') {
+                    if (currentSelect.attr('id') !== 'ComputadorMAC') {
+                        computadorSelect.prop('disabled', true);
+                    }
+                    if (currentSelect.attr('id') !== 'MonitorPartNumber') {
+                        monitorSelect.prop('disabled', true);
+                    }
+                    if (currentSelect.attr('id') !== 'PerifericoPartNumber') {
+                        perifericoSelect.prop('disabled', true);
+                    }
+                } else {
+                    computadorSelect.prop('disabled', false);
+                    monitorSelect.prop('disabled', false);
+                    perifericoSelect.prop('disabled', false);
+                }
+            }
+
+            computadorSelect.on('change', function () {
+                disableOthers($(this));
+            });
+
+            monitorSelect.on('change', function () {
+                disableOthers($(this));
+            });
+
+            perifericoSelect.on('change', function () {
+                disableOthers($(this));
+            });
+        });
+    </script>
 }

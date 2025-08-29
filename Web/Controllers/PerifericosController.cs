@@ -52,11 +52,10 @@ namespace Web.Controllers
                             {
                                 perifericos.Add(new Periferico
                                 {
-                                    ID = Convert.ToInt32(reader["ID"]),
+                                    PartNumber = reader["PartNumber"].ToString(),
                                     ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                     Tipo = reader["Tipo"].ToString(),
-                                    DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
-                                    PartNumber = reader["PartNumber"].ToString()
+                                    DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
                                 });
                             }
                         }
@@ -91,13 +90,13 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Perifericos (ColaboradorNome, Tipo, DataEntrega, PartNumber) VALUES (@ColaboradorNome, @Tipo, @DataEntrega, @PartNumber)";
+                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorNome, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorNome, @Tipo, @DataEntrega)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
+                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
                             cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -116,7 +115,7 @@ namespace Web.Controllers
 
         // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Edit(int id)
+        public IActionResult Edit(string id)
         {
             Periferico periferico = FindPerifericoById(id);
             if (periferico == null) return NotFound();
@@ -128,9 +127,9 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Edit(int id, Periferico periferico)
+        public IActionResult Edit(string id, Periferico periferico)
         {
-            if (id != periferico.ID) return NotFound();
+            if (id != periferico.PartNumber) return NotFound();
 
             if (ModelState.IsValid)
             {
@@ -139,14 +138,13 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega, PartNumber = @PartNumber WHERE ID = @ID";
+                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@ID", periferico.ID);
+                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
                             cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@PartNumber", (object)periferico.PartNumber ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -165,7 +163,7 @@ namespace Web.Controllers
 
         // GET: Perifericos/Delete/5
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult Delete(int id)
+        public IActionResult Delete(string id)
         {
             Periferico periferico = FindPerifericoById(id);
             if (periferico == null) return NotFound();
@@ -176,7 +174,7 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
-        public IActionResult DeleteConfirmed(int id)
+        public IActionResult DeleteConfirmed(string id)
         {
             try
             {
@@ -186,10 +184,10 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "DELETE FROM Perifericos WHERE ID = @ID";
+                        string sql = "DELETE FROM Perifericos WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@ID", id);
+                            cmd.Parameters.AddWithValue("@PartNumber", id);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -205,27 +203,26 @@ namespace Web.Controllers
             }
         }
 
-        private Periferico FindPerifericoById(int id)
+        private Periferico FindPerifericoById(string id)
         {
             Periferico periferico = null;
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT * FROM Perifericos WHERE ID = @ID";
+                string sql = "SELECT * FROM Perifericos WHERE PartNumber = @PartNumber";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
-                    cmd.Parameters.AddWithValue("@ID", id);
+                    cmd.Parameters.AddWithValue("@PartNumber", id);
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
                         {
                             periferico = new Periferico
                             {
-                                ID = Convert.ToInt32(reader["ID"]),
+                                PartNumber = reader["PartNumber"].ToString(),
                                 ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                 Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
-                                PartNumber = reader["PartNumber"].ToString()
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
                             };
                         }
                     }
