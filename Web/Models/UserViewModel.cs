@@ -62,9 +62,9 @@ namespace Web.Models
 
         public string? Obs { get; set; }
 
-        [Display(Name = "Supervisor")]
-        public int? SupervisorId { get; set; }
+        [Display(Name = "Coordenador")]
+        public int? CoordenadorId { get; set; }
 
-        public IEnumerable<SelectListItem>? Supervisores { get; set; }
+        public IEnumerable<SelectListItem>? Coordenadores { get; set; }
     }
 }

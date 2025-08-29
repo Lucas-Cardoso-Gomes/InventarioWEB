@@ -43,17 +43,17 @@
                         <label asp-for="Role" class="control-label"></label>
                         <select asp-for="Role" id="roleSelect" class="form-control">
                             <option value="Normal">Normal</option>
-                            <option value="Supervisor">Supervisor</option>
+                            <option value="Coordenador">Coordenador</option>
                             <option value="Admin">Admin</option>
                         </select>
                         <span asp-validation-for="Role" class="text-danger"></span>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div id="supervisorGroup" class="form-group" style="display: none;">
-                        <label asp-for="SupervisorId" class="control-label"></label>
-                        <select asp-for="SupervisorId" class="form-control" asp-items="ViewBag.SupervisorId">
-                            <option value="">Selecione um Supervisor</option>
+                    <div id="coordenadorGroup" class="form-group" style="display: none;">
+                        <label asp-for="CoordenadorId" class="control-label"></label>
+                        <select asp-for="CoordenadorId" class="form-control" asp-items="ViewBag.CoordenadorId">
+                            <option value="">Selecione um Coordenador</option>
                         </select>
                     </div>
                 </div>
@@ -219,9 +219,9 @@
         $(document).ready(function () {
             $('#roleSelect').change(function () {
                 if ($(this).val() === 'Normal') {
-                    $('#supervisorGroup').show();
+                    $('#coordenadorGroup').show();
                 } else {
-                    $('#supervisorGroup').hide();
+                    $('#coordenadorGroup').hide();
                 }
             });
             // Trigger the change event on page load to set the initial state

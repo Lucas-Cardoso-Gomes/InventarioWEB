@@ -40,8 +40,8 @@ namespace Web.Services
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand(
-                    "INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, CPF, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, SupervisorId) " +
-                    "VALUES (@Nome, @Login, @PasswordHash, @Role, @CPF, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @SupervisorId)", connection);
+                    "INSERT INTO Users (Nome, Login, PasswordHash, Role, CPF, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorId) " +
+                    "VALUES (@Nome, @Login, @PasswordHash, @Role, @CPF, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorId)", connection);
 
                 AddUserParameters(command, user);
 
@@ -55,7 +55,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios", connection);
+                var command = new SqlCommand("SELECT * FROM Users", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -72,7 +72,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Id = @Id", connection);
+                var command = new SqlCommand("SELECT * FROM Users WHERE Id = @Id", connection);
                 command.Parameters.AddWithValue("@Id", id);
 
                 using (var reader = await command.ExecuteReaderAsync())
@@ -91,7 +91,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var query = "UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, CPF = @CPF, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro, Obs = @Obs, DataAlteracao = @DataAlteracao, SupervisorId = @SupervisorId";
+                var query = "UPDATE Users SET Nome = @Nome, Login = @Login, Role = @Role, CPF = @CPF, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro, Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorId = @CoordenadorId";
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
                     query += ", PasswordHash = @PasswordHash";
@@ -111,19 +111,19 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("DELETE FROM Usuarios WHERE Id = @Id", connection);
+                var command = new SqlCommand("DELETE FROM Users WHERE Id = @Id", connection);
                 command.Parameters.AddWithValue("@Id", id);
                 await command.ExecuteNonQueryAsync();
             }
         }
 
-        public async Task<IEnumerable<User>> GetAllSupervisoresAsync()
+        public async Task<IEnumerable<User>> GetAllCoordenadoresAsync()
         {
             var users = new List<User>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Role = 'Coordenador' OR Role = 'Admin'", connection);
+                var command = new SqlCommand("SELECT * FROM Users WHERE Role = 'Coordenador' OR Role = 'Admin'", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -135,14 +135,14 @@ namespace Web.Services
             return users;
         }
 
-        public async Task<IEnumerable<User>> GetUsersBySupervisorAsync(int supervisorId)
+        public async Task<IEnumerable<User>> GetUsersByCoordenadorAsync(int coordenadorId)
         {
             var users = new List<User>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE SupervisorId = @SupervisorId", connection);
-                command.Parameters.AddWithValue("@SupervisorId", supervisorId);
+                var command = new SqlCommand("SELECT * FROM Users WHERE CoordenadorId = @CoordenadorId", connection);
+                command.Parameters.AddWithValue("@CoordenadorId", coordenadorId);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -185,7 +185,7 @@ namespace Web.Services
                 Obs = reader.IsDBNull(reader.GetOrdinal("Obs")) ? null : reader.GetString(reader.GetOrdinal("Obs")),
                 DataInclusao = reader.IsDBNull(reader.GetOrdinal("DataInclusao")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("DataInclusao")),
                 DataAlteracao = reader.IsDBNull(reader.GetOrdinal("DataAlteracao")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("DataAlteracao")),
-                SupervisorId = reader.IsDBNull(reader.GetOrdinal("SupervisorId")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("SupervisorId"))
+                CoordenadorId = reader.IsDBNull(reader.GetOrdinal("CoordenadorId")) ? (int?)null : reader.GetInt32(reader.GetOrdinal("CoordenadorId"))
             };
         }
 
@@ -217,7 +217,7 @@ namespace Web.Services
             command.Parameters.AddWithValue("@Obs", (object)user.Obs ?? DBNull.Value);
             command.Parameters.AddWithValue("@DataInclusao", (object)user.DataInclusao ?? DBNull.Value);
             command.Parameters.AddWithValue("@DataAlteracao", (object)user.DataAlteracao ?? DBNull.Value);
-            command.Parameters.AddWithValue("@SupervisorId", (object)user.SupervisorId ?? DBNull.Value);
+            command.Parameters.AddWithValue("@CoordenadorId", (object)user.CoordenadorId ?? DBNull.Value);
         }
     }
 }

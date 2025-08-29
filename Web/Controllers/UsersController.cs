@@ -34,7 +34,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create()
         {
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome");
+            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome");
             return View();
         }
 
@@ -49,9 +49,9 @@ namespace Web.Controllers
                 ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
             }
 
-            if (model.Role == "Normal" && model.SupervisorId == null)
+            if (model.Role == "Normal" && model.CoordenadorId == null)
             {
-                ModelState.AddModelError("SupervisorId", "O supervisor é obrigatório para usuários normais.");
+                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
             }
 
             if (ModelState.IsValid)
@@ -60,7 +60,7 @@ namespace Web.Controllers
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
-                    ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
+                    ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
                     return View(model);
                 }
 
@@ -91,7 +91,7 @@ namespace Web.Controllers
                     Videoporteiro = model.Videoporteiro,
                     Obs = model.Obs,
                     DataInclusao = DateTime.Now,
-                    SupervisorId = model.SupervisorId
+                    CoordenadorId = model.CoordenadorId
                 };
 
                 await _userService.CreateAsync(user);
@@ -102,7 +102,7 @@ namespace Web.Controllers
 
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
+            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
             return View(model);
         }
 
@@ -141,9 +141,9 @@ namespace Web.Controllers
                 Alarme = user.Alarme,
                 Videoporteiro = user.Videoporteiro,
                 Obs = user.Obs,
-                SupervisorId = user.SupervisorId
+                CoordenadorId = user.CoordenadorId
             };
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", user.SupervisorId);
+            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", user.CoordenadorId);
             return View(model);
         }
 
@@ -153,9 +153,9 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, UserViewModel model)
         {
-            if (model.Role == "Normal" && model.SupervisorId == null)
+            if (model.Role == "Normal" && model.CoordenadorId == null)
             {
-                ModelState.AddModelError("SupervisorId", "O supervisor é obrigatório para usuários normais.");
+                ModelState.AddModelError("CoordenadorId", "O coordenador é obrigatório para usuários normais.");
             }
 
             if (ModelState.IsValid)
@@ -190,7 +190,7 @@ namespace Web.Controllers
                 user.Videoporteiro = model.Videoporteiro;
                 user.Obs = model.Obs;
                 user.DataAlteracao = DateTime.Now;
-                user.SupervisorId = model.SupervisorId;
+                user.CoordenadorId = model.CoordenadorId;
 
                 // Only update password if a new one is provided
                 if (!string.IsNullOrEmpty(model.Password))
@@ -210,7 +210,7 @@ namespace Web.Controllers
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
+            ViewData["CoordenadorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.CoordenadorId);
             return View(model);
         }
 

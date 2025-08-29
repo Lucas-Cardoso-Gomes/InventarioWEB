@@ -8,7 +8,7 @@
 
 <div class="row mb-3">
     <div class="col-12">
-        @if (User.IsInRole("Admin") || User.IsInRole("Supervisor"))
+        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
         {
             <a asp-action="Create" class="btn btn-primary">Adicionar Novo Computador</a>
         }
@@ -111,7 +111,7 @@
                 <th class="col-datacoleta">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
                 </th>
-                @if (User.IsInRole("Admin") || User.IsInRole("Supervisor"))
+                @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                 {
                     <th>Ações</th>
                 }

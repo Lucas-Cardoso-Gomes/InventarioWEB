@@ -75,7 +75,7 @@ namespace Web.Controllers
                     var user = await _userService.FindByLoginAsync(User.Identity.Name);
                     if (User.IsInRole("Coordenador"))
                     {
-                        var users = await _userService.GetUsersBySupervisorAsync(user.Id);
+                        var users = await _userService.GetUsersByCoordenadorAsync(user.Id);
                         var userIds = users.Select(u => u.Id).ToList();
                         userIds.Add(user.Id);
 

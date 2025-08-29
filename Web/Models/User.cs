@@ -83,9 +83,9 @@ namespace Web.Models
 
         public DateTime? DataAlteracao { get; set; }
 
-        // Self-referencing foreign key for Supervisor
-        public int? SupervisorId { get; set; }
-        [ForeignKey("SupervisorId")]
-        public virtual User Supervisor { get; set; }
+        // Self-referencing foreign key for Coordenador
+        public int? CoordenadorId { get; set; }
+        [ForeignKey("CoordenadorId")]
+        public virtual User Coordenador { get; set; }
     }
 }
