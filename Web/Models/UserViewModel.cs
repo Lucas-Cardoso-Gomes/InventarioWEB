@@ -1,9 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Collections.Generic;
+
 
 namespace Web.Models
 {
     public class UserViewModel
     {
+        public int Id { get; set; }
+
         [Required(ErrorMessage = "O nome é obrigatório.")]
         [Display(Name = "Nome Completo")]
         public string Nome { get; set; }
@@ -12,10 +17,18 @@ namespace Web.Models
         public string Login { get; set; }
 
         [DataType(DataType.Password)]
-        public string Password { get; set; }
+        public string? Password { get; set; }
 
         [Required(ErrorMessage = "A função é obrigatória.")]
         [Display(Name = "Função")]
         public string Role { get; set; } // "Admin" or "Normal"
+
+        [Display(Name = "Diretoria")]
+        public string? Diretoria { get; set; }
+
+        [Display(Name = "Colaborador")]
+        public string? ColaboradorCPF { get; set; }
+
+        public IEnumerable<SelectListItem>? Colaboradores { get; set; }
     }
 }

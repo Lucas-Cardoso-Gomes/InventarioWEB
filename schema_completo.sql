@@ -107,3 +107,13 @@ CREATE TABLE PersistentLogs (
     PerformedBy NVARCHAR(255) NOT NULL,
     Details NVARCHAR(MAX)
 );
+
+-- Migration for adding Diretoria and ColaboradorCPF to Usuarios
+ALTER TABLE Usuarios
+ADD Diretoria NVARCHAR(100) NULL;
+
+ALTER TABLE Usuarios
+ADD ColaboradorCPF NVARCHAR(14) NULL;
+
+ALTER TABLE Usuarios
+ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);

@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Web.Models
 {
     public class User
     {
         public int Id { get; set; }
-        
+
         [Required]
         public string Nome { get; set; }
 
@@ -17,5 +18,11 @@ namespace Web.Models
 
         [Required]
         public string Role { get; set; } // "Admin" or "Normal"
+
+        public string? Diretoria { get; set; }
+
+        public string? ColaboradorCPF { get; set; }
+        [ForeignKey("ColaboradorCPF")]
+        public virtual Colaborador? Colaborador { get; set; }
     }
 }
