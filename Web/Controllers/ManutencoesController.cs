@@ -32,9 +32,9 @@ namespace Web.Controllers
 
         public IActionResult Create()
         {
-            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname");
-            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores(), "PartNumber", "Modelo");
-            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos(), "PartNumber", "Tipo");
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text");
+            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores().Select(m => new { Value = m.PartNumber, Text = $"{m.Modelo} ({m.PartNumber})" }), "Value", "Text");
+            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos().Select(p => new { Value = p.PartNumber, Text = $"{p.Tipo} ({p.PartNumber})" }), "Value", "Text");
             return View();
         }
 
@@ -48,9 +48,9 @@ namespace Web.Controllers
                 _persistentLogService.AddLog("Maintenance", "Create", User.Identity.Name, $"Maintenance for item created.");
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
-            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores(), "PartNumber", "Modelo", manutencao.MonitorPartNumber);
-            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos(), "PartNumber", "Tipo", manutencao.PerifericoPartNumber);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
+            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores().Select(m => new { Value = m.PartNumber, Text = $"{m.Modelo} ({m.PartNumber})" }), "Value", "Text", manutencao.MonitorPartNumber);
+            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos().Select(p => new { Value = p.PartNumber, Text = $"{p.Tipo} ({p.PartNumber})" }), "Value", "Text", manutencao.PerifericoPartNumber);
             return View(manutencao);
         }
 
@@ -136,9 +136,9 @@ namespace Web.Controllers
             {
                 return NotFound();
             }
-            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
-            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores(), "PartNumber", "Modelo", manutencao.MonitorPartNumber);
-            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos(), "PartNumber", "Tipo", manutencao.PerifericoPartNumber);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
+            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores().Select(m => new { Value = m.PartNumber, Text = $"{m.Modelo} ({m.PartNumber})" }), "Value", "Text", manutencao.MonitorPartNumber);
+            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos().Select(p => new { Value = p.PartNumber, Text = $"{p.Tipo} ({p.PartNumber})" }), "Value", "Text", manutencao.PerifericoPartNumber);
             return View(manutencao);
         }
 
@@ -157,9 +157,9 @@ namespace Web.Controllers
                 _persistentLogService.AddLog("Maintenance", "Update", User.Identity.Name, $"Maintenance '{manutencao.Id}' updated.");
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["ComputadorMAC"] = new SelectList(GetComputadores(), "MAC", "Hostname", manutencao.ComputadorMAC);
-            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores(), "PartNumber", "Modelo", manutencao.MonitorPartNumber);
-            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos(), "PartNumber", "Tipo", manutencao.PerifericoPartNumber);
+            ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
+            ViewData["MonitorPartNumber"] = new SelectList(GetMonitores().Select(m => new { Value = m.PartNumber, Text = $"{m.Modelo} ({m.PartNumber})" }), "Value", "Text", manutencao.MonitorPartNumber);
+            ViewData["PerifericoPartNumber"] = new SelectList(GetPerifericos().Select(p => new { Value = p.PartNumber, Text = $"{p.Tipo} ({p.PartNumber})" }), "Value", "Text", manutencao.PerifericoPartNumber);
             return View(manutencao);
         }
 
