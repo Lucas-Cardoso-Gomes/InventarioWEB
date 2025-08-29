@@ -60,11 +60,11 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@{columnName.ToLower()}{i}";
+                                var paramName = $"@m{columnName.ToLower()}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
-                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                            whereClauses.Add($"m.{columnName} IN ({string.Join(", ", paramNames)})");
                         }
                     };
 
@@ -86,12 +86,12 @@ namespace Web.Controllers
                             idParams.Add(paramName);
                             parameters.Add(paramName, userIds[i]);
                         }
-                        whereClauses.Add($"UserId IN ({string.Join(", ", idParams)})");
+                        whereClauses.Add($"m.UserId IN ({string.Join(", ", idParams)})");
                     }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    string sql = $"SELECT * FROM Monitores {whereSql}";
+                    string sql = $"SELECT m.PartNumber, m.UserId, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id {whereSql}";
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
@@ -107,6 +107,7 @@ namespace Web.Controllers
                                 viewModel.Monitores.Add(new Monitor
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
+                                    UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                     Marca = reader["Marca"].ToString(),
                                     Modelo = reader["Modelo"].ToString(),
@@ -158,18 +159,24 @@ namespace Web.Controllers
             {
                 try
                 {
-                    var user = await _userService.FindByIdAsync(monitor.UserId.Value);
-                    monitor.ColaboradorNome = user?.Nome;
+                    if (monitor.UserId.HasValue)
+                    {
+                        var user = await _userService.FindByIdAsync(monitor.UserId.Value);
+                        monitor.ColaboradorNome = user?.Nome;
+                    }
+                    else
+                    {
+                        monitor.ColaboradorNome = null;
+                    }
 
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Monitores (PartNumber, UserId, ColaboradorNome, Marca, Modelo, Tamanho) VALUES (@PartNumber, @UserId, @ColaboradorNome, @Marca, @Modelo, @Tamanho)";
+                        string sql = "INSERT INTO Monitores (PartNumber, UserId, Marca, Modelo, Tamanho) VALUES (@PartNumber, @UserId, @Marca, @Modelo, @Tamanho)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
                             cmd.Parameters.AddWithValue("@UserId", (object)monitor.UserId ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -212,18 +219,24 @@ namespace Web.Controllers
             {
                 try
                 {
-                    var user = await _userService.FindByIdAsync(monitor.UserId.Value);
-                    monitor.ColaboradorNome = user?.Nome;
+                    if (monitor.UserId.HasValue)
+                    {
+                        var user = await _userService.FindByIdAsync(monitor.UserId.Value);
+                        monitor.ColaboradorNome = user?.Nome;
+                    }
+                    else
+                    {
+                        monitor.ColaboradorNome = null;
+                    }
 
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Monitores SET UserId = @UserId, ColaboradorNome = @ColaboradorNome, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Monitores SET UserId = @UserId, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
                             cmd.Parameters.AddWithValue("@UserId", (object)monitor.UserId ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -288,7 +301,7 @@ namespace Web.Controllers
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT * FROM Monitores WHERE PartNumber = @PartNumber";
+                string sql = "SELECT m.PartNumber, m.UserId, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id WHERE m.PartNumber = @PartNumber";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@PartNumber", id);
@@ -299,6 +312,7 @@ namespace Web.Controllers
                             monitor = new Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
+                                UserId = reader["UserId"] != DBNull.Value ? Convert.ToInt32(reader["UserId"]) : (int?)null,
                                 ColaboradorNome = reader["ColaboradorNome"].ToString(),
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),

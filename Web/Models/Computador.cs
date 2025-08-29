@@ -13,8 +13,6 @@ namespace web.Models
         public string MAC { get; set; }
         public string? IP { get; set; }
         public int? UserId { get; set; }
-        [ForeignKey("UserId")]
-        public virtual User? User { get; set; }
         public string? ColaboradorNome { get; set; }
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }

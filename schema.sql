@@ -36,7 +36,6 @@ CREATE TABLE Computadores (
     MAC NVARCHAR(50) PRIMARY KEY,
     IP NVARCHAR(50),
     UserId INT,
-    ColaboradorNome NVARCHAR(100),
     Hostname NVARCHAR(100) NOT NULL,
     Fabricante NVARCHAR(100),
     Processador NVARCHAR(100),
@@ -64,7 +63,6 @@ CREATE TABLE Computadores (
 CREATE TABLE Monitores (
     PartNumber NVARCHAR(50) PRIMARY KEY,
     UserId INT,
-    ColaboradorNome NVARCHAR(100),
     Marca NVARCHAR(50),
     Modelo NVARCHAR(50) NOT NULL,
     Tamanho NVARCHAR(20),
@@ -74,7 +72,6 @@ CREATE TABLE Monitores (
 CREATE TABLE Perifericos (
     ID INT PRIMARY KEY IDENTITY,
     UserId INT,
-    ColaboradorNome NVARCHAR(100),
     Tipo NVARCHAR(50) NOT NULL,
     DataEntrega DATETIME,
     PartNumber NVARCHAR(50),

@@ -57,7 +57,7 @@
                                     asp-action="Logs">Logs</a>
                             </li>
                         }
-                        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+                        @if (User.IsInRole("Admin") || User.IsInRole("Supervisor"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"

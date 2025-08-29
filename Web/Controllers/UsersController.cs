@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 
 namespace Web.Controllers
 {
@@ -33,7 +34,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create()
         {
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome");
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome");
             return View();
         }
 
@@ -59,7 +60,7 @@ namespace Web.Controllers
                 if (existingUser != null)
                 {
                     ModelState.AddModelError("Login", "Este login já está em uso.");
-                    ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
+                    ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
                     return View(model);
                 }
 
@@ -101,7 +102,7 @@ namespace Web.Controllers
 
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
             return View(model);
         }
 
@@ -142,7 +143,7 @@ namespace Web.Controllers
                 Obs = user.Obs,
                 SupervisorId = user.SupervisorId
             };
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", user.SupervisorId);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", user.SupervisorId);
             return View(model);
         }
 
@@ -209,7 +210,7 @@ namespace Web.Controllers
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllCoordenadoresAsync(), "Id", "Nome", model.SupervisorId);
+            ViewData["SupervisorId"] = new SelectList(await _userService.GetAllSupervisoresAsync(), "Id", "Nome", model.SupervisorId);
             return View(model);
         }
 

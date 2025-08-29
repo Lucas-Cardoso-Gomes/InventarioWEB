@@ -117,13 +117,13 @@ namespace Web.Services
             }
         }
 
-        public async Task<IEnumerable<User>> GetAllCoordenadoresAsync()
+        public async Task<IEnumerable<User>> GetAllSupervisoresAsync()
         {
             var users = new List<User>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Role = 'Coordenador'", connection);
+                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Role = 'Coordenador' OR Role = 'Admin'", connection);
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())

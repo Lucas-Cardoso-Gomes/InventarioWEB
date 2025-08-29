@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador")]
+    [Authorize(Roles = "Admin,Supervisor")]
     public class ExportarController : Controller
     {
         private readonly string _connectionString;
@@ -36,7 +36,7 @@ namespace Web.Controllers
 
             if (User.IsInRole("Admin") || User.IsInRole("Diretoria") || User.IsInRole("RH"))
             {
-                viewModel.AllCoordenadores = allUsers.Where(u => u.Role == "Coordenador").Select(u => u.Nome).ToList();
+                viewModel.AllSupervisores = allUsers.Where(u => u.Role == "Supervisor" || u.Role == "Admin").Select(u => u.Nome).ToList();
             }
 
             return View(viewModel);
@@ -53,7 +53,7 @@ namespace Web.Controllers
             if (viewModel.ExportMode == ExportMode.PorDispositivo)
             {
                 fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-                // ... (logic for exporting by device)
+                AppendAllDevicesToCsv(csvBuilder, viewModel.DeviceType);
             }
             else if (viewModel.ExportMode == ExportMode.PorColaborador)
             {
@@ -63,48 +63,48 @@ namespace Web.Controllers
                 if (user != null)
                 {
                     csvBuilder.AppendLine("Usuario");
-                    csvBuilder.AppendLine("Nome,CPF,Email,Setor,Supervisor");
+                    csvBuilder.AppendLine("Nome,Email,Departamento,Supervisor");
                     var supervisorName = user.SupervisorId.HasValue ? allUsers.FirstOrDefault(sup => sup.Id == user.SupervisorId.Value)?.Nome : "";
-                    csvBuilder.AppendLine($"{user.Nome},{user.CPF},{user.Email},{user.Setor},{supervisorName}");
+                    csvBuilder.AppendLine($"{user.Nome},{user.Email},{user.Departamento},{supervisorName}");
 
                     AppendDevicesToCsv(csvBuilder, new List<User> { user });
                 }
             }
-            else if (viewModel.ExportMode == ExportMode.PorCoordenador)
+            else if (viewModel.ExportMode == ExportMode.PorSupervisor)
             {
-                fileName = $"export_por_coordenador_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                fileName = $"export_por_supervisor_{DateTime.Now:yyyyMMddHHmmss}.csv";
                 var usersToExport = new List<User>();
-                var selectedCoordenadores = new List<string>();
+                var selectedSupervisores = new List<string>();
 
                 if (User.IsInRole("Admin") || User.IsInRole("Diretoria") || User.IsInRole("RH"))
                 {
-                    selectedCoordenadores = viewModel.SelectedCoordenadores;
-                    if (selectedCoordenadores.Any())
+                    selectedSupervisores = viewModel.SelectedSupervisores;
+                    if (selectedSupervisores.Any())
                     {
-                        var coordinatorIds = allUsers.Where(u => selectedCoordenadores.Contains(u.Nome) && u.Role == "Coordenador").Select(u => u.Id);
-                        usersToExport = allUsers.Where(u => u.SupervisorId.HasValue && coordinatorIds.Contains(u.SupervisorId.Value)).ToList();
-                        if(viewModel.IncluirCoordenador)
+                        var supervisorIds = allUsers.Where(u => selectedSupervisores.Contains(u.Nome) && (u.Role == "Supervisor" || u.Role == "Admin")).Select(u => u.Id);
+                        usersToExport = allUsers.Where(u => u.SupervisorId.HasValue && supervisorIds.Contains(u.SupervisorId.Value)).ToList();
+                        if (viewModel.IncluirSupervisor)
                         {
-                            usersToExport.AddRange(allUsers.Where(u => coordinatorIds.Contains(u.Id)));
+                            usersToExport.AddRange(allUsers.Where(u => supervisorIds.Contains(u.Id)));
                         }
                     }
                 }
-                else if (User.IsInRole("Coordenador"))
+                else if (User.IsInRole("Supervisor"))
                 {
                     var currentUser = await _userService.FindByLoginAsync(User.Identity.Name);
                     usersToExport = allUsers.Where(u => u.SupervisorId == currentUser.Id).ToList();
-                    if(viewModel.IncluirCoordenador)
+                    if (viewModel.IncluirSupervisor)
                     {
                         usersToExport.Add(currentUser);
                     }
                 }
 
                 csvBuilder.AppendLine("Usuarios");
-                csvBuilder.AppendLine("Nome,CPF,Email,Setor,Supervisor");
+                csvBuilder.AppendLine("Nome,Email,Departamento,Supervisor");
                 foreach (var u in usersToExport)
                 {
                     var supervisorName = u.SupervisorId.HasValue ? allUsers.FirstOrDefault(sup => sup.Id == u.SupervisorId.Value)?.Nome : "";
-                    csvBuilder.AppendLine($"{u.Nome},{u.CPF},{u.Email},{u.Setor},{supervisorName}");
+                    csvBuilder.AppendLine($"{u.Nome},{u.Email},{u.Departamento},{supervisorName}");
                 }
 
                 AppendDevicesToCsv(csvBuilder, usersToExport);
@@ -127,13 +127,13 @@ namespace Web.Controllers
                 {
                     idParams.Add($"@userId{i}");
                 }
-                var whereClause = $"WHERE UserId IN ({string.Join(", ", idParams)})";
+                var whereClause = $"WHERE c.UserId IN ({string.Join(", ", idParams)})";
 
                 // Computadores
                 csvBuilder.AppendLine();
                 csvBuilder.AppendLine("Computadores");
-                csvBuilder.AppendLine("MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,SO,DataColeta");
-                var sqlComputadores = $"SELECT MAC, IP, ColaboradorNome, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores {whereClause}";
+                csvBuilder.AppendLine("MAC,IP,Colaborador,Hostname,Fabricante,Processador,SO,DataColeta");
+                var sqlComputadores = $"SELECT c.MAC, c.IP, u.Nome as ColaboradorNome, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta FROM Computadores c LEFT JOIN Users u ON c.UserId = u.Id {whereClause}";
                 using (var cmd = new SqlCommand(sqlComputadores, connection))
                 {
                     for (int i = 0; i < userIds.Count; i++)
@@ -150,10 +150,11 @@ namespace Web.Controllers
                 }
 
                 // Monitores
+                var monWhereClause = $"WHERE m.UserId IN ({string.Join(", ", idParams)})";
                 csvBuilder.AppendLine();
                 csvBuilder.AppendLine("Monitores");
-                csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
-                var sqlMonitores = $"SELECT PartNumber, ColaboradorNome, Marca, Modelo, Tamanho FROM Monitores {whereClause}";
+                csvBuilder.AppendLine("PartNumber,Colaborador,Marca,Modelo,Tamanho");
+                var sqlMonitores = $"SELECT m.PartNumber, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id {monWhereClause}";
                 using (var cmd = new SqlCommand(sqlMonitores, connection))
                 {
                     for (int i = 0; i < userIds.Count; i++)
@@ -170,10 +171,11 @@ namespace Web.Controllers
                 }
 
                 // Perifericos
+                var perWhereClause = $"WHERE p.UserId IN ({string.Join(", ", idParams)})";
                 csvBuilder.AppendLine();
                 csvBuilder.AppendLine("Perifericos");
-                csvBuilder.AppendLine("ID,ColaboradorNome,Tipo,DataEntrega,PartNumber");
-                var sqlPerifericos = $"SELECT ID, ColaboradorNome, Tipo, DataEntrega, PartNumber FROM Perifericos {whereClause}";
+                csvBuilder.AppendLine("ID,Colaborador,Tipo,DataEntrega,PartNumber");
+                var sqlPerifericos = $"SELECT p.ID, u.Nome as ColaboradorNome, p.Tipo, p.DataEntrega, p.PartNumber FROM Perifericos p LEFT JOIN Users u ON p.UserId = u.Id {perWhereClause}";
                 using (var cmd = new SqlCommand(sqlPerifericos, connection))
                 {
                     for (int i = 0; i < userIds.Count; i++)
@@ -187,6 +189,55 @@ namespace Web.Controllers
                             csvBuilder.AppendLine($"{reader["ID"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]},{reader["PartNumber"]}");
                         }
                     }
+                }
+            }
+        }
+        private void AppendAllDevicesToCsv(StringBuilder csvBuilder, string deviceType)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                switch (deviceType)
+                {
+                    case "Computadores":
+                        csvBuilder.AppendLine("Computadores");
+                        csvBuilder.AppendLine("MAC,IP,Colaborador,Hostname,Fabricante,Processador,SO,DataColeta");
+                        var sqlComputadores = "SELECT c.MAC, c.IP, u.Nome as ColaboradorNome, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta FROM Computadores c LEFT JOIN Users u ON c.UserId = u.Id";
+                        using (var cmd = new SqlCommand(sqlComputadores, connection))
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["ColaboradorNome"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]}");
+                            }
+                        }
+                        break;
+                    case "Monitores":
+                        csvBuilder.AppendLine("Monitores");
+                        csvBuilder.AppendLine("PartNumber,Colaborador,Marca,Modelo,Tamanho");
+                        var sqlMonitores = "SELECT m.PartNumber, u.Nome as ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m LEFT JOIN Users u ON m.UserId = u.Id";
+                        using (var cmd = new SqlCommand(sqlMonitores, connection))
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["ColaboradorNome"]},{reader["Marca"]},{reader["Modelo"]},{reader["Tamanho"]}");
+                            }
+                        }
+                        break;
+                    case "Perifericos":
+                        csvBuilder.AppendLine("Perifericos");
+                        csvBuilder.AppendLine("ID,Colaborador,Tipo,DataEntrega,PartNumber");
+                        var sqlPerifericos = "SELECT p.ID, u.Nome as ColaboradorNome, p.Tipo, p.DataEntrega, p.PartNumber FROM Perifericos p LEFT JOIN Users u ON p.UserId = u.Id";
+                        using (var cmd = new SqlCommand(sqlPerifericos, connection))
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                csvBuilder.AppendLine($"{reader["ID"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]},{reader["PartNumber"]}");
+                            }
+                        }
+                        break;
                 }
             }
         }
