@@ -107,10 +107,10 @@ namespace Web.Services
                     USING (VALUES (@MAC)) AS source (MAC)
                     ON target.MAC = source.MAC
                     WHEN MATCHED THEN
-                        UPDATE SET IP = @IP, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, Usuario = @Usuario, Hostname = @Hostname, Fabricante = @Fabricante, SO = @SO, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, DataColeta = @DataColeta
+                        UPDATE SET IP = @IP, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, Hostname = @Hostname, Fabricante = @Fabricante, SO = @SO, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, DataColeta = @DataColeta
                     WHEN NOT MATCHED THEN
-                        INSERT (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Usuario, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta)
-                        VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Usuario, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta);";
+                        INSERT (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta)
+                        VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta);";
 
                 using (var cmd = new SqlCommand(mergeQuery, connection))
                 {
@@ -126,7 +126,6 @@ namespace Web.Services
                     cmd.Parameters.Add("@RamVelocidade", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@RamVoltagem", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Voltagem ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@RamPorModule", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.PorModulo ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@Usuario", SqlDbType.NVarChar).Value = hardwareInfo.Usuario?.Usuario ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@Hostname", SqlDbType.NVarChar).Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@Fabricante", SqlDbType.NVarChar).Value = hardwareInfo.Fabricante ?? (object)DBNull.Value;
                     cmd.Parameters.Add("@SO", SqlDbType.NVarChar).Value = hardwareInfo.SO ?? (object)DBNull.Value;
