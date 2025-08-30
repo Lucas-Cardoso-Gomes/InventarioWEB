@@ -1,5 +1,9 @@
-/* create database Coletados;
-Use Coletados;*/
+/*
+use master
+drop database Coletados;
+create database Coletados;
+Use Coletados;
+*/
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
