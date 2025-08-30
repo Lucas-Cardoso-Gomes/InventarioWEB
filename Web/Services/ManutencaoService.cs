@@ -57,7 +57,7 @@ namespace Web.Services
                             }
                             if (manutencao.MonitorPartNumber != null)
                             {
-                                manutencao.Monitor = new Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader.GetString(reader.GetOrdinal("Modelo")) };
+                                manutencao.Monitor = new Web.Models.Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader.GetString(reader.GetOrdinal("Modelo")) };
                             }
                             if (manutencao.PerifericoPartNumber != null)
                             {
