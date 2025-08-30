@@ -2,7 +2,7 @@ using System;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using web.Models;
+using Web.Models;
 
 namespace Web.Services
 {

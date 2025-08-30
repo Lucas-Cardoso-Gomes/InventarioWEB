@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using web.Models;
+using Web.Models;
 
-namespace web.Models
+namespace Web.Models
 {
     public class LogViewModel
     {

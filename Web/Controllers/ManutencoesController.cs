@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using web.Models;
+using Web.Models;
 using Web.Services;
 using System.Collections.Generic;
 using System.Data.SqlClient;
@@ -79,9 +79,9 @@ namespace Web.Controllers
             return computadores;
         }
 
-        private List<web.Models.Monitor> GetMonitores()
+        private List<Monitor> GetMonitores()
         {
-            var monitores = new List<web.Models.Monitor>();
+            var monitores = new List<Monitor>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
@@ -92,7 +92,7 @@ namespace Web.Controllers
                     {
                         while (reader.Read())
                         {
-                            monitores.Add(new web.Models.Monitor
+                            monitores.Add(new Monitor
                             {
                                 PartNumber = reader.GetString(0),
                                 Modelo = reader.GetString(1)

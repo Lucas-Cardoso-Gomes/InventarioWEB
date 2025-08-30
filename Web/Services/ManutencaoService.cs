@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
-using web.Models;
+using Web.Models;
 
 namespace Web.Services
 {
@@ -57,7 +57,7 @@ namespace Web.Services
                             }
                             if (manutencao.MonitorPartNumber != null)
                             {
-                                manutencao.Monitor = new web.Models.Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader.GetString(reader.GetOrdinal("Modelo")) };
+                                manutencao.Monitor = new Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader.GetString(reader.GetOrdinal("Modelo")) };
                             }
                             if (manutencao.PerifericoPartNumber != null)
                             {

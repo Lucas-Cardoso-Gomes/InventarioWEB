@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 
-namespace web.Models
+using Web.Models;
+
+namespace Web.Models
 {
     public class MonitorIndexViewModel
     {
