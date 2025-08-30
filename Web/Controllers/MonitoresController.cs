@@ -6,9 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using web.Models;
+using Web.Models;
 using Web.Services;
-using Monitor = web.Models.Monitor;
+using Monitor = Web.Models.Monitor;
 
 namespace Web.Controllers
 {

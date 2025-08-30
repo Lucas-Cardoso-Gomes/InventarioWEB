@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
-using web.Models;
+using Web.Models;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Web.Controllers

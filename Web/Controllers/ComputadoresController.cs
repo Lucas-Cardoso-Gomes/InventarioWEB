@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
-using web.Models;
+using Web.Models;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
