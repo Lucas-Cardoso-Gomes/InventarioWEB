@@ -10,9 +10,10 @@ CREATE TABLE Usuarios (
     Nome NVARCHAR(100) NOT NULL,
     Login NVARCHAR(50) NOT NULL UNIQUE,
     PasswordHash NVARCHAR(255) NOT NULL,
-    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal'))
+    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria')) -- Adicionado 'Diretoria' para consistência
 );
 
+-- Inserção de usuário admin padrão
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin User', 'admin', 'admin', 'Admin');
 
 CREATE TABLE Logs (
@@ -38,6 +39,7 @@ CREATE TABLE Colaboradores (
     SenhaIbrooker NVARCHAR(100),
     Adicional NVARCHAR(100),
     SenhaAdicional NVARCHAR(100),
+    Filial NVARCHAR(100), -- Adicionado Filial que estava faltando no schema mas presente no modelo
     Setor NVARCHAR(100),
     Smartphone NVARCHAR(100),
     TelefoneFixo NVARCHAR(100),
@@ -46,13 +48,15 @@ CREATE TABLE Colaboradores (
     Videoporteiro NVARCHAR(100),
     Obs NVARCHAR(MAX),
     DataInclusao DATETIME NOT NULL,
-    DataAlteracao DATETIME
+    DataAlteracao DATETIME,
+    CoordenadorCPF NVARCHAR(14), -- Nova coluna para o Coordenador
+    CONSTRAINT FK_Colaboradores_Coordenador FOREIGN KEY (CoordenadorCPF) REFERENCES Colaboradores(CPF)
 );
 
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
     IP NVARCHAR(45),
-    ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
+    ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF), -- Corrigido para referenciar CPF
     Hostname NVARCHAR(100),
     Fabricante NVARCHAR(100),
     Processador NVARCHAR(255),
@@ -78,7 +82,7 @@ CREATE TABLE Computadores (
 
 CREATE TABLE Monitores (
     PartNumber NVARCHAR(50) PRIMARY KEY,
-    ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
+    ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF), -- Corrigido para referenciar CPF
     Marca NVARCHAR(50),
     Modelo NVARCHAR(50),
     Tamanho NVARCHAR(20)
@@ -86,7 +90,7 @@ CREATE TABLE Monitores (
 
 CREATE TABLE Perifericos (
     PartNumber NVARCHAR(50) PRIMARY KEY,
-    ColaboradorNome NVARCHAR(100) FOREIGN KEY REFERENCES Colaboradores(Nome),
+    ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF), -- Corrigido para referenciar CPF
     Tipo NVARCHAR(50),
     DataEntrega DATETIME
 );
@@ -112,10 +116,7 @@ CREATE TABLE PersistentLogs (
     Details NVARCHAR(MAX)
 );
 
--- Migration for adding Diretoria and ColaboradorCPF to Usuarios
-ALTER TABLE Usuarios
-ADD Diretoria NVARCHAR(100) NULL;
-
+-- Migração para adicionar ColaboradorCPF a Usuarios
 ALTER TABLE Usuarios
 ADD ColaboradorCPF NVARCHAR(14) NULL;
 

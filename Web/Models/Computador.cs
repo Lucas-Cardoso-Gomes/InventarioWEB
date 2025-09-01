@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Web.Models
 {
@@ -9,6 +10,8 @@ namespace Web.Models
         [Required(ErrorMessage = "O endereço MAC é obrigatório.")]
         public string MAC { get; set; }
         public string? IP { get; set; }
+        public string? ColaboradorCPF { get; set; }
+        [NotMapped]
         public string? ColaboradorNome { get; set; }
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }

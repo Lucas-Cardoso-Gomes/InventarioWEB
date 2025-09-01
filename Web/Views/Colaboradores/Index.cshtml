@@ -46,6 +46,7 @@
                 <th>@Html.DisplayNameFor(model => model.Setor)</th>
                 <th>@Html.DisplayNameFor(model => model.DataInclusao)</th>
                 <th>@Html.DisplayNameFor(model => model.DataAlteracao)</th>
+                <th>Coordenador</th>
                 @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                 {
                     <th>Ações</th>
@@ -62,6 +63,7 @@
                     <td>@Html.DisplayFor(modelItem => item.Setor)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataInclusao)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataAlteracao)</td>
+                    <td>@Html.DisplayFor(modelItem => item.CoordenadorNome)</td>
                     @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                     {
                         <td>

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace Web.Models
@@ -100,5 +101,16 @@ namespace Web.Models
 
         [ValidateNever]
         public DateTime? DataAlteracao { get; set; }
+
+        [ValidateNever]
+        [Display(Name = "Coordenador")]
+        public string? CoordenadorCPF { get; set; }
+
+        [ForeignKey("CoordenadorCPF")]
+        [ValidateNever]
+        public virtual Colaborador? Coordenador { get; set; }
+        
+        [NotMapped]
+        public string? CoordenadorNome { get; set; }
     }
 }

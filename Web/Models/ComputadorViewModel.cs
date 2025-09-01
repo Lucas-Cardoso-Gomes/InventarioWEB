@@ -17,7 +17,7 @@ namespace Web.Models
 
         [Display(Name = "Colaborador")]
         [ValidateNever]
-        public string? ColaboradorNome { get; set; }
+        public string? ColaboradorCPF { get; set; }
 
         [Display(Name = "Hostname")]
         [Required(ErrorMessage = "O Hostname é obrigatório.")]

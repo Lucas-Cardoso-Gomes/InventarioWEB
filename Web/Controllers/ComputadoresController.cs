@@ -69,14 +69,18 @@ namespace Web.Controllers
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
+                    
+                    string baseSql = @"
+                        FROM Computadores comp
+                        LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF
+                    ";
 
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        whereClauses.Add("(IP LIKE @search OR MAC LIKE @search OR ColaboradorNome LIKE @search OR Hostname LIKE @search)");
+                        whereClauses.Add("(comp.IP LIKE @search OR comp.MAC LIKE @search OR col.Nome LIKE @search OR comp.Hostname LIKE @search)");
                         parameters.Add("@search", $"%{searchString}%");
                     }
 
-                    // Helper function to build IN clauses safely
                     Action<string, List<string>> addInClause = (columnName, values) =>
                     {
                         if (values != null && values.Any())
@@ -84,7 +88,7 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@{columnName.ToLower()}{i}";
+                                var paramName = $"@{columnName.ToLower().Replace(".", "")}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
@@ -92,42 +96,40 @@ namespace Web.Controllers
                         }
                     };
 
-                    addInClause("Fabricante", currentFabricantes);
-                    addInClause("SO", currentSOs);
-                    addInClause("ProcessadorFabricante", currentProcessadorFabricantes);
-                    addInClause("RamTipo", currentRamTipos);
-                    addInClause("Processador", currentProcessadores);
-                    addInClause("Ram", currentRams);
+                    addInClause("comp.Fabricante", currentFabricantes);
+                    addInClause("comp.SO", currentSOs);
+                    addInClause("comp.ProcessadorFabricante", currentProcessadorFabricantes);
+                    addInClause("comp.RamTipo", currentRamTipos);
+                    addInClause("comp.Processador", currentProcessadores);
+                    addInClause("comp.Ram", currentRams);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    // Get total count
-                    string countSql = $"SELECT COUNT(*) FROM Computadores {whereSql}";
+                    string countSql = $"SELECT COUNT(comp.MAC) {baseSql} {whereSql}";
                     using (var countCommand = new SqlCommand(countSql, connection))
                     {
                         foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
                         viewModel.TotalCount = (int)countCommand.ExecuteScalar();
                     }
 
-                    // Get paginated data
                     string orderBySql;
                     switch (sortOrder)
                     {
-                        case "ip_desc": orderBySql = "ORDER BY IP DESC"; break;
-                        case "mac": orderBySql = "ORDER BY MAC"; break;
-                        case "mac_desc": orderBySql = "ORDER BY MAC DESC"; break;
-                        case "user": orderBySql = "ORDER BY ColaboradorNome"; break;
-                        case "user_desc": orderBySql = "ORDER BY ColaboradorNome DESC"; break;
-                        case "hostname": orderBySql = "ORDER BY Hostname"; break;
-                        case "hostname_desc": orderBySql = "ORDER BY Hostname DESC"; break;
-                        case "os": orderBySql = "ORDER BY SO"; break;
-                        case "os_desc": orderBySql = "ORDER BY SO DESC"; break;
-                        case "date": orderBySql = "ORDER BY DataColeta"; break;
-                        case "date_desc": orderBySql = "ORDER BY DataColeta DESC"; break;
-                        default: orderBySql = "ORDER BY IP"; break;
+                        case "ip_desc": orderBySql = "ORDER BY comp.IP DESC"; break;
+                        case "mac": orderBySql = "ORDER BY comp.MAC"; break;
+                        case "mac_desc": orderBySql = "ORDER BY comp.MAC DESC"; break;
+                        case "user": orderBySql = "ORDER BY col.Nome"; break;
+                        case "user_desc": orderBySql = "ORDER BY col.Nome DESC"; break;
+                        case "hostname": orderBySql = "ORDER BY comp.Hostname"; break;
+                        case "hostname_desc": orderBySql = "ORDER BY comp.Hostname DESC"; break;
+                        case "os": orderBySql = "ORDER BY comp.SO"; break;
+                        case "os_desc": orderBySql = "ORDER BY comp.SO DESC"; break;
+                        case "date": orderBySql = "ORDER BY comp.DataColeta"; break;
+                        case "date_desc": orderBySql = "ORDER BY comp.DataColeta DESC"; break;
+                        default: orderBySql = "ORDER BY comp.IP"; break;
                     }
 
-                    string sql = $"SELECT MAC, IP, ColaboradorNome, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    string sql = $"SELECT comp.*, col.Nome as ColaboradorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
@@ -143,7 +145,8 @@ namespace Web.Controllers
                                 {
                                     MAC = reader["MAC"].ToString(),
                                     IP = reader["IP"].ToString(),
-                                    ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                     Hostname = reader["Hostname"].ToString(),
                                     Fabricante = reader["Fabricante"].ToString(),
                                     Processador = reader["Processador"].ToString(),
@@ -183,7 +186,6 @@ namespace Web.Controllers
         private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
         {
             var values = new List<string>();
-            // Use a separate command to prevent issues with open readers
             using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
             {
                 using (var reader = command.ExecuteReader())
@@ -197,15 +199,13 @@ namespace Web.Controllers
             return values;
         }
 
-        // GET: Computadores/Create
         [Authorize(Roles = "Admin,Coordenador")]
         public IActionResult Create()
         {
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
             return View(new ComputadorViewModel());
         }
 
-        // POST: Computadores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
@@ -219,13 +219,13 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorNome, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @ColaboradorNome, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
                             cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)viewModel.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
@@ -260,31 +260,22 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o computador. Verifique se o MAC já existe.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", viewModel.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
         }
 
-        // GET: Computadores/Edit/5
         [Authorize(Roles = "Admin,Coordenador")]
         public IActionResult Edit(string id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             Computador computador = FindComputadorById(id);
-
-            if (computador == null)
-            {
-                return NotFound();
-            }
+            if (computador == null) return NotFound();
 
             var viewModel = new ComputadorViewModel
             {
                 MAC = computador.MAC,
                 IP = computador.IP,
-                ColaboradorNome = computador.ColaboradorNome,
+                ColaboradorCPF = computador.ColaboradorCPF,
                 Hostname = computador.Hostname,
                 Fabricante = computador.Fabricante,
                 Processador = computador.Processador,
@@ -306,20 +297,16 @@ namespace Web.Controllers
                 ConsumoCPU = computador.ConsumoCPU,
                 SO = computador.SO
             };
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", viewModel.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
         }
 
-        // POST: Computadores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
         public IActionResult Edit(string id, ComputadorViewModel viewModel)
         {
-            if (id != viewModel.MAC)
-            {
-                return NotFound();
-            }
+            if (id != viewModel.MAC) return NotFound();
 
             if (ModelState.IsValid)
             {
@@ -328,14 +315,13 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-
-                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorNome = @ColaboradorNome, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO WHERE MAC = @MAC";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
                             cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)viewModel.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
@@ -369,30 +355,19 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o computador.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", viewModel.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
         }
 
-        // GET: Computadores/Delete/5
         [Authorize(Roles = "Admin,Coordenador")]
         public IActionResult Delete(string id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             Computador computador = FindComputadorById(id);
-
-            if (computador == null)
-            {
-                return NotFound();
-            }
-
+            if (computador == null) return NotFound();
             return View(computador);
         }
 
-        // POST: Computadores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador")]
@@ -403,9 +378,7 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-
                     string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
-
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         cmd.Parameters.AddWithValue("@MAC", id);
@@ -419,7 +392,12 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao excluir o computador.");
                 ViewBag.Message = "Ocorreu um erro ao excluir o computador. Por favor, tente novamente mais tarde.";
-                return View();
+                Computador computador = FindComputadorById(id);
+                if (computador == null)
+                {
+                    return NotFound();
+                }
+                return View(computador);
             }
         }
 
@@ -431,13 +409,10 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-
-                    string sql = "SELECT MAC, IP, ColaboradorNome, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta FROM Computadores WHERE MAC = @MAC";
-
+                    string sql = "SELECT comp.*, col.Nome AS ColaboradorNome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF WHERE comp.MAC = @MAC";
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
                         cmd.Parameters.AddWithValue("@MAC", id);
-
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
@@ -446,7 +421,8 @@ namespace Web.Controllers
                                 {
                                     MAC = reader["MAC"].ToString(),
                                     IP = reader["IP"].ToString(),
-                                    ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                     Hostname = reader["Hostname"].ToString(),
                                     Fabricante = reader["Fabricante"].ToString(),
                                     Processador = reader["Processador"].ToString(),
