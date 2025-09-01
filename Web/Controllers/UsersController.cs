@@ -87,7 +87,6 @@ namespace Web.Controllers
                     Login = model.Login,
                     PasswordHash = model.Password, // Placeholder for real hash
                     Role = model.Role,
-                    Diretoria = model.Diretoria,
                     ColaboradorCPF = model.ColaboradorCPF
                 };
 
@@ -119,7 +118,6 @@ namespace Web.Controllers
                 Nome = user.Nome,
                 Login = user.Login,
                 Role = user.Role,
-                Diretoria = user.Diretoria,
                 ColaboradorCPF = user.ColaboradorCPF,
                 Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", user.ColaboradorCPF)
             };
@@ -144,7 +142,6 @@ namespace Web.Controllers
                 user.Nome = model.Nome;
                 user.Login = model.Login;
                 user.Role = model.Role;
-                user.Diretoria = model.Diretoria;
                 user.ColaboradorCPF = model.ColaboradorCPF;
 
                 if (!string.IsNullOrEmpty(model.Password))

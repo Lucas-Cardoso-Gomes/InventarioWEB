@@ -66,6 +66,10 @@ namespace Web.Models
 
         [StringLength(100)]
         [ValidateNever]
+        public string? Filial { get; set; }
+
+        [StringLength(100)]
+        [ValidateNever]
         public string? Setor { get; set; }
 
         [StringLength(100)]

@@ -23,9 +23,6 @@ namespace Web.Models
         [Display(Name = "Função")]
         public string Role { get; set; } // "Admin" or "Normal"
 
-        [Display(Name = "Diretoria")]
-        public string? Diretoria { get; set; }
-
         [Display(Name = "Colaborador")]
         public string? ColaboradorCPF { get; set; }
 

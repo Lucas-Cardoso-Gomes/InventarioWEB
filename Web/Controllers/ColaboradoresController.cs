@@ -66,6 +66,7 @@ namespace Web.Controllers
                                     SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
                                     Adicional = reader["Adicional"].ToString(),
                                     SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                    Filial = reader["Filial"].ToString(),
                                     Setor = reader["Setor"].ToString(),
                                     Smartphone = reader["Smartphone"].ToString(),
                                     TelefoneFixo = reader["TelefoneFixo"].ToString(),
@@ -109,8 +110,8 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao) 
-                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao)";
+                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao) 
+                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
@@ -127,6 +128,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Filial", (object)colaborador.Filial ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Smartphone", (object)colaborador.Smartphone ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@TelefoneFixo", (object)colaborador.TelefoneFixo ?? DBNull.Value);
@@ -179,7 +181,7 @@ namespace Web.Controllers
                                        Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
                                        EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
                                        Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
-                                       Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
+                                       Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
                                        Obs = @Obs, DataAlteracao = @DataAlteracao 
                                        WHERE CPF = @CPF";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
@@ -198,6 +200,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Filial", (object)colaborador.Filial ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Smartphone", (object)colaborador.Smartphone ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@TelefoneFixo", (object)colaborador.TelefoneFixo ?? DBNull.Value);
@@ -299,6 +302,7 @@ namespace Web.Controllers
                                     SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
                                     Adicional = reader["Adicional"].ToString(),
                                     SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                    Filial = reader["Filial"].ToString(),
                                     Setor = reader["Setor"].ToString(),
                                     Smartphone = reader["Smartphone"].ToString(),
                                     TelefoneFixo = reader["TelefoneFixo"].ToString(),

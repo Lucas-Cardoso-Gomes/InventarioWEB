@@ -19,8 +19,6 @@ namespace Web.Models
         [Required]
         public string Role { get; set; } // "Admin", "Normal", "Coordenador" or "Diretoria"
 
-        public string? Diretoria { get; set; }
-
         public string? ColaboradorCPF { get; set; }
         [ForeignKey("ColaboradorCPF")]
         public virtual Colaborador? Colaborador { get; set; }

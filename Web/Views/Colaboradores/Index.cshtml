@@ -41,13 +41,9 @@
         <thead>
             <tr>
                 <th>@Html.DisplayNameFor(model => model.Nome)</th>
-                <th>@Html.DisplayNameFor(model => model.CPF)</th>
                 <th>@Html.DisplayNameFor(model => model.Email)</th>
-                <th>@Html.DisplayNameFor(model => model.Teams)</th>
+                <th>@Html.DisplayNameFor(model => model.Filial)</th>
                 <th>@Html.DisplayNameFor(model => model.Setor)</th>
-                <th>Smartphone</th>
-                <th>Telefone Fixo</th>
-                <th>@Html.DisplayNameFor(model => model.Ramal)</th>
                 <th>@Html.DisplayNameFor(model => model.DataInclusao)</th>
                 <th>@Html.DisplayNameFor(model => model.DataAlteracao)</th>
                 @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
@@ -61,13 +57,9 @@
             {
                 <tr>
                     <td>@Html.DisplayFor(modelItem => item.Nome)</td>
-                    <td>@FormatCpf(item.CPF)</td>
                     <td>@Html.DisplayFor(modelItem => item.Email)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Teams)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Filial)</td>
                     <td>@Html.DisplayFor(modelItem => item.Setor)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Smartphone)</td>
-                    <td>@Html.DisplayFor(modelItem => item.TelefoneFixo)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Ramal)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataInclusao)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataAlteracao)</td>
                     @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
