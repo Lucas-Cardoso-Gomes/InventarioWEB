@@ -1,96 +1,124 @@
-# Inventário Web e Agente de Coleta
+InventarioWEB
+Visão Geral
+O InventarioWEB é um sistema de gerenciamento de inventário de TI projetado para coletar informações detalhadas sobre hardware e software de computadores em uma rede, além de gerenciar colaboradores, periféricos, monitores e manutenções. A solução é composta por dois componentes principais: um agente de coleta de dados (Coleta) e uma aplicação web (Web) para visualização e gerenciamento dos dados.
 
-## Descrição
+Funcionalidades
 
-Este projeto é um sistema de inventário de computadores baseado na web. Ele consiste em duas partes principais:
+Coleta de Dados
+Agente de Coleta: Um aplicativo de console que é executado nas máquinas clientes.
 
-1.  **Aplicação Web (Web)**: Uma aplicação ASP.NET Core MVC que serve como painel de controle. Ela permite visualizar os computadores inventariados, seus detalhes de hardware e software, e enviar comandos remotos.
-2.  **Agente de Coleta (Coleta)**: Uma aplicação de console .NET que roda nas máquinas clientes. Ela coleta informações detalhadas do sistema e responde a comandos enviados pela aplicação web.
+Coleta Abrangente de Hardware: Coleta informações sobre:
 
-## Funcionalidades
+Processador (Fabricante, Modelo, Cores, Threads, Clock)
+Memória RAM (Tamanho, Tipo, Velocidade, Voltagem)
+Armazenamento (Discos, Espaço Total, Espaço Livre)
+Informações do Sistema Operacional
+Endereço MAC
+Fabricante do Computador
+Consumo de CPU
+Usuário Logado
 
--   **Dashboard Web**: Visualize todos os computadores inventariados em um só lugar.
--   **Detalhes do Computador**: Veja informações detalhadas sobre cada máquina, incluindo hardware (CPU, RAM, armazenamento) e software (SO, usuário logado).
--   **Coleta de Dados Remota**: Inicie a coleta de dados para um IP específico ou uma faixa de IPs a partir do painel web.
--   **Envio de Comandos Remotos**: Envie comandos (como `ipconfig`, `gpupdate`) para um IP específico ou uma faixa de IPs.
--   **Logging de Eventos**: Uma página de Logs dedicada registra todas as ações importantes, como coletas de dados, comandos enviados e erros do sistema.
--   **Formulário de Criação Manual**: Adicione computadores manualmente ao sistema preenchendo todos os seus detalhes.
+Comunicação Segura: Utiliza autenticação baseada em chaves para comunicação entre o agente e o servidor.
 
-## Pré-requisitos
+Execução Remota de Comandos: Permite a execução de comandos remotamente nos clientes para fins de gerenciamento.
 
--   [.NET 6.0 SDK](https://dotnet.microsoft.com/download/dotnet/6.0) ou superior.
--   [SQL Server](https://www.microsoft.com/sql-server/sql-server-downloads) (qualquer edição, incluindo Express).
--   Um editor de código como [Visual Studio](https://visualstudio.microsoft.com/) ou [VS Code](https://code.visualstudio.com/).
+Aplicação Web
+Dashboard Centralizado: Interface web para visualização de todos os dados coletados.
 
-## Instalação e Configuração
+Gerenciamento de Ativos:
 
-### 1. Clonar o Repositório
+Computadores: Lista e detalha todas as máquinas inventariadas.
+Colaboradores: Gerencia informações dos colaboradores e os ativos a eles associados.
+Monitores e Periféricos: Cadastra e associa monitores e periféricos aos colaboradores.
+Controle de Acesso: Sistema de autenticação e autorização com diferentes níveis de acesso (Admin, Coordenador, etc.).
+Manutenções: Registra o histórico de manutenções de hardware e software dos equipamentos.
+Logs: Mantém logs detalhados de eventos do sistema e ações dos usuários.
+Exportação de Dados: Permite a exportação dos dados de inventário.
 
-```bash
-git clone <URL_DO_REPOSITORIO>
-cd <NOME_DO_DIRETORIO>
-```
+Arquitetura
+O sistema é dividido em duas partes principais:
 
-### 2. Configurar o Banco de Dados
+Coleta: Uma aplicação de console .NET que atua como um agente. Ele é instalado ou executado nas máquinas clientes. O agente abre um listener TCP na porta 27275 e aguarda conexões da aplicação web. Com base na chave de autenticação recebida, ele pode retornar informações detalhadas do hardware ou executar um comando remoto.
 
-1.  Certifique-se de que você tem uma instância do SQL Server em execução.
-2.  Use um cliente de banco de dados (como SQL Server Management Studio ou Azure Data Studio) para criar um novo banco de dados (ex: `InventarioDB`).
-3.  Execute o script `database_schema.sql` (localizado na raiz do projeto) neste banco de dados para criar as tabelas `Computadores` e `Logs`.
+Web: Uma aplicação web ASP.NET Core MVC que fornece a interface de usuário para gerenciar o inventário. Ela se comunica com os agentes de coleta para obter dados em tempo real e os armazena em um banco de dados SQL Server para persistência e consulta. A aplicação também gerencia todas as outras entidades do sistema, como colaboradores, monitores e periféricos.
 
-### 3. Configurar a Aplicação Web
+Esquema do Banco de Dados
+O banco de dados, chamado Coletados, armazena todas as informações do inventário. As principais tabelas são:
 
-1.  Abra o arquivo `Web/appsettings.json`.
-2.  Encontre a seção `ConnectionStrings` e atualize a `DefaultConnection` com os detalhes da sua instância do SQL Server. Exemplo:
+Usuarios: Armazena os usuários do sistema web, suas credenciais e perfis de acesso.
+Colaboradores: Contém os dados dos colaboradores da empresa.
+Computadores: Armazena as informações de hardware coletadas dos computadores. A chave primária é o endereço MAC.
+Monitores: Tabela para cadastro de monitores.
+Perifericos: Tabela para cadastro de periféricos (teclados, mouses, etc.).
+Manutencoes: Registra o histórico de manutenções realizadas nos ativos.
+Logs: Logs de eventos da aplicação.
+PersistentLogs: Logs persistentes de ações importantes realizadas pelos usuários.
 
-    ```json
-    "ConnectionStrings": {
-      "DefaultConnection": "Server=SEU_SERVIDOR;Database=InventarioDB;User Id=SEU_USUARIO;Password=SUA_SENHA;Trusted_Connection=False;"
-    }
-    ```
-3. A aplicação Web também precisa das chaves de autenticação para se comunicar com o agente. Adicione a seguinte seção `Autenticacao` ao arquivo `Web/appsettings.json`, usando as mesmas senhas que você configurará no agente.
+Tecnologias Utilizadas
+Backend: C#, .NET, ASP.NET Core MVC
 
-    ```json
-    "Autenticacao": {
-      "SolicitarInformacoes": "SUA_SENHA_SECRETA_PARA_COLETA",
-      "RealizarComandos": "SUA_SENHA_SECRETA_PARA_COMANDOS"
-    }
-    ```
+Frontend: HTML, CSS, JavaScript, Bootstrap
 
-### 4. Configurar o Agente de Coleta
+Banco de Dados: Microsoft SQL Server
 
-1.  Abra o arquivo `Coleta/appsettings.json`.
-2.  Na seção `Autenticacao`, defina as senhas. Estas senhas devem ser as mesmas que você configurou na aplicação web.
+Comunicação: TCP/IP Sockets para comunicação entre o agente e o servidor.
 
-    ```json
-    "Autenticacao": {
-      "SolicitarInformacoes": "SUA_SENHA_SECRETA_PARA_COLETA",
-      "RealizarComandos": "SUA_SENHA_SECRETA_PARA_COMANDOS"
-    }
-    ```
+Frameworks/Bibliotecas:
 
-## Como Executar
+Entity Framework Core (implícito para acesso a dados)
 
-### 1. Executar o Agente de Coleta (Coleta)
+System.Management para coleta de informações do WMI no Windows.
 
-1.  Navegue até o diretório `Coleta`: `cd Coleta`
-2.  Execute o agente: `dotnet run`
-3.  O agente de coleta deve ser executado em cada máquina que você deseja monitorar. Ele ficará escutando na porta 27275 por conexões da aplicação web.
+Instalação e Configuração
+Pré-requisitos
+.NET SDK
 
-### 2. Executar a Aplicação Web (Web)
+Microsoft SQL Server
 
-1.  Navegue até o diretório `Web`: `cd Web`
-2.  Execute a aplicação web: `dotnet run`
-3.  Abra seu navegador e acesse a URL fornecida (geralmente `http://localhost:5000` ou `https://localhost:5001`).
+Um ambiente Windows para o agente de coleta.
 
-## Estrutura do Projeto
+Banco de Dados
+Execute o script schema_completo.sql em seu servidor SQL Server para criar o banco de dados Coletados e todas as tabelas necessárias.
 
--   `/Web`: Contém a aplicação web ASP.NET Core MVC.
-    -   `/Controllers`: Lógica de controle para as páginas web.
-    -   `/Views`: As páginas Razor (`.cshtml`) que compõem a UI.
-    -   `/Models`: Os modelos de dados e view models.
-    -   `/Services`: Lógica de negócio, como o `ColetaService` e `LogService`.
-    -   `appsettings.json`: Arquivo de configuração da aplicação web.
--   `/Coleta`: Contém a aplicação de console .NET que atua como agente de coleta.
-    -   `Program.cs`: O ponto de entrada do agente, onde o servidor TCP é iniciado.
-    -   `appsettings.json`: Arquivo de configuração do agente.
--   `database_schema.sql`: Script SQL para criar a estrutura inicial do banco de dados.
+Configure a string de conexão no arquivo appsettings.json da aplicação Web.
+
+Aplicação Web
+Abra a solução Web/Web.sln no Visual Studio.
+
+Configure as chaves de autenticação no arquivo appsettings.json. Estas chaves devem ser as mesmas configuradas no agente Coleta.
+
+JSON
+
+"Autenticacao": {
+  "SolicitarInformacoes": "SUA_CHAVE_PARA_INFO",
+  "RealizarComandos": "SUA_CHAVE_PARA_COMANDOS"
+}
+Compile e execute o projeto. A aplicação estará disponível em http://localhost:80 e https://localhost:443.
+
+Agente de Coleta
+Abra a solução Coleta/Coleta.sln no Visual Studio.
+
+Configure as mesmas chaves de autenticação no arquivo appsettings.json.
+
+JSON
+
+"Autenticacao": {
+  "SolicitarInformacoes": "SUA_CHAVE_PARA_INFO",
+  "RealizarComandos": "SUA_CHAVE_PARA_COMANDOS"
+}
+Compile o projeto para gerar o executável.
+
+Distribua e execute o Coleta.exe nas máquinas que você deseja inventariar.
+
+Certifique-se de que a porta 27275 esteja liberada no firewall das máquinas clientes para permitir a comunicação com o servidor web.
+
+Utilização
+Acesse a aplicação web através do seu navegador.
+
+Faça login com o usuário administrador padrão (admin/admin).
+
+Navegue até a seção de gerenciamento para visualizar os computadores online e solicitar a coleta de dados.
+
+Cadastre colaboradores, monitores e periféricos conforme necessário.
+
+Associe os ativos aos seus respectivos colaboradores para um controle completo do inventário.
