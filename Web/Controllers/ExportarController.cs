@@ -47,7 +47,7 @@ namespace Web.Controllers
                 viewModel.TiposPeriferico = GetDistinctValues(connection, "Perifericos", "Tipo");
 
                 // Colaborador filter
-                viewModel.Colaboradores = GetColaboradores(connection).Select(c => c.Nome).ToList();
+                viewModel.Colaboradores = GetColaboradores(connection);
                 viewModel.Coordenadores = GetCoordenadores(connection);
             }
             return View(viewModel);
@@ -272,15 +272,15 @@ namespace Web.Controllers
                 }
                 else if (viewModel.ExportMode == ExportMode.PorColaborador)
                 {
-                    fileName = $"export_colaborador_{viewModel.ColaboradorNome}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    fileName = $"export_colaborador_{viewModel.SelectedColaboradorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
 
                     // Computadores
                     csvBuilder.AppendLine("Computadores");
                     csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
-                    string sqlComputadores = "SELECT MAC, IP, Hostname, Fabricante, Processador, SO, DataColeta FROM Computadores WHERE ColaboradorNome = @colaborador";
+                    string sqlComputadores = "SELECT c.MAC, c.IP, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = new SqlCommand(sqlComputadores, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -294,10 +294,10 @@ namespace Web.Controllers
                     csvBuilder.AppendLine();
                     csvBuilder.AppendLine("Monitores");
                     csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
-                    string sqlMonitores = "SELECT PartNumber, ColaboradorNome, Marca, Modelo, Tamanho FROM Monitores WHERE ColaboradorNome = @colaborador";
+                    string sqlMonitores = "SELECT m.PartNumber, col.Nome AS ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m INNER JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF WHERE m.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = new SqlCommand(sqlMonitores, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -311,10 +311,10 @@ namespace Web.Controllers
                     csvBuilder.AppendLine();
                     csvBuilder.AppendLine("Perifericos");
                     csvBuilder.AppendLine("PartNumber,ColaboradorNome,Tipo,DataEntrega");
-                    string sqlPerifericos = "SELECT PartNumber, ColaboradorNome, Tipo, DataEntrega FROM Perifericos WHERE ColaboradorNome = @colaborador";
+                    string sqlPerifericos = "SELECT p.PartNumber, col.Nome AS ColaboradorNome, p.Tipo, p.DataEntrega FROM Perifericos p INNER JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF WHERE p.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = new SqlCommand(sqlPerifericos, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -342,14 +342,14 @@ namespace Web.Controllers
                             ma.Data,
                             ma.Historico
                         FROM Manutencoes ma
-                        LEFT JOIN Computadores c ON ma.ComputadorMAC = c.MAC AND c.ColaboradorNome = @colaborador
-                        LEFT JOIN Monitores m ON ma.MonitorPartNumber = m.PartNumber AND m.ColaboradorNome = @colaborador
-                        LEFT JOIN Perifericos p ON ma.PerifericoPartNumber = p.PartNumber AND p.ColaboradorNome = @colaborador
-                        WHERE c.ColaboradorNome = @colaborador OR m.ColaboradorNome = @colaborador OR p.ColaboradorNome = @colaborador";
+                        LEFT JOIN Computadores c ON ma.ComputadorMAC = c.MAC AND c.ColaboradorCPF = @colaboradorCpf
+                        LEFT JOIN Monitores m ON ma.MonitorPartNumber = m.PartNumber AND m.ColaboradorCPF = @colaboradorCpf
+                        LEFT JOIN Perifericos p ON ma.PerifericoPartNumber = p.PartNumber AND p.ColaboradorCPF = @colaboradorCpf
+                        WHERE c.ColaboradorCPF = @colaboradorCpf OR m.ColaboradorCPF = @colaboradorCpf OR p.ColaboradorCPF = @colaboradorCpf";
 
                     using (var cmd = new SqlCommand(sqlManutencoes, connection))
                     {
-                        cmd.Parameters.AddWithValue("@colaborador", viewModel.ColaboradorNome);
+                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -376,9 +376,9 @@ namespace Web.Controllers
                     csvBuilder.AppendLine(computerHeader);
 
                     string sql = $@"
-                        SELECT {computerHeader}
+                        SELECT c.MAC, c.IP, colab.Nome as ColaboradorNome, c.Hostname, c.Fabricante, c.Processador, c.ProcessadorFabricante, c.ProcessadorCore, c.ProcessadorThread, c.ProcessadorClock, c.Ram, c.RamTipo, c.RamVelocidade, c.RamVoltagem, c.RamPorModule, c.ArmazenamentoC, c.ArmazenamentoCTotal, c.ArmazenamentoCLivre, c.ArmazenamentoD, c.ArmazenamentoDTotal, c.ArmazenamentoDLivre, c.ConsumoCPU, c.SO, c.DataColeta
                         FROM Computadores c
-                        INNER JOIN Colaboradores colab ON c.ColaboradorNome = colab.Nome
+                        INNER JOIN Colaboradores colab ON c.ColaboradorCPF = colab.CPF
                         WHERE colab.CoordenadorCPF = @coordenadorCpf OR colab.CPF = @coordenadorCpf";
 
                     using (var cmd = new SqlCommand(sql, connection))

@@ -32,8 +32,8 @@ namespace Web.Models
         public DeviceType DeviceType { get; set; }
 
         [Display(Name = "Colaborador")]
-        public string ColaboradorNome { get; set; }
-        public List<string> Colaboradores { get; set; } = new List<string>();
+        public string SelectedColaboradorCPF { get; set; }
+        public List<Colaborador> Colaboradores { get; set; } = new List<Colaborador>();
 
         [Display(Name = "Coordenador")]
         public string CoordenadorCPF { get; set; }
