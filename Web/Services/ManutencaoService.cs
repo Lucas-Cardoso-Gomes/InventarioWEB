@@ -15,13 +15,13 @@ namespace Web.Services
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public List<Manutencao> GetAllManutencoes()
+        public List<Manutencao> GetAllManutencoes(string cpf, string computadorMAC)
         {
             var manutencoes = new List<Manutencao>();
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = @"
+                var sql = @"
                     SELECT
                         m.Id, m.DataManutencaoHardware, m.DataManutencaoSoftware, m.ManutencaoExterna, m.Data, m.Historico,
                         c.MAC, c.Hostname,
@@ -30,10 +30,33 @@ namespace Web.Services
                     FROM Manutencoes m
                     LEFT JOIN Computadores c ON m.ComputadorMAC = c.MAC
                     LEFT JOIN Monitores mo ON m.MonitorPartNumber = mo.PartNumber
-                    LEFT JOIN Perifericos p ON m.PerifericoPartNumber = p.PartNumber";
+                    LEFT JOIN Perifericos p ON m.PerifericoPartNumber = p.PartNumber
+                    LEFT JOIN Colaboradores col_c ON c.ColaboradorCPF = col_c.CPF
+                    LEFT JOIN Colaboradores col_mo ON mo.ColaboradorCPF = col_mo.CPF
+                    LEFT JOIN Colaboradores col_p ON p.ColaboradorCPF = col_p.CPF
+                    WHERE 1=1";
+
+                if (!string.IsNullOrEmpty(cpf))
+                {
+                    sql += " AND (col_c.CPF = @Cpf OR col_mo.CPF = @Cpf OR col_p.CPF = @Cpf)";
+                }
+
+                if (!string.IsNullOrEmpty(computadorMAC))
+                {
+                    sql += " AND c.MAC = @ComputadorMAC";
+                }
 
                 using (var command = new SqlCommand(sql, connection))
                 {
+                    if (!string.IsNullOrEmpty(cpf))
+                    {
+                        command.Parameters.AddWithValue("@Cpf", cpf);
+                    }
+                    if (!string.IsNullOrEmpty(computadorMAC))
+                    {
+                        command.Parameters.AddWithValue("@ComputadorMAC", computadorMAC);
+                    }
+
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())

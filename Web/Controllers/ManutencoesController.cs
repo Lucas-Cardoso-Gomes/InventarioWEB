@@ -24,10 +24,20 @@ namespace Web.Controllers
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string cpf, string computadorMAC)
         {
-            var manutencoes = _manutencaoService.GetAllManutencoes();
-            return View(manutencoes);
+            var manutencoes = _manutencaoService.GetAllManutencoes(cpf, computadorMAC);
+            var computadores = GetComputadores();
+
+            var viewModel = new ManutencaoIndexViewModel
+            {
+                Manutencoes = manutencoes,
+                Cpf = cpf,
+                ComputadorMAC = computadorMAC,
+                Computadores = new SelectList(computadores.Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", computadorMAC)
+            };
+
+            return View(viewModel);
         }
 
         [Authorize(Roles = "Admin")]
