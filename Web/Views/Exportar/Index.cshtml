@@ -30,7 +30,7 @@
             <div class="card-body">
                 <div class="form-group col-md-4">
                     <label asp-for="CoordenadorCPF" class="control-label"></label>
-                    <select asp-for="CoordenadorCPF" asp-items="(new SelectList(Model.Coordenadores, "CPF", "Nome"))" class="form-control"></select>
+                    <select asp-for="CoordenadorCPF" asp-items="@(new SelectList(Model.Coordenadores, "CPF", "Nome"))" class="form-control"></select>
                 </div>
             </div>
         </div>
@@ -126,7 +126,7 @@
             <div class="card-body">
                 <div class="form-group col-md-4">
                     <label asp-for="SelectedColaboradorCPF" class="control-label"></label>
-                    <select asp-for="SelectedColaboradorCPF" asp-items="(new SelectList(Model.Colaboradores, "CPF", "Nome"))" class="form-control"></select>
+                    <select asp-for="SelectedColaboradorCPF" asp-items="@(new SelectList(Model.Colaboradores, "CPF", "Nome"))" class="form-control"></select>
                 </div>
             </div>
         </div>
