@@ -191,7 +191,7 @@
                 <div class="tab-pane fade p-3" id="coordenador" role="tabpanel" aria-labelledby="coordenador-tab">
                     <div class="form-group">
                         <label asp-for="CoordenadorCPF" class="control-label"></label>
-                        <select asp-for="CoordenadorCPF" class="form-control" asp-items="ViewBag.Coordenadores">
+                        <select asp-for="CoordenadorCPF" class="form-control searchable-select" asp-items="ViewBag.Coordenadores">
                             <option value="">Nenhum</option>
                         </select>
                         <span asp-validation-for="CoordenadorCPF" class="text-danger"></span>
