@@ -120,7 +120,7 @@ namespace Web.Controllers
         }
 
         // GET: Monitores/Create
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
@@ -130,7 +130,7 @@ namespace Web.Controllers
         // POST: Monitores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(Monitor monitor)
         {
             if (ModelState.IsValid)
@@ -165,7 +165,7 @@ namespace Web.Controllers
         }
 
         // GET: Monitores/Edit/5
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
             if (id == null) return NotFound();
@@ -178,7 +178,7 @@ namespace Web.Controllers
         // POST: Monitores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id, Monitor monitor)
         {
             if (id != monitor.PartNumber) return NotFound();
@@ -215,7 +215,7 @@ namespace Web.Controllers
         }
 
         // GET: Monitores/Delete/5
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
             if (id == null) return NotFound();
@@ -227,7 +227,7 @@ namespace Web.Controllers
         // POST: Monitores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(string id)
         {
             try

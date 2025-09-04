@@ -199,7 +199,7 @@ namespace Web.Controllers
             return values;
         }
 
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
@@ -208,7 +208,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(ComputadorViewModel viewModel)
         {
             if (ModelState.IsValid)
@@ -264,7 +264,7 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
             if (id == null) return NotFound();
@@ -303,7 +303,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id, ComputadorViewModel viewModel)
         {
             if (id != viewModel.MAC) return NotFound();
@@ -359,7 +359,7 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
             if (id == null) return NotFound();
@@ -370,7 +370,7 @@ namespace Web.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(string id)
         {
             try

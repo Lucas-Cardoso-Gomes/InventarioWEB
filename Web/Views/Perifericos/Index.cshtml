@@ -8,7 +8,7 @@
 
 <div class="row mb-3">
     <div class="col-md-6">
-        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+        @if (User.IsInRole("Admin"))
         {
             <a asp-action="Create" class="btn btn-primary">Adicionar Novo Periférico</a>
         }
@@ -44,7 +44,7 @@
                     <td>@Html.DisplayFor(modelItem => item.DataEntrega)</td>
                     <td>@Html.DisplayFor(modelItem => item.PartNumber)</td>
                     <td>
-                        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+                        @if (User.IsInRole("Admin"))
                         {
                             <a asp-action="Edit" asp-route-id="@item.PartNumber" class="btn btn-warning btn-sm">Editar</a>
                             <a asp-action="Delete" asp-route-id="@item.PartNumber" class="btn btn-danger btn-sm">Excluir</a>

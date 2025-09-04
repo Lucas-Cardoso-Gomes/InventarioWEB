@@ -70,7 +70,7 @@ namespace Web.Controllers
         }
 
         // GET: Perifericos/Create
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
@@ -80,7 +80,7 @@ namespace Web.Controllers
         // POST: Perifericos/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(Periferico periferico)
         {
             if (ModelState.IsValid)
@@ -114,7 +114,7 @@ namespace Web.Controllers
         }
 
         // GET: Perifericos/Edit/5
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
             Periferico periferico = FindPerifericoById(id);
@@ -126,7 +126,7 @@ namespace Web.Controllers
         // POST: Perifericos/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id, Periferico periferico)
         {
             if (id != periferico.PartNumber) return NotFound();
@@ -162,7 +162,7 @@ namespace Web.Controllers
         }
 
         // GET: Perifericos/Delete/5
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
             Periferico periferico = FindPerifericoById(id);
@@ -173,7 +173,7 @@ namespace Web.Controllers
         // POST: Perifericos/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(string id)
         {
             try
