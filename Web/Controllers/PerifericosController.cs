@@ -35,10 +35,10 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT * FROM Perifericos";
+                    string sql = "SELECT p.*, c.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF";
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        sql += " WHERE ColaboradorNome LIKE @search OR Tipo LIKE @search OR PartNumber LIKE @search";
+                        sql += " WHERE c.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search";
                     }
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
@@ -53,7 +53,8 @@ namespace Web.Controllers
                                 perifericos.Add(new Periferico
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
-                                    ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                    ColaboradorNome = reader["ColaboradorNome"] as string,
                                     Tipo = reader["Tipo"].ToString(),
                                     DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
                                 });
@@ -73,7 +74,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
             return View();
         }
 
@@ -90,11 +91,11 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorNome, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorNome, @Tipo, @DataEntrega)";
+                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
@@ -109,7 +110,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
@@ -119,7 +120,7 @@ namespace Web.Controllers
         {
             Periferico periferico = FindPerifericoById(id);
             if (periferico == null) return NotFound();
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
@@ -138,11 +139,11 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorNome = @ColaboradorNome, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)periferico.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
                             cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
                             cmd.ExecuteNonQuery();
@@ -157,7 +158,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", periferico.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
@@ -209,7 +210,7 @@ namespace Web.Controllers
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT * FROM Perifericos WHERE PartNumber = @PartNumber";
+                string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@PartNumber", id);
@@ -220,7 +221,8 @@ namespace Web.Controllers
                             periferico = new Periferico
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                ColaboradorNome = reader["ColaboradorNome"] as string,
                                 Tipo = reader["Tipo"].ToString(),
                                 DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
                             };

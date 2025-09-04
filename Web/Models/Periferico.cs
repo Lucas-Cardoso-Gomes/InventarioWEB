@@ -13,12 +13,14 @@ namespace Web.Models
         public string PartNumber { get; set; }
 
         [Display(Name = "Colaborador")]
-        [ValidateNever]
-        public string? ColaboradorNome { get; set; }
+        public string? ColaboradorCPF { get; set; }
 
-        [ForeignKey("ColaboradorNome")]
+        [ForeignKey("ColaboradorCPF")]
         [ValidateNever]
         public virtual Colaborador? Colaborador { get; set; }
+
+        [NotMapped]
+        public string? ColaboradorNome { get; set; }
 
         [Required(ErrorMessage = "O Tipo é obrigatório.")]
         [StringLength(50)]

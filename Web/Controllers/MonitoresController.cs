@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -56,7 +57,7 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@{columnName.ToLower()}{i}";
+                                var paramName = $"@{(columnName.Split('.').Last()).ToLower()}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
@@ -64,13 +65,13 @@ namespace Web.Controllers
                         }
                     };
 
-                    addInClause("Marca", currentMarcas);
-                    addInClause("Tamanho", currentTamanhos);
-                    addInClause("Modelo", currentModelos);
+                    addInClause("m.Marca", currentMarcas);
+                    addInClause("m.Tamanho", currentTamanhos);
+                    addInClause("m.Modelo", currentModelos);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    string sql = $"SELECT * FROM Monitores {whereSql}";
+                    string sql = $"SELECT m.*, c.Nome as ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores c ON m.ColaboradorCPF = c.CPF {whereSql}";
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
@@ -86,7 +87,8 @@ namespace Web.Controllers
                                 viewModel.Monitores.Add(new Monitor
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
-                                    ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                    ColaboradorNome = reader["ColaboradorNome"] as string,
                                     Marca = reader["Marca"].ToString(),
                                     Modelo = reader["Modelo"].ToString(),
                                     Tamanho = reader["Tamanho"].ToString()
@@ -123,7 +125,7 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome");
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
             return View();
         }
 
@@ -140,11 +142,11 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Monitores (PartNumber, ColaboradorNome, Marca, Modelo, Tamanho) VALUES (@PartNumber, @ColaboradorNome, @Marca, @Modelo, @Tamanho)";
+                        string sql = "INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho) VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -160,7 +162,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o monitor. Verifique se o PartNumber já existe.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", monitor.ColaboradorCPF);
             return View(monitor);
         }
 
@@ -171,7 +173,7 @@ namespace Web.Controllers
             if (id == null) return NotFound();
             Monitor monitor = FindMonitorById(id);
             if (monitor == null) return NotFound();
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", monitor.ColaboradorCPF);
             return View(monitor);
         }
 
@@ -190,11 +192,11 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Monitores SET ColaboradorNome = @ColaboradorNome, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Monitores SET ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorNome", (object)monitor.ColaboradorNome ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
@@ -210,7 +212,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o monitor.");
                 }
             }
-            ViewData["ColaboradorNome"] = new SelectList(GetColaboradores(), "Nome", "Nome", monitor.ColaboradorNome);
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", monitor.ColaboradorCPF);
             return View(monitor);
         }
 
@@ -259,7 +261,7 @@ namespace Web.Controllers
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT * FROM Monitores WHERE PartNumber = @PartNumber";
+                string sql = "SELECT m.*, c.Nome AS ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores c ON m.ColaboradorCPF = c.CPF WHERE m.PartNumber = @PartNumber";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@PartNumber", id);
@@ -270,7 +272,8 @@ namespace Web.Controllers
                             monitor = new Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorNome = reader["ColaboradorNome"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                ColaboradorNome = reader["ColaboradorNome"] as string,
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
                                 Tamanho = reader["Tamanho"].ToString()
