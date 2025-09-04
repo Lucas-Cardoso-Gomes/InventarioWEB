@@ -8,7 +8,9 @@ namespace Web.Models
         [Display(Name = "Por Dispositivo")]
         PorDispositivo,
         [Display(Name = "Por Colaborador")]
-        PorColaborador
+        PorColaborador,
+        [Display(Name = "Por Coordenador")]
+        PorCoordenador
     }
 
     public enum DeviceType
@@ -32,6 +34,10 @@ namespace Web.Models
         [Display(Name = "Colaborador")]
         public string ColaboradorNome { get; set; }
         public List<string> Colaboradores { get; set; } = new List<string>();
+
+        [Display(Name = "Coordenador")]
+        public string CoordenadorCPF { get; set; }
+        public List<Colaborador> Coordenadores { get; set; } = new List<Colaborador>();
 
 
         // --- Filters for Computadores ---
