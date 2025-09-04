@@ -24,8 +24,9 @@
             @{
                 Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
                 {
-                    <div class="col-md-4">
+                    <div class="col-md-4 filterable-list-container">
                         <label class="form-label">@title</label>
+                        <input type="text" class="form-control form-control-sm mb-2 filterable-list-input" placeholder="Filtrar...">
                         <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
                             @if (items != null)
                             {
@@ -88,3 +89,7 @@
         </tbody>
     </table>
 </div>
+
+@section Scripts {
+    <script src="~/js/filterable-checkbox-list.js" asp-append-version="true"></script>
+}
