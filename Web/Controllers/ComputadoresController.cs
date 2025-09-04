@@ -129,7 +129,19 @@ namespace Web.Controllers
                         default: orderBySql = "ORDER BY comp.IP"; break;
                     }
 
-                    string sql = $"SELECT comp.*, col.Nome as ColaboradorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    // --- CORREÇÃO APLICADA AQUI ---
+                    string sqlFields = @"
+                        SELECT
+                            comp.MAC, comp.IP, comp.ColaboradorCPF, col.Nome as ColaboradorNome, comp.Hostname,
+                            comp.Fabricante, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore,
+                            comp.ProcessadorThread, comp.ProcessadorClock, comp.Ram, comp.RamTipo,
+                            comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ArmazenamentoC,
+                            comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre, comp.ArmazenamentoD,
+                            comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
+                            comp.DataColeta
+                    ";
+                    string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    // --- FIM DA CORREÇÃO ---
 
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
