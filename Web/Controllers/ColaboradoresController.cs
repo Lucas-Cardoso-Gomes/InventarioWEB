@@ -11,7 +11,7 @@ using Web.Services;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Coordenador")]
     public class ColaboradoresController : Controller
     {
         private readonly string _connectionString;

@@ -21,6 +21,21 @@
         </div>
     </div>
 
+    <!-- Export by Coordinator Section -->
+    <div id="exportByCoordenadorSection" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                Selecione o Coordenador
+            </div>
+            <div class="card-body">
+                <div class="form-group col-md-4">
+                    <label asp-for="CoordenadorCPF" class="control-label"></label>
+                    <select asp-for="CoordenadorCPF" asp-items="(new SelectList(Model.Coordenadores, "CPF", "Nome"))" class="form-control"></select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Export by Device Section -->
     <div id="exportByDeviceSection" style="display: none;">
         <div class="card">
@@ -128,14 +143,18 @@
         $(document).ready(function () {
             function toggleExportModeSections() {
                 var selectedMode = $('#exportModeSelect').val();
+                $('#exportByDeviceSection').hide();
+                $('#exportByColaboradorSection').hide();
+                $('#exportByCoordenadorSection').hide();
+                $('.filter-section').hide();
+
                 if (selectedMode === '@((int)ExportMode.PorDispositivo)') {
                     $('#exportByDeviceSection').show();
-                    $('#exportByColaboradorSection').hide();
                     toggleDeviceFilterSections();
-                } else {
-                    $('#exportByDeviceSection').hide();
+                } else if (selectedMode === '@((int)ExportMode.PorColaborador)') {
                     $('#exportByColaboradorSection').show();
-                    $('.filter-section').hide();
+                } else if (selectedMode === '@((int)ExportMode.PorCoordenador)') {
+                    $('#exportByCoordenadorSection').show();
                 }
             }
 

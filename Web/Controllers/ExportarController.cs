@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using Web.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -47,8 +48,47 @@ namespace Web.Controllers
 
                 // Colaborador filter
                 viewModel.Colaboradores = GetColaboradores(connection).Select(c => c.Nome).ToList();
+                viewModel.Coordenadores = GetCoordenadores(connection);
             }
             return View(viewModel);
+        }
+
+        private List<Colaborador> GetCoordenadores(SqlConnection connection)
+        {
+            var coordenadores = new List<Colaborador>();
+            string sql;
+
+            if (User.IsInRole("Admin"))
+            {
+                sql = "SELECT c.CPF, c.Nome FROM Colaboradores c INNER JOIN Usuarios u ON c.CPF = u.ColaboradorCPF WHERE u.Role = 'Coordenador' ORDER BY c.Nome";
+            }
+            else
+            {
+                var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                sql = "SELECT c.CPF, c.Nome FROM Colaboradores c WHERE c.CPF = @UserCPF";
+            }
+
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                if (!User.IsInRole("Admin"))
+                {
+                    var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    cmd.Parameters.AddWithValue("@UserCPF", userCpf);
+                }
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        coordenadores.Add(new Colaborador
+                        {
+                            CPF = reader["CPF"].ToString(),
+                            Nome = reader["Nome"].ToString()
+                        });
+                    }
+                }
+            }
+            return coordenadores;
         }
 
         private List<Colaborador> GetColaboradores(SqlConnection connection)
@@ -324,6 +364,36 @@ namespace Web.Controllers
                                     reader["Data"].ToString(),
                                     reader["Historico"].ToString()
                                 };
+                                csvBuilder.AppendLine(string.Join(",", line));
+                            }
+                        }
+                    }
+                }
+                else if (viewModel.ExportMode == ExportMode.PorCoordenador)
+                {
+                    fileName = $"export_coordenador_{viewModel.CoordenadorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
+                    csvBuilder.AppendLine(computerHeader);
+
+                    string sql = $@"
+                        SELECT {computerHeader}
+                        FROM Computadores c
+                        INNER JOIN Colaboradores colab ON c.ColaboradorNome = colab.Nome
+                        WHERE colab.CoordenadorCPF = @coordenadorCpf OR colab.CPF = @coordenadorCpf";
+
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@coordenadorCpf", viewModel.CoordenadorCPF);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var line = new List<string>();
+                                foreach (var col in computerHeader.Split(','))
+                                {
+                                    line.Add(reader[col].ToString());
+                                }
                                 csvBuilder.AppendLine(string.Join(",", line));
                             }
                         }

@@ -30,6 +30,7 @@ namespace Web.Controllers
             return View(manutencoes);
         }
 
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text");
@@ -40,6 +41,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult Create(Manutencao manutencao)
         {
             if (ModelState.IsValid)
@@ -129,6 +131,7 @@ namespace Web.Controllers
             return perifericos;
         }
 
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(int id)
         {
             var manutencao = _manutencaoService.GetManutencaoById(id);
@@ -144,6 +147,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult Edit(int id, Manutencao manutencao)
         {
             if (id != manutencao.Id)
@@ -163,6 +167,7 @@ namespace Web.Controllers
             return View(manutencao);
         }
 
+        [Authorize(Roles = "Admin")]
         public IActionResult Delete(int id)
         {
             var manutencao = _manutencaoService.GetManutencaoById(id);
@@ -175,6 +180,7 @@ namespace Web.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteConfirmed(int id)
         {
             var manutencao = _manutencaoService.GetManutencaoById(id);
