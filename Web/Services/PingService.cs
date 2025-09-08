@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Web.Models;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Concurrent;
 
 namespace Web.Services
 {
@@ -16,8 +17,10 @@ namespace Web.Services
     {
         private readonly ILogger<PingService> _logger;
         private readonly IConfiguration _configuration;
-
         private readonly int _numberOfPingsToStore;
+        private readonly ConcurrentDictionary<string, PingStatusInfo> _pingStatuses = new ConcurrentDictionary<string, PingStatusInfo>();
+        private readonly string _connectionString;
+
         public DateTime StartTime { get; private set; }
 
         public PingService(ILogger<PingService> logger, IConfiguration configuration)
@@ -25,79 +28,61 @@ namespace Web.Services
             _logger = logger;
             _configuration = configuration;
             _numberOfPingsToStore = _configuration.GetValue<int>("Monitoring:NumberOfPings", 120);
+            _connectionString = _configuration.GetConnectionString("DefaultConnection");
             StartTime = DateTime.UtcNow;
+        }
+
+        public ConcurrentDictionary<string, PingStatusInfo> GetPingStatuses()
+        {
+            return _pingStatuses;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // Initial load of devices to monitor
+            await LoadRedesAsync(stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 _logger.LogInformation("PingService running at: {time}", DateTimeOffset.Now);
                 try
                 {
-                    var connectionString = _configuration.GetConnectionString("DefaultConnection");
-                    var redes = new List<Rede>();
+                    var ipsToPing = _pingStatuses.Keys.ToList();
 
-                    using (var connection = new SqlConnection(connectionString))
-                    {
-                        connection.Open();
-                        var command = new SqlCommand("SELECT Id, IP, LastPingStatus, PingHistory FROM Rede", connection);
-                        using (var reader = await command.ExecuteReaderAsync(stoppingToken))
-                        {
-                            while (await reader.ReadAsync(stoppingToken))
-                            {
-                                redes.Add(new Rede
-                                {
-                                    Id = (int)reader["Id"],
-                                    IP = reader["IP"].ToString(),
-                                    LastPingStatus = reader["LastPingStatus"] as bool?,
-                                    PingHistory = reader["PingHistory"] as string
-                                });
-                            }
-                        }
-                    }
-
-                    foreach (var rede in redes)
+                    foreach (var ip in ipsToPing)
                     {
                         var ping = new Ping();
-                        var reply = await ping.SendPingAsync(rede.IP, 1000); // 1 second timeout
+                        var reply = await ping.SendPingAsync(ip, 1000); // 1 second timeout
 
                         var currentPingStatus = reply.Status == IPStatus.Success;
-                        var newStatus = "Gray"; // Default status
 
-                        var lastPing = rede.LastPingStatus;
+                        _pingStatuses.AddOrUpdate(ip, new PingStatusInfo(), (key, existingStatus) =>
+                        {
+                            var lastPing = existingStatus.LastPingStatus;
+                            var newStatus = "Gray"; // Default status
 
-                        if (currentPingStatus && lastPing == true)
-                        {
-                            newStatus = "Green";
-                        }
-                        else if (currentPingStatus == false && lastPing == false)
-                        {
-                            newStatus = "Red";
-                        }
-                        else
-                        {
-                            newStatus = "Yellow";
-                        }
+                            if (currentPingStatus && lastPing == true)
+                            {
+                                newStatus = "Green";
+                            }
+                            else if (currentPingStatus == false && lastPing == false)
+                            {
+                                newStatus = "Red";
+                            }
+                            else
+                            {
+                                newStatus = "Yellow";
+                            }
 
-                        var history = !string.IsNullOrEmpty(rede.PingHistory) ? rede.PingHistory.Split(',').ToList() : new List<string>();
-                        history.Insert(0, currentPingStatus ? "1" : "0");
-                        if (history.Count > _numberOfPingsToStore)
-                        {
-                            history = history.Take(_numberOfPingsToStore).ToList();
-                        }
-                        var newPingHistory = string.Join(",", history);
-
-                        using (var connection = new SqlConnection(connectionString))
-                        {
-                            await connection.OpenAsync(stoppingToken);
-                            var command = new SqlCommand("UPDATE Rede SET Status = @Status, PreviousPingStatus = LastPingStatus, LastPingStatus = @CurrentPingStatus, PingHistory = @PingHistory WHERE Id = @Id", connection);
-                            command.Parameters.AddWithValue("@Status", newStatus);
-                            command.Parameters.AddWithValue("@CurrentPingStatus", currentPingStatus);
-                            command.Parameters.AddWithValue("@PingHistory", newPingHistory);
-                            command.Parameters.AddWithValue("@Id", rede.Id);
-                            await command.ExecuteNonQueryAsync(stoppingToken);
-                        }
+                            existingStatus.Status = newStatus;
+                            existingStatus.LastPingStatus = currentPingStatus;
+                            existingStatus.History.Insert(0, currentPingStatus);
+                            if (existingStatus.History.Count > _numberOfPingsToStore)
+                            {
+                                existingStatus.History = existingStatus.History.Take(_numberOfPingsToStore).ToList();
+                            }
+                            return existingStatus;
+                        });
                     }
                 }
                 catch (Exception ex)
@@ -106,6 +91,34 @@ namespace Web.Services
                 }
 
                 await Task.Delay(30000, stoppingToken);
+            }
+        }
+
+        private async Task LoadRedesAsync(CancellationToken stoppingToken)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync(stoppingToken);
+                    var command = new SqlCommand("SELECT IP FROM Rede", connection);
+                    using (var reader = await command.ExecuteReaderAsync(stoppingToken))
+                    {
+                        while (await reader.ReadAsync(stoppingToken))
+                        {
+                            var ip = reader["IP"].ToString();
+                            if (!string.IsNullOrEmpty(ip))
+                            {
+                                _pingStatuses.TryAdd(ip, new PingStatusInfo { Status = "Gray", LastPingStatus = null });
+                            }
+                        }
+                    }
+                }
+                _logger.LogInformation("Loaded {Count} devices to monitor.", _pingStatuses.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load devices from database.");
             }
         }
     }
