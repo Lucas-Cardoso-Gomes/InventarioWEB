@@ -100,7 +100,7 @@ namespace Web.Services
                     _logger.LogError(ex, "An error occurred while pinging devices.");
                 }
 
-                await Task.Delay(15000, stoppingToken); // 15 seconds
+                await Task.Delay(30000, stoppingToken);
             }
         }
     }
