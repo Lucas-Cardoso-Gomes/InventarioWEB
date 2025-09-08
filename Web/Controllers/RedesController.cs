@@ -93,7 +93,7 @@ namespace Web.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error creating network asset.");
-                    // Handle error
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
                 }
             }
             return View(rede);
@@ -142,7 +142,7 @@ namespace Web.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error updating network asset.");
-                    // Handle error
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
                 }
             }
             return View(rede);
