@@ -6,20 +6,10 @@ Use Coletados;
 SELECT name FROM sys.tables;
 */
 
-CREATE TABLE Usuarios (
-    Id INT PRIMARY KEY IDENTITY,
-    Nome NVARCHAR(100) NOT NULL,
-    Login NVARCHAR(50) NOT NULL UNIQUE,
-    PasswordHash NVARCHAR(255) NOT NULL,
-    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria'))
-);
-
-INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
-
 CREATE TABLE Colaboradores (
     CPF NVARCHAR(14) PRIMARY KEY,
     Nome NVARCHAR(100) NOT NULL UNIQUE,
-    Email NVARCHAR(100),
+    Email NVARCHAR(100) UNIQUE,
     SenhaEmail NVARCHAR(100),
     Teams NVARCHAR(100),
     SenhaTeams NVARCHAR(100),
@@ -36,14 +26,27 @@ CREATE TABLE Colaboradores (
     Smartphone NVARCHAR(100),
     TelefoneFixo NVARCHAR(100),
     Ramal NVARCHAR(100),
-    Alarme NVARCHAR(100),
-    Videoporteiro NVARCHAR(100),
+    Alarme NVARCHAR(100) UNIQUE,
+    Videoporteiro NVARCHAR(100) UNIQUE,
     Obs NVARCHAR(MAX),
     DataInclusao DATETIME NOT NULL,
     DataAlteracao DATETIME,
     CoordenadorCPF NVARCHAR(14),
     CONSTRAINT FK_Colaboradores_Coordenador FOREIGN KEY (CoordenadorCPF) REFERENCES Colaboradores(CPF)
 );
+
+CREATE TABLE Usuarios (
+    Id INT PRIMARY KEY IDENTITY,
+    Nome NVARCHAR(100) NOT NULL,
+    Login NVARCHAR(50) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    ColaboradorCPF NVARCHAR(14) NULL,
+    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria')),
+    CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
+);
+
+INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
+
 
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
@@ -140,9 +143,3 @@ CREATE TABLE Rede (
     LastPingStatus BIT,
     PreviousPingStatus BIT
 );
-
-ALTER TABLE Usuarios
-ADD ColaboradorCPF NVARCHAR(14) NULL;
-
-ALTER TABLE Usuarios
-ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
