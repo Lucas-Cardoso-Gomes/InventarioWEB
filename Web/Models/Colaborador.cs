@@ -97,7 +97,7 @@ namespace Web.Models
         public string? Obs { get; set; }
 
         [ValidateNever]
-        public DateTime? DataInclusao { get; set; }
+        public DateTime DataInclusao { get; set; }
 
         [ValidateNever]
         public DateTime? DataAlteracao { get; set; }

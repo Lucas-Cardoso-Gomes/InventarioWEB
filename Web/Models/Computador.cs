@@ -11,6 +11,7 @@ namespace Web.Models
         public string MAC { get; set; }
         public string? IP { get; set; }
         public string? ColaboradorCPF { get; set; }
+        [NotMapped]
         public string? ColaboradorNome { get; set; }
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }

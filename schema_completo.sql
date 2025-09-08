@@ -49,7 +49,7 @@ CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
     IP NVARCHAR(45),
     ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF),
-    Hostname NVARCHAR(100),
+    Hostname NVARCHAR(100) NOT NULL,
     Fabricante NVARCHAR(100),
     Processador NVARCHAR(255),
     ProcessadorFabricante NVARCHAR(100),
@@ -76,14 +76,14 @@ CREATE TABLE Monitores (
     PartNumber NVARCHAR(50) PRIMARY KEY,
     ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF),
     Marca NVARCHAR(50),
-    Modelo NVARCHAR(50),
-    Tamanho NVARCHAR(20)
+    Modelo NVARCHAR(50) NOT NULL,
+    Tamanho NVARCHAR(20) NOT NULL
 );
 
 CREATE TABLE Perifericos (
     PartNumber NVARCHAR(50) PRIMARY KEY,
     ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF),
-    Tipo NVARCHAR(50),
+    Tipo NVARCHAR(50) NOT NULL,
     DataEntrega DATETIME
 );
 
