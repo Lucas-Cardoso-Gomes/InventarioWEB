@@ -1,0 +1,75 @@
+@model IEnumerable<Web.Models.Chamado>
+
+@{
+    ViewData["Title"] = "Chamados";
+}
+
+<h1>Chamados</h1>
+
+<p>
+    @if (User.IsInRole("Admin"))
+    {
+        <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
+    }
+</p>
+<div class="table-responsive">
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>
+                    @Html.DisplayNameFor(model => model.ID)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.AdminNome)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.ColaboradorNome)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.Descricao)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.DataAlteracao)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.DataCriacao)
+                </th>
+                @if (User.IsInRole("Admin"))
+                {
+                    <th>Ações</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+    @foreach (var item in Model) {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ID)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.AdminNome)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ColaboradorNome)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Descricao)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.DataAlteracao)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.DataCriacao)
+                </td>
+                <td>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
+                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
+                    }
+                </td>
+            </tr>
+    }
+        </tbody>
+    </table>
+</div>

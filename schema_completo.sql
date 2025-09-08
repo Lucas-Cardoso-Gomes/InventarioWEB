@@ -120,3 +120,12 @@ ADD ColaboradorCPF NVARCHAR(14) NULL;
 
 ALTER TABLE Usuarios
 ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
+
+CREATE TABLE Chamados (
+    ID INT PRIMARY KEY IDENTITY,
+    AdminCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF),
+    ColaboradorCPF NVARCHAR(14) FOREIGN KEY REFERENCES Colaboradores(CPF) NOT NULL,
+    Descricao NVARCHAR(1000) NOT NULL,
+    DataAlteracao DATETIME,
+    DataCriacao DATETIME NOT NULL
+);

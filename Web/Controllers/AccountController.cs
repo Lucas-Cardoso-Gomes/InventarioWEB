@@ -44,6 +44,11 @@ namespace Web.Controllers
                         new Claim("Login", user.Login) // Custom claim for login
                     };
 
+                    if (!string.IsNullOrEmpty(user.ColaboradorCPF))
+                    {
+                        claims.Add(new Claim("ColaboradorCPF", user.ColaboradorCPF));
+                    }
+
                     var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
                     var authProperties = new AuthenticationProperties
