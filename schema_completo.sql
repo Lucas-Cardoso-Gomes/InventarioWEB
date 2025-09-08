@@ -135,12 +135,10 @@ CREATE TABLE Rede (
     DataInclusao DATETIME NOT NULL,
     DataAlteracao DATETIME,
     Observacao NVARCHAR(MAX),
-    ParentId INT NULL,
     Status NVARCHAR(10),
     LastPingStatus BIT,
     PreviousPingStatus BIT,
-    PingHistory NVARCHAR(MAX) NULL,
-    CONSTRAINT FK_Rede_Rede_ParentId FOREIGN KEY (ParentId) REFERENCES Rede(Id)
+    PingHistory NVARCHAR(MAX) NULL
 );
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');

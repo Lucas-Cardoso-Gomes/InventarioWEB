@@ -6,11 +6,6 @@ namespace Web.Models
 {
     public class Rede
     {
-        public Rede()
-        {
-            Children = new HashSet<Rede>();
-        }
-
         public int Id { get; set; }
 
         [Required(ErrorMessage = "O campo Tipo é obrigatório.")]
@@ -34,15 +29,6 @@ namespace Web.Models
 
         [Display(Name = "Observação")]
         public string? Observacao { get; set; }
-
-        // Hierarchy properties
-        [Display(Name = "Dispositivo Pai")]
-        public int? ParentId { get; set; }
-
-        [ForeignKey("ParentId")]
-        public virtual Rede Parent { get; set; }
-
-        public virtual ICollection<Rede> Children { get; set; }
 
         // Monitoring properties
         [NotMapped]

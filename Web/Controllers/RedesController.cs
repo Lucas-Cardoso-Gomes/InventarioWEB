@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Web.Models;
 using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -33,7 +32,7 @@ namespace Web.Controllers
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao, ParentId FROM Rede ORDER BY IP", connection);
+                    var command = new SqlCommand("SELECT * FROM Rede ORDER BY IP", connection);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -46,9 +45,8 @@ namespace Web.Controllers
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader.IsDBNull(reader.GetOrdinal("DataAlteracao")) ? null : (DateTime?)reader["DataAlteracao"],
-                                Observacao = reader["Observacao"].ToString(),
-                                ParentId = reader.IsDBNull(reader.GetOrdinal("ParentId")) ? null : (int?)reader["ParentId"]
+                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
+                                Observacao = reader["Observacao"].ToString()
                             });
                         }
                     }
@@ -64,7 +62,6 @@ namespace Web.Controllers
 
         public IActionResult Create()
         {
-            PopulateParentDevicesDropDownList();
             return View();
         }
 
@@ -81,14 +78,13 @@ namespace Web.Controllers
                     using (var connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao, ParentId) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao, @ParentId)", connection);
+                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)", connection);
                         command.Parameters.AddWithValue("@Tipo", rede.Tipo);
                         command.Parameters.AddWithValue("@IP", rede.IP);
                         command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
                         command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@ParentId", (object)rede.ParentId ?? DBNull.Value);
 
                         _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
                         command.ExecuteNonQuery();
@@ -116,7 +112,6 @@ namespace Web.Controllers
                 }
             }
             _logger.LogInformation("Returning view with model due to validation errors or exception.");
-            PopulateParentDevicesDropDownList(rede.ParentId);
             return View(rede);
         }
 
@@ -127,7 +122,6 @@ namespace Web.Controllers
             {
                 return NotFound();
             }
-            PopulateParentDevicesDropDownList(rede.ParentId, rede.Id);
             return View(rede);
         }
 
@@ -149,7 +143,7 @@ namespace Web.Controllers
                     using (var connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao, ParentId = @ParentId WHERE Id = @Id", connection);
+                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id", connection);
                         command.Parameters.AddWithValue("@Id", rede.Id);
                         command.Parameters.AddWithValue("@Tipo", rede.Tipo);
                         command.Parameters.AddWithValue("@IP", rede.IP);
@@ -157,7 +151,6 @@ namespace Web.Controllers
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
                         command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@ParentId", (object)rede.ParentId ?? DBNull.Value);
 
                         _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
                         command.ExecuteNonQuery();
@@ -185,7 +178,6 @@ namespace Web.Controllers
                 }
             }
             _logger.LogInformation("Returning view with model due to validation errors or exception.");
-            PopulateParentDevicesDropDownList(rede.ParentId, rede.Id);
             return View(rede);
         }
 
@@ -231,7 +223,7 @@ namespace Web.Controllers
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao, ParentId FROM Rede WHERE Id = @Id", connection);
+                    var command = new SqlCommand("SELECT * FROM Rede WHERE Id = @Id", connection);
                     command.Parameters.AddWithValue("@Id", id);
                     using (var reader = command.ExecuteReader())
                     {
@@ -245,9 +237,8 @@ namespace Web.Controllers
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader.IsDBNull(reader.GetOrdinal("DataAlteracao")) ? null : (DateTime?)reader["DataAlteracao"],
-                                Observacao = reader["Observacao"].ToString(),
-                                ParentId = reader.IsDBNull(reader.GetOrdinal("ParentId")) ? null : (int?)reader["ParentId"]
+                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
+                                Observacao = reader["Observacao"].ToString()
                             };
                         }
                     }
@@ -259,39 +250,6 @@ namespace Web.Controllers
                 // Handle error
             }
             return rede;
-        }
-
-        private void PopulateParentDevicesDropDownList(object selectedParent = null, int? currentDeviceId = null)
-        {
-            var redes = new List<Rede>();
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-                    // Exclude the current device from the list of potential parents
-                    var query = "SELECT Id, Nome FROM Rede" + (currentDeviceId.HasValue ? " WHERE Id != @CurrentDeviceId" : "") + " ORDER BY Nome";
-                    var command = new SqlCommand(query, connection);
-                    if (currentDeviceId.HasValue)
-                    {
-                        command.Parameters.AddWithValue("@CurrentDeviceId", currentDeviceId.Value);
-                    }
-
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            redes.Add(new Rede { Id = (int)reader["Id"], Nome = reader["Nome"].ToString() });
-                        }
-                    }
-                }
-                ViewBag.ParentId = new SelectList(redes, "Id", "Nome", selectedParent);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error populating parent devices dropdown.");
-                ViewBag.ParentId = new SelectList(new List<Rede>(), "Id", "Nome"); // Return empty list on error
-            }
         }
     }
 }
