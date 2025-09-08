@@ -36,10 +36,6 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Perifericos"
                                 asp-action="Index">Periféricos</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
-                                asp-action="Index">Chamados</a>
-                        </li>
                         @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                         {
                             <li class="nav-item">
@@ -54,6 +50,10 @@
 
                         @if (User.IsInRole("Admin"))
                         {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
+                                    asp-action="Index">Chamados</a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Colaboradores"
                                     asp-action="Index">Colaboradores</a>
