@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="~/Web.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+    @RenderSection("Styles", required: false)
 </head>
 
 <body>
@@ -73,6 +74,14 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
                                     asp-action="PersistentLogs">Log Persistente</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Redes"
+                                    asp-action="Index">Ativos de Rede</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Monitoramento"
+                                    asp-action="Index">Monitoramento</a>
                             </li>
                         }
                     </ul>
