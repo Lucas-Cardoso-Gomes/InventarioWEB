@@ -11,6 +11,10 @@
     {
         <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
     }
+    @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+    {
+        <a asp-action="Dashboard" class="btn btn-info">Ver Dashboard</a>
+    }
 </p>
 <div class="table-responsive">
     <table class="table table-striped table-bordered">

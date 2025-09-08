@@ -43,14 +43,6 @@
                                     asp-action="Index">Manutenções</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
-                                    asp-action="Index">Chamados</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
-                                    asp-action="Dashboard">Dashboard</a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"
                                     asp-action="Index">Exportar</a>
                             </li>
@@ -58,6 +50,10 @@
 
                         @if (User.IsInRole("Admin"))
                         {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
+                                    asp-action="Index">Chamados</a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Colaboradores"
                                     asp-action="Index">Colaboradores</a>
