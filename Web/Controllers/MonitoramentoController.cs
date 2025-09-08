@@ -15,11 +15,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<MonitoramentoController> _logger;
+        private readonly PingService _pingService;
 
-        public MonitoramentoController(IConfiguration configuration, ILogger<MonitoramentoController> logger)
+        public MonitoramentoController(IConfiguration configuration, ILogger<MonitoramentoController> logger, System.Collections.Generic.IEnumerable<Microsoft.Extensions.Hosting.IHostedService> hostedServices)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _pingService = hostedServices.OfType<PingService>().FirstOrDefault();
         }
 
         public IActionResult Index()
@@ -101,6 +103,17 @@ namespace Web.Controllers
                 // Handle error appropriately
             }
             return Json(result);
+        }
+
+        [HttpGet]
+        public IActionResult GetUptime()
+        {
+            if (_pingService == null)
+            {
+                return Json(new { uptime = "Not available" });
+            }
+            var uptime = DateTime.UtcNow - _pingService.StartTime;
+            return Json(new { uptime = uptime.ToString(@"dd\.hh\:mm\:ss") });
         }
     }
 }

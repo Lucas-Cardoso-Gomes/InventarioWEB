@@ -17,10 +17,15 @@ namespace Web.Services
         private readonly ILogger<PingService> _logger;
         private readonly IConfiguration _configuration;
 
+        private readonly int _numberOfPingsToStore;
+        public DateTime StartTime { get; private set; }
+
         public PingService(ILogger<PingService> logger, IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
+            _numberOfPingsToStore = _configuration.GetValue<int>("Monitoring:NumberOfPings", 120);
+            StartTime = DateTime.UtcNow;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -77,9 +82,9 @@ namespace Web.Services
 
                         var history = !string.IsNullOrEmpty(rede.PingHistory) ? rede.PingHistory.Split(',').ToList() : new List<string>();
                         history.Insert(0, currentPingStatus ? "1" : "0");
-                        if (history.Count > 120)
+                        if (history.Count > _numberOfPingsToStore)
                         {
-                            history = history.Take(120).ToList();
+                            history = history.Take(_numberOfPingsToStore).ToList();
                         }
                         var newPingHistory = string.Join(",", history);
 

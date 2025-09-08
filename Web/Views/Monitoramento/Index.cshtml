@@ -6,6 +6,8 @@
 
 <h1>@ViewData["Title"]</h1>
 
+<h2>Tempo de Análise: <span id="uptime">00.00:00:00</span></h2>
+
 <table class="table">
     <thead>
         <tr>
@@ -82,10 +84,6 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            setTimeout(function () {
-                location.reload();
-            }, 60000);
-
             function updateStatus() {
                 $.get('@Url.Action("GetStatus", "Monitoramento")', function (data) {
                     data.forEach(function (item) {
@@ -103,8 +101,17 @@
                 });
             }
 
+            function updateUptime() {
+                $.get('@Url.Action("GetUptime", "Monitoramento")', function (data) {
+                    $('#uptime').text(data.uptime);
+                });
+            }
+
             setInterval(updateStatus, 15000); // 15 seconds
             updateStatus(); // Also update on page load
+
+            setInterval(updateUptime, 1000); // 1 second
+            updateUptime(); // Also update on page load
         });
     </script>
 }
