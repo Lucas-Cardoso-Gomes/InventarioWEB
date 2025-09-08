@@ -15,7 +15,7 @@ namespace Web.Models
         public string IP { get; set; }
 
         [Display(Name = "Endereço MAC")]
-        public string MAC { get; set; }
+        public string? MAC { get; set; }
 
         [Required(ErrorMessage = "O campo Nome é obrigatório.")]
         public string Nome { get; set; }
@@ -27,10 +27,10 @@ namespace Web.Models
         public DateTime? DataAlteracao { get; set; }
 
         [Display(Name = "Observação")]
-        public string Observacao { get; set; }
+        public string? Observacao { get; set; }
 
         // Monitoring properties
-        public string Status { get; set; }
+        public string? Status { get; set; }
         public bool? LastPingStatus { get; set; }
         public bool? PreviousPingStatus { get; set; }
     }
