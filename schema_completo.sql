@@ -6,6 +6,16 @@ Use Coletados;
 SELECT name FROM sys.tables;
 */
 
+CREATE TABLE Usuarios (
+    Id INT PRIMARY KEY IDENTITY,
+    Nome NVARCHAR(100) NOT NULL,
+    Login NVARCHAR(50) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria'))
+);
+
+INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
+
 CREATE TABLE Colaboradores (
     CPF NVARCHAR(14) PRIMARY KEY,
     Nome NVARCHAR(100) NOT NULL UNIQUE,
@@ -34,19 +44,6 @@ CREATE TABLE Colaboradores (
     CoordenadorCPF NVARCHAR(14),
     CONSTRAINT FK_Colaboradores_Coordenador FOREIGN KEY (CoordenadorCPF) REFERENCES Colaboradores(CPF)
 );
-
-CREATE TABLE Usuarios (
-    Id INT PRIMARY KEY IDENTITY,
-    Nome NVARCHAR(100) NOT NULL,
-    Login NVARCHAR(50) NOT NULL UNIQUE,
-    PasswordHash NVARCHAR(255) NOT NULL,
-    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria')),
-    ColaboradorCPF NVARCHAR(14) NULL,
-    CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
-);
-
-INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
-
 
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
@@ -128,3 +125,10 @@ CREATE TABLE Chamados (
     DataAlteracao DATETIME,
     DataCriacao DATETIME NOT NULL
 );
+
+
+ALTER TABLE Usuarios
+ADD ColaboradorCPF NVARCHAR(14) NULL;
+
+ALTER TABLE Usuarios
+ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);

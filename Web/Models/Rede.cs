@@ -20,9 +20,6 @@ namespace Web.Models
         [Required(ErrorMessage = "O campo Nome é obrigatório.")]
         public string Nome { get; set; }
 
-        [Display(Name = "Descrição")]
-        public string Descricao { get; set; }
-
         [Display(Name = "Data de Inclusão")]
         public DateTime DataInclusao { get; set; }
 

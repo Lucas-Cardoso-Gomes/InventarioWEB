@@ -41,7 +41,6 @@ namespace Web.Controllers
                                 IP = reader["IP"].ToString(),
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
-                                Descricao = reader["Descricao"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
                                 DataAlteracao = reader["DataAlteracao"] as DateTime?,
                                 Observacao = reader["Observacao"].ToString(),

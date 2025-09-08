@@ -44,7 +44,6 @@ namespace Web.Controllers
                                 IP = reader["IP"].ToString(),
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
-                                Descricao = reader["Descricao"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
                                 DataAlteracao = reader["DataAlteracao"] as DateTime?,
                                 Observacao = reader["Observacao"].ToString()
@@ -77,12 +76,11 @@ namespace Web.Controllers
                     using (var connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, Descricao, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @Descricao, @DataInclusao, @Observacao)", connection);
+                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)", connection);
                         command.Parameters.AddWithValue("@Tipo", rede.Tipo);
                         command.Parameters.AddWithValue("@IP", rede.IP);
                         command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@Descricao", (object)rede.Descricao ?? DBNull.Value);
                         command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
                         command.ExecuteNonQuery();
@@ -125,13 +123,12 @@ namespace Web.Controllers
                     using (var connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, Descricao = @Descricao, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id", connection);
+                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id", connection);
                         command.Parameters.AddWithValue("@Id", rede.Id);
                         command.Parameters.AddWithValue("@Tipo", rede.Tipo);
                         command.Parameters.AddWithValue("@IP", rede.IP);
                         command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@Descricao", (object)rede.Descricao ?? DBNull.Value);
                         command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
                         command.ExecuteNonQuery();
@@ -203,7 +200,6 @@ namespace Web.Controllers
                                 IP = reader["IP"].ToString(),
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
-                                Descricao = reader["Descricao"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
                                 DataAlteracao = reader["DataAlteracao"] as DateTime?,
                                 Observacao = reader["Observacao"].ToString()
