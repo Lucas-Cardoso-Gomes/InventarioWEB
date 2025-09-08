@@ -3,6 +3,7 @@ use master
 drop database Coletados;
 create database Coletados;
 Use Coletados;
+SELECT name FROM sys.tables;
 */
 
 CREATE TABLE Usuarios (
@@ -14,14 +15,6 @@ CREATE TABLE Usuarios (
 );
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
-
-CREATE TABLE Logs (
-    Id INT PRIMARY KEY IDENTITY,
-    Timestamp DATETIME NOT NULL,
-    Level NVARCHAR(10) NOT NULL,
-    Message NVARCHAR(MAX) NOT NULL,
-    Source NVARCHAR(50)
-);
 
 CREATE TABLE Colaboradores (
     CPF NVARCHAR(14) PRIMARY KEY,
@@ -115,11 +108,13 @@ CREATE TABLE PersistentLogs (
     Details NVARCHAR(MAX)
 );
 
-ALTER TABLE Usuarios
-ADD ColaboradorCPF NVARCHAR(14) NULL;
-
-ALTER TABLE Usuarios
-ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
+CREATE TABLE Logs (
+    Id INT PRIMARY KEY IDENTITY,
+    Timestamp DATETIME NOT NULL,
+    Level NVARCHAR(10) NOT NULL,
+    Message NVARCHAR(MAX) NOT NULL,
+    Source NVARCHAR(50)
+);
 
 CREATE TABLE Chamados (
     ID INT PRIMARY KEY IDENTITY,
@@ -130,3 +125,10 @@ CREATE TABLE Chamados (
     DataAlteracao DATETIME,
     DataCriacao DATETIME NOT NULL
 );
+
+
+ALTER TABLE Usuarios
+ADD ColaboradorCPF NVARCHAR(14) NULL;
+
+ALTER TABLE Usuarios
+ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
