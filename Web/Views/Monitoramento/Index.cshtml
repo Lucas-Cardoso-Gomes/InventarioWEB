@@ -21,6 +21,9 @@
             <th>
                 Status
             </th>
+            <th>
+                % de perca
+            </th>
         </tr>
     </thead>
     <tbody>
@@ -39,6 +42,9 @@
                 <td class="status-cell">
                     <span class="status-indicator @(item.Status?.ToLower())"></span>
                     <span class="status-text">@item.Status</span>
+                </td>
+                <td class="loss-percentage-cell">
+                    0.00%
                 </td>
             </tr>
         }
@@ -76,6 +82,10 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
+            setTimeout(function () {
+                location.reload();
+            }, 60000);
+
             function updateStatus() {
                 $.get('@Url.Action("GetStatus", "Monitoramento")', function (data) {
                     data.forEach(function (item) {
@@ -83,15 +93,18 @@
                         var statusCell = row.find('.status-cell');
                         var indicator = statusCell.find('.status-indicator');
                         var text = statusCell.find('.status-text');
+                        var lossCell = row.find('.loss-percentage-cell');
 
                         var statusClass = item.status ? item.status.toLowerCase() : 'gray';
                         indicator.removeClass('green yellow red gray').addClass(statusClass);
                         text.text(item.status || 'N/A');
+                        lossCell.text(item.lossPercentage.toFixed(2) + '%');
                     });
                 });
             }
 
-            setInterval(updateStatus, 15000);
+            setInterval(updateStatus, 15000); // 15 seconds
+            updateStatus(); // Also update on page load
         });
     </script>
 }

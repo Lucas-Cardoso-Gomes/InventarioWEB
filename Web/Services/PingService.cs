@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Web.Models;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Web.Services
 {
@@ -35,7 +36,7 @@ namespace Web.Services
                     using (var connection = new SqlConnection(connectionString))
                     {
                         connection.Open();
-                        var command = new SqlCommand("SELECT Id, IP, LastPingStatus FROM Rede", connection);
+                        var command = new SqlCommand("SELECT Id, IP, LastPingStatus, PingHistory FROM Rede", connection);
                         using (var reader = await command.ExecuteReaderAsync(stoppingToken))
                         {
                             while (await reader.ReadAsync(stoppingToken))
@@ -44,7 +45,8 @@ namespace Web.Services
                                 {
                                     Id = (int)reader["Id"],
                                     IP = reader["IP"].ToString(),
-                                    LastPingStatus = reader["LastPingStatus"] as bool?
+                                    LastPingStatus = reader["LastPingStatus"] as bool?,
+                                    PingHistory = reader["PingHistory"] as string
                                 });
                             }
                         }
@@ -73,12 +75,21 @@ namespace Web.Services
                             newStatus = "Yellow";
                         }
 
+                        var history = !string.IsNullOrEmpty(rede.PingHistory) ? rede.PingHistory.Split(',').ToList() : new List<string>();
+                        history.Insert(0, currentPingStatus ? "1" : "0");
+                        if (history.Count > 120)
+                        {
+                            history = history.Take(120).ToList();
+                        }
+                        var newPingHistory = string.Join(",", history);
+
                         using (var connection = new SqlConnection(connectionString))
                         {
                             await connection.OpenAsync(stoppingToken);
-                            var command = new SqlCommand("UPDATE Rede SET Status = @Status, PreviousPingStatus = LastPingStatus, LastPingStatus = @CurrentPingStatus WHERE Id = @Id", connection);
+                            var command = new SqlCommand("UPDATE Rede SET Status = @Status, PreviousPingStatus = LastPingStatus, LastPingStatus = @CurrentPingStatus, PingHistory = @PingHistory WHERE Id = @Id", connection);
                             command.Parameters.AddWithValue("@Status", newStatus);
                             command.Parameters.AddWithValue("@CurrentPingStatus", currentPingStatus);
+                            command.Parameters.AddWithValue("@PingHistory", newPingHistory);
                             command.Parameters.AddWithValue("@Id", rede.Id);
                             await command.ExecuteNonQueryAsync(stoppingToken);
                         }
@@ -89,7 +100,7 @@ namespace Web.Services
                     _logger.LogError(ex, "An error occurred while pinging devices.");
                 }
 
-                await Task.Delay(30000, stoppingToken); // 30 seconds
+                await Task.Delay(15000, stoppingToken); // 15 seconds
             }
         }
     }

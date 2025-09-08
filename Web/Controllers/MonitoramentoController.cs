@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using Web.Models;
 using Microsoft.AspNetCore.Authorization;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -61,22 +62,34 @@ namespace Web.Controllers
         [HttpGet]
         public IActionResult GetStatus()
         {
-            var redes = new List<Rede>();
+            var result = new List<object>();
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, IP, Status FROM Rede ORDER BY IP", connection);
+                    var command = new SqlCommand("SELECT Id, IP, Status, PingHistory FROM Rede ORDER BY IP", connection);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            redes.Add(new Rede
+                            var pingHistory = reader["PingHistory"] as string;
+                            var lossPercentage = 0.0;
+                            if (!string.IsNullOrEmpty(pingHistory))
                             {
-                                Id = (int)reader["Id"],
-                                IP = reader["IP"].ToString(),
-                                Status = reader["Status"]?.ToString()
+                                var history = pingHistory.Split(',');
+                                var failures = history.Count(s => s == "0");
+                                if (history.Length > 0)
+                                {
+                                    lossPercentage = (double)failures / history.Length * 100;
+                                }
+                            }
+
+                            result.Add(new
+                            {
+                                id = (int)reader["Id"],
+                                status = reader["Status"]?.ToString(),
+                                lossPercentage = lossPercentage
                             });
                         }
                     }
@@ -87,7 +100,7 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Error getting network assets status for monitoring.");
                 // Handle error appropriately
             }
-            return Json(redes);
+            return Json(result);
         }
     }
 }

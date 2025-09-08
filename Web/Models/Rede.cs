@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Web.Models
 {
@@ -8,7 +9,7 @@ namespace Web.Models
         public int Id { get; set; }
 
         [Required(ErrorMessage = "O campo Tipo é obrigatório.")]
-        public string Tipo { get; set; }
+        public string Tipo { get; set; } // Roteador, Switch, AP
 
         [Required(ErrorMessage = "O campo IP é obrigatório.")]
         [Display(Name = "Endereço IP")]
@@ -33,5 +34,9 @@ namespace Web.Models
         public string? Status { get; set; }
         public bool? LastPingStatus { get; set; }
         public bool? PreviousPingStatus { get; set; }
+        public string? PingHistory { get; set; }
+
+        [NotMapped]
+        public double LossPercentage { get; set; }
     }
 }
