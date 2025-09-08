@@ -28,18 +28,18 @@ namespace Web.Controllers
 
         public IActionResult Index()
         {
-            var redes = new List<Rede>();
+            var allRedes = new List<Rede>();
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede ORDER BY IP", connection);
+                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao, ParentId FROM Rede", connection);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            redes.Add(new Rede
+                            allRedes.Add(new Rede
                             {
                                 Id = (int)reader["Id"],
                                 Tipo = reader["Tipo"].ToString(),
@@ -47,8 +47,9 @@ namespace Web.Controllers
                                 MAC = reader["MAC"].ToString(),
                                 Nome = reader["Nome"].ToString(),
                                 DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
+                                DataAlteracao = reader.IsDBNull(reader.GetOrdinal("DataAlteracao")) ? null : (DateTime?)reader["DataAlteracao"],
+                                Observacao = reader["Observacao"].ToString(),
+                                ParentId = reader.IsDBNull(reader.GetOrdinal("ParentId")) ? null : (int?)reader["ParentId"]
                             });
                         }
                     }
@@ -57,7 +58,7 @@ namespace Web.Controllers
                 if (_pingService != null)
                 {
                     var pingStatuses = _pingService.GetPingStatuses();
-                    foreach (var rede in redes)
+                    foreach (var rede in allRedes)
                     {
                         if (pingStatuses.TryGetValue(rede.IP, out var statusInfo))
                         {
@@ -70,16 +71,33 @@ namespace Web.Controllers
                         }
                     }
                 }
+
+                var lookup = allRedes.ToDictionary(r => r.Id);
+                var rootNodes = new List<Rede>();
+
+                foreach (var item in allRedes)
+                {
+                    if (item.ParentId.HasValue)
+                    {
+                        if (lookup.TryGetValue(item.ParentId.Value, out Rede parent))
+                        {
+                            parent.Children.Add(item);
+                        }
+                    }
+                    else
+                    {
+                        rootNodes.Add(item);
+                    }
+                }
+
+                return View(rootNodes);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting network assets list for monitoring.");
+                // Return an empty view or an error view in case of failure
+                return View(new List<Rede>());
             }
-
-            var groupedRedes = redes.GroupBy(r => r.Tipo)
-                                    .ToDictionary(g => g.Key, g => g.ToList());
-
-            return View(groupedRedes);
         }
 
         [HttpGet]
