@@ -65,6 +65,7 @@ namespace Web.Controllers
                                     ID = Convert.ToInt32(reader["ID"]),
                                     AdminCPF = reader["AdminCPF"] != DBNull.Value ? reader["AdminCPF"].ToString() : null,
                                     ColaboradorCPF = reader["ColaboradorCPF"].ToString(),
+                                    Servico = reader["Servico"].ToString(),
                                     Descricao = reader["Descricao"].ToString(),
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
@@ -105,12 +106,13 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Descricao, DataCriacao)
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Descricao, @DataCriacao)";
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao)
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
                             cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                             cmd.ExecuteNonQuery();
@@ -199,6 +201,7 @@ namespace Web.Controllers
                         string sql = @"UPDATE Chamados SET
                                        AdminCPF = @AdminCPF,
                                        ColaboradorCPF = @ColaboradorCPF,
+                                       Servico = @Servico,
                                        Descricao = @Descricao,
                                        DataAlteracao = @DataAlteracao
                                        WHERE ID = @ID";
@@ -206,6 +209,7 @@ namespace Web.Controllers
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
                             cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@ID", id);
@@ -253,6 +257,7 @@ namespace Web.Controllers
                                     ID = Convert.ToInt32(reader["ID"]),
                                     AdminCPF = reader["AdminCPF"] != DBNull.Value ? reader["AdminCPF"].ToString() : null,
                                     ColaboradorCPF = reader["ColaboradorCPF"].ToString(),
+                                    Servico = reader["Servico"].ToString(),
                                     Descricao = reader["Descricao"].ToString(),
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),

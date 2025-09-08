@@ -28,6 +28,10 @@ namespace Web.Models
 
         [Required(ErrorMessage = "A descrição é obrigatória.")]
         [StringLength(1000, ErrorMessage = "A descrição não pode ter mais de 1000 caracteres.")]
+        public string Servico { get; set; }
+
+        [Required(ErrorMessage = "A descrição é obrigatória.")]
+        [StringLength(1000, ErrorMessage = "A descrição não pode ter mais de 1000 caracteres.")]
         public string Descricao { get; set; }
 
         [Display(Name = "Data de Alteração")]
