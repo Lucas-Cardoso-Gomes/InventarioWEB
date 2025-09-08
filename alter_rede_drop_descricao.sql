@@ -1,0 +1,2 @@
+ALTER TABLE Rede
+DROP COLUMN Descricao;

@@ -69,8 +69,10 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Create(Rede rede)
         {
+            _logger.LogInformation("Create POST action called for network asset.");
             if (ModelState.IsValid)
             {
+                _logger.LogInformation("ModelState is valid. Attempting to save to the database.");
                 try
                 {
                     using (var connection = new SqlConnection(_connectionString))
@@ -83,17 +85,33 @@ namespace Web.Controllers
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
                         command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
+                        
+                        _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
                         command.ExecuteNonQuery();
+                        _logger.LogInformation("INSERT command executed successfully.");
                     }
                     _persistentLogService.AddLog("Rede", "Create", User.Identity.Name, $"Network asset '{rede.Nome}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error creating network asset.");
+                    _logger.LogError(ex, "Error creating network asset in the database.");
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
                 }
             }
+            else
+            {
+                _logger.LogWarning("ModelState is invalid. Validation errors:");
+                foreach (var state in ModelState)
+                {
+                    if (state.Value.Errors.Any())
+                    {
+                        var errors = string.Join(", ", state.Value.Errors.Select(e => e.ErrorMessage));
+                        _logger.LogWarning($"- {state.Key}: {errors}");
+                    }
+                }
+            }
+            _logger.LogInformation("Returning view with model due to validation errors or exception.");
             return View(rede);
         }
 
@@ -116,8 +134,10 @@ namespace Web.Controllers
                 return NotFound();
             }
 
+            _logger.LogInformation("Edit POST action called for network asset ID {Id}.", id);
             if (ModelState.IsValid)
             {
+                _logger.LogInformation("ModelState is valid. Attempting to update the database.");
                 try
                 {
                     using (var connection = new SqlConnection(_connectionString))
@@ -131,17 +151,33 @@ namespace Web.Controllers
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
                         command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
+
+                        _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
                         command.ExecuteNonQuery();
+                        _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
                     }
                     _persistentLogService.AddLog("Rede", "Update", User.Identity.Name, $"Network asset '{rede.Nome}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error updating network asset.");
+                    _logger.LogError(ex, "Error updating network asset in the database.");
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
                 }
             }
+            else
+            {
+                _logger.LogWarning("ModelState is invalid. Validation errors:");
+                foreach (var state in ModelState)
+                {
+                    if (state.Value.Errors.Any())
+                    {
+                        var errors = string.Join(", ", state.Value.Errors.Select(e => e.ErrorMessage));
+                        _logger.LogWarning($"- {state.Key}: {errors}");
+                    }
+                }
+            }
+            _logger.LogInformation("Returning view with model due to validation errors or exception.");
             return View(rede);
         }
 
