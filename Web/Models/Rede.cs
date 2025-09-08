@@ -21,7 +21,7 @@ namespace Web.Models
         public string Nome { get; set; }
 
         [Display(Name = "Descrição")]
-        public string Descricao { get; set; }
+        public string? Descricao { get; set; }
 
         [Display(Name = "Data de Inclusão")]
         public DateTime DataInclusao { get; set; }
@@ -30,7 +30,7 @@ namespace Web.Models
         public DateTime? DataAlteracao { get; set; }
 
         [Display(Name = "Observação")]
-        public string Observacao { get; set; }
+        public string? Observacao { get; set; }
 
         // Monitoring properties
         public string Status { get; set; }
