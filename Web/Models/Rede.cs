@@ -31,11 +31,8 @@ namespace Web.Models
         public string? Observacao { get; set; }
 
         // Monitoring properties
+        [NotMapped]
         public string? Status { get; set; }
-        public bool? LastPingStatus { get; set; }
-        public bool? PreviousPingStatus { get; set; }
-        public string? PingHistory { get; set; }
-
         [NotMapped]
         public double LossPercentage { get; set; }
     }
