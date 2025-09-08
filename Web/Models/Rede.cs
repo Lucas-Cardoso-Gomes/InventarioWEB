@@ -8,7 +8,7 @@ namespace Web.Models
         public int Id { get; set; }
 
         [Required(ErrorMessage = "O campo Tipo é obrigatório.")]
-        public string Tipo { get; set; } // Roteador, Switch, AP
+        public string Tipo { get; set; }
 
         [Required(ErrorMessage = "O campo IP é obrigatório.")]
         [Display(Name = "Endereço IP")]
