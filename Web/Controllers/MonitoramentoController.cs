@@ -75,7 +75,11 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Error getting network assets list for monitoring.");
             }
-            return View(redes);
+
+            var groupedRedes = redes.GroupBy(r => r.Tipo)
+                                    .ToDictionary(g => g.Key, g => g.ToList());
+
+            return View(groupedRedes);
         }
 
         [HttpGet]
