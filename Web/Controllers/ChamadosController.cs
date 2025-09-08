@@ -85,6 +85,112 @@ namespace Web.Controllers
             return View(chamados);
         }
 
+        [Authorize(Roles = "Admin,Coordenador")]
+        public IActionResult Dashboard(DateTime? startDate, DateTime? endDate, int? year, int? month, int? day)
+        {
+            var viewModel = new ChamadoDashboardViewModel();
+            var whereClauses = new List<string>();
+            var parameters = new Dictionary<string, object>();
+
+            if (startDate.HasValue)
+            {
+                whereClauses.Add("c.DataCriacao >= @StartDate");
+                parameters.Add("@StartDate", startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                whereClauses.Add("c.DataCriacao <= @EndDate");
+                parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1));
+            }
+            if (year.HasValue)
+            {
+                whereClauses.Add("YEAR(c.DataCriacao) = @Year");
+                parameters.Add("@Year", year.Value);
+            }
+            if (month.HasValue)
+            {
+                whereClauses.Add("MONTH(c.DataCriacao) = @Month");
+                parameters.Add("@Month", month.Value);
+            }
+            if (day.HasValue)
+            {
+                whereClauses.Add("DAY(c.DataCriacao) = @Day");
+                parameters.Add("@Day", day.Value);
+            }
+
+            string whereSql = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Total de Chamados
+                string totalSql = $"SELECT COUNT(*) FROM Chamados c {whereSql}";
+                using (var cmd = new SqlCommand(totalSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    viewModel.TotalChamados = (int)cmd.ExecuteScalar();
+                }
+
+                // Top 10 Serviços
+                string topServicosSql = $@"SELECT TOP 10 Servico, COUNT(*) as Count
+                                           FROM Chamados c {whereSql}
+                                           GROUP BY Servico
+                                           ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(topServicosSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.Top10Servicos.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
+
+                // Total de Chamados por Admin
+                string porAdminSql = $@"SELECT a.Nome, COUNT(c.ID) as Count
+                                        FROM Chamados c
+                                        JOIN Colaboradores a ON c.AdminCPF = a.CPF
+                                        {whereSql}
+                                        GROUP BY a.Nome
+                                        ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(porAdminSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.TotalChamadosPorAdmin.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
+
+                // Top 10 Colaboradores
+                string topColaboradoresSql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
+                                                FROM Chamados c
+                                                JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                                                {whereSql}
+                                                GROUP BY co.Nome
+                                                ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(topColaboradoresSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.Top10Colaboradores.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
+            }
+
+            return View(viewModel);
+        }
+
         // GET: Chamados/Create
         [Authorize(Roles = "Admin")]
         public IActionResult Create()

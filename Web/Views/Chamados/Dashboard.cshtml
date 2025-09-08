@@ -1,0 +1,161 @@
+@using System.Text.Json
+@model Web.Models.ChamadoDashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard de Chamados";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<div class="card mb-4">
+    <div class="card-header">
+        Filtros
+    </div>
+    <div class="card-body">
+        <form asp-action="Dashboard" method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="startDate" class="form-label">Data Início</label>
+                <input type="date" id="startDate" name="startDate" class="form-control" value="@(ViewContext.HttpContext.Request.Query["startDate"].ToString())" />
+            </div>
+            <div class="col-md-3">
+                <label for="endDate" class="form-label">Data Fim</label>
+                <input type="date" id="endDate" name="endDate" class="form-control" value="@(ViewContext.HttpContext.Request.Query["endDate"].ToString())" />
+            </div>
+            <div class="col-md-2">
+                <label for="year" class="form-label">Ano</label>
+                <input type="number" id="year" name="year" class="form-control" value="@(ViewContext.HttpContext.Request.Query["year"].ToString())" />
+            </div>
+            <div class="col-md-2">
+                <label for="month" class="form-label">Mês</label>
+                <input type="number" id="month" name="month" class="form-control" value="@(ViewContext.HttpContext.Request.Query["month"].ToString())" />
+            </div>
+            <div class="col-md-2">
+                <label for="day" class="form-label">Dia</label>
+                <input type="number" id="day" name="day" class="form-control" value="@(ViewContext.HttpContext.Request.Query["day"].ToString())" />
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a asp-action="Dashboard" class="btn btn-secondary">Limpar Filtros</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Total de Chamados</div>
+            <div class="card-body">
+                <h4 class="card-title">@Model.TotalChamados</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Top 10 Serviços
+            </div>
+            <div class="card-body">
+                <canvas id="topServicosChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Total de Chamados por Admin
+            </div>
+            <div class="card-body">
+                <canvas id="totalPorAdminChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                Top 10 Colaboradores com Mais Chamados
+            </div>
+            <div class="card-body">
+                <canvas id="topColaboradoresChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Top 10 Serviços Chart
+            var topServicosCtx = document.getElementById('topServicosChart').getContext('2d');
+            var topServicosData = @Html.Raw(JsonSerializer.Serialize(Model.Top10Servicos));
+            new Chart(topServicosCtx, {
+                type: 'bar',
+                data: {
+                    labels: topServicosData.map(d => d.Label),
+                    datasets: [{
+                        label: 'Nº de Chamados',
+                        data: topServicosData.map(d => d.Value),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Total de Chamados por Admin Chart
+            var totalPorAdminCtx = document.getElementById('totalPorAdminChart').getContext('2d');
+            var totalPorAdminData = @Html.Raw(JsonSerializer.Serialize(Model.TotalChamadosPorAdmin));
+            new Chart(totalPorAdminCtx, {
+                type: 'pie',
+                data: {
+                    labels: totalPorAdminData.map(d => d.Label),
+                    datasets: [{
+                        data: totalPorAdminData.map(d => d.Value),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)'
+                        ]
+                    }]
+                }
+            });
+
+            // Top 10 Colaboradores Chart
+            var topColaboradoresCtx = document.getElementById('topColaboradoresChart').getContext('2d');
+            var topColaboradoresData = @Html.Raw(JsonSerializer.Serialize(Model.Top10Colaboradores));
+            new Chart(topColaboradoresCtx, {
+                type: 'bar',
+                data: {
+                    labels: topColaboradoresData.map(d => d.Label),
+                    datasets: [{
+                        label: 'Nº de Chamados',
+                        data: topColaboradoresData.map(d => d.Value),
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+}
