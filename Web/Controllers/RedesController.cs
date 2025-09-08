@@ -85,7 +85,7 @@ namespace Web.Controllers
                         command.Parameters.AddWithValue("@Nome", rede.Nome);
                         command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
                         command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
-                        
+
                         _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
                         command.ExecuteNonQuery();
                         _logger.LogInformation("INSERT command executed successfully.");

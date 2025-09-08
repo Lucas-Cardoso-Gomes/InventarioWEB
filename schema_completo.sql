@@ -11,9 +11,7 @@ CREATE TABLE Usuarios (
     Nome NVARCHAR(100) NOT NULL,
     Login NVARCHAR(50) NOT NULL UNIQUE,
     PasswordHash NVARCHAR(255) NOT NULL,
-    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria')),
-    ColaboradorCPF NVARCHAR(14) NULL,
-    CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
+    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria'))
 );
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
@@ -128,16 +126,9 @@ CREATE TABLE Chamados (
     DataCriacao DATETIME NOT NULL
 );
 
-CREATE TABLE Rede (
-    Id INT PRIMARY KEY IDENTITY,
-    Tipo NVARCHAR(50) NOT NULL,
-    IP NVARCHAR(45) NOT NULL,
-    MAC NVARCHAR(17),
-    Nome NVARCHAR(100) NOT NULL,
-    DataInclusao DATETIME NOT NULL,
-    DataAlteracao DATETIME,
-    Observacao NVARCHAR(MAX),
-    Status NVARCHAR(10),
-    LastPingStatus BIT,
-    PreviousPingStatus BIT
-);
+
+ALTER TABLE Usuarios
+ADD ColaboradorCPF NVARCHAR(14) NULL;
+
+ALTER TABLE Usuarios
+ADD CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF);
