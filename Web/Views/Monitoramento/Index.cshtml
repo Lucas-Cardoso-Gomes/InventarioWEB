@@ -1,0 +1,97 @@
+@model IEnumerable<Web.Models.Rede>
+
+@{
+    ViewData["Title"] = "Monitoramento de Rede";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Nome)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IP)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Tipo)
+            </th>
+            <th>
+                Status
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr id="rede-@item.Id">
+                <td>
+                    @Html.DisplayFor(modelItem => item.Nome)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.IP)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Tipo)
+                </td>
+                <td class="status-cell">
+                    <span class="status-indicator @(item.Status?.ToLower())"></span>
+                    <span class="status-text">@item.Status</span>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Styles {
+    <style>
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.green {
+            background-color: green;
+        }
+
+        .status-indicator.yellow {
+            background-color: yellow;
+        }
+
+        .status-indicator.red {
+            background-color: red;
+        }
+
+        .status-indicator.gray {
+            background-color: gray;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            function updateStatus() {
+                $.get('@Url.Action("GetStatus", "Monitoramento")', function (data) {
+                    data.forEach(function (item) {
+                        var row = $('#rede-' + item.id);
+                        var statusCell = row.find('.status-cell');
+                        var indicator = statusCell.find('.status-indicator');
+                        var text = statusCell.find('.status-text');
+
+                        var statusClass = item.status ? item.status.toLowerCase() : 'gray';
+                        indicator.removeClass('green yellow red gray').addClass(statusClass);
+                        text.text(item.status || 'N/A');
+                    });
+                });
+            }
+
+            setInterval(updateStatus, 30000); // 30 seconds
+        });
+    </script>
+}
