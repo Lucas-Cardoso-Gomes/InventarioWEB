@@ -58,7 +58,7 @@ namespace Web.Controllers
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
-                    string sql = "SELECT COUNT(*) FROM Chamados WHERE Status = 'Aberto'";
+                    string sql = "SELECT COUNT(*) FROM Chamados WHERE Status IN ('Aberto', 'Em Andamento')";
                     using (var cmd = new SqlCommand(sql, connection))
                     {
                         return (int)await cmd.ExecuteScalarAsync();
