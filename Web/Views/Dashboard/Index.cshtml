@@ -1,0 +1,58 @@
+@model Web.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total de Computadores</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.TotalComputadores</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-danger mb-3">
+                <div class="card-header">Chamados em Aberto</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.OpenChamados</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    Últimas Manutenções
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Computador</th>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Custo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var manutencao in Model.RecentManutencoes)
+                            {
+                                <tr>
+                                    <td>@manutencao.ComputadorHostname</td>
+                                    <td>@manutencao.Data.ToShortDateString()</td>
+                                    <td>@manutencao.Descricao</td>
+                                    <td>@manutencao.Custo.ToString("C")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

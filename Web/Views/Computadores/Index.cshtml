@@ -24,12 +24,17 @@
 </div>
 
 <form asp-action="Index" method="get" class="card mb-4">
-    <div class="card-header">
-        Filtros
+    <div class="card-header" id="filterHeader">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                Filtros
+            </button>
+        </h5>
     </div>
-    <div class="card-body">
-        <div class="row g-3">
-            <div class="col-md-12">
+    <div id="filterCollapse" class="collapse show" aria-labelledby="filterHeader">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-12">
                 <label for="searchString" class="form-label">Pesquisa Geral</label>
                 <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por IP, MAC, Colaborador..." value="@Model.SearchString">
             </div>
@@ -64,11 +69,12 @@
                 renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
                 renderFilter("RAM", "CurrentRams", Model.Rams, Model.CurrentRams);
             }
+            </div>
         </div>
-    </div>
-    <div class="card-footer text-end">
-        <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
-        <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+        <div class="card-footer text-end">
+            <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
+            <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+        </div>
     </div>
 </form>
 

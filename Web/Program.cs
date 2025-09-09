@@ -51,7 +51,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
-name: "default",
-pattern: "{controller=Computadores}/{action=Index}/{id?}");
+    name: "default",
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
 app.Run();

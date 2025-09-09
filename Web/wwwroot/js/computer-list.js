@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'col-mac',
         'col-usuario',
         'col-hostname',
+        'col-fabricante',
         'col-processador',
         'col-ram',
         'col-so',

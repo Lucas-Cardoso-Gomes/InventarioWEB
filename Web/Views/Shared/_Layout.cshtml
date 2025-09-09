@@ -26,62 +26,59 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Computadores"
-                                asp-action="Index">Computadores</a>
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Monitores"
-                                asp-action="Index">Monitores</a>
+                        <!-- Inventário Dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Inventário
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownInventario">
+                                <li><a class="dropdown-item" asp-area="" asp-controller="Computadores" asp-action="Index">Computadores</a></li>
+                                <li><a class="dropdown-item" asp-area="" asp-controller="Monitores" asp-action="Index">Monitores</a></li>
+                                <li><a class="dropdown-item" asp-area="" asp-controller="Perifericos" asp-action="Index">Periféricos</a></li>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Redes" asp-action="Index">Ativos de Rede</a></li>
+                                }
+                            </ul>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Perifericos"
-                                asp-action="Index">Periféricos</a>
-                        </li>
+
+                        <!-- Operações Dropdown -->
                         @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                         {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Manutencoes"
-                                    asp-action="Index">Manutenções</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Exportar"
-                                    asp-action="Index">Exportar</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdownOperacoes" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Operações
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="navbarDropdownOperacoes">
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Manutencoes" asp-action="Index">Manutenções</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Exportar" asp-action="Index">Exportar</a></li>
+                                    @if (User.IsInRole("Admin"))
+                                    {
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Chamados" asp-action="Index">Chamados</a></li>
+                                    }
+                                </ul>
                             </li>
                         }
 
+                        <!-- Gerenciamento Dropdown -->
                         @if (User.IsInRole("Admin"))
                         {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Chamados"
-                                    asp-action="Index">Chamados</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Colaboradores"
-                                    asp-action="Index">Colaboradores</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Users"
-                                    asp-action="Index">Usuários</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
-                                    asp-action="Index">Gerenciamento</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
-                                    asp-action="Logs">Logs</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Gerenciamento"
-                                    asp-action="PersistentLogs">Log Persistente</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Redes"
-                                    asp-action="Index">Ativos de Rede</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Monitoramento"
-                                    asp-action="Index">Monitoramento</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdownGerenciamento" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Gerenciamento
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="navbarDropdownGerenciamento">
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Colaboradores" asp-action="Index">Colaboradores</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Users" asp-action="Index">Usuários</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Index">Coleta de Dados</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Monitoramento" asp-action="Index">Monitoramento de Rede</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Logs">Logs de Coleta</a></li>
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="PersistentLogs">Log Persistente</a></li>
+                                </ul>
                             </li>
                         }
                     </ul>
