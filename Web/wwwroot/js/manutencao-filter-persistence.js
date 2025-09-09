@@ -1,41 +1,51 @@
-document.addEventListener('DOMContentLoaded', function () {
-    const form = document.querySelector('form[action="/Manutencoes/Index"]');
+window.addEventListener('pageshow', function (event) {
+    const form = document.querySelector('#manutencoes-filter-form');
     if (!form) return;
 
     const storageKey = 'manutencaoFilterState';
+    const textInputNames = ['partNumber', 'colaborador', 'hostname'];
 
-    // Function to save filter state to localStorage
     function saveFilterState() {
-        const state = {
-            partNumber: form.querySelector('#partNumber').value,
-            colaborador: form.querySelector('#colaborador').value,
-            hostname: form.querySelector('#hostname').value
-        };
+        const state = {};
+        textInputNames.forEach(name => {
+            const input = form.querySelector(`input[name="${name}"]`);
+            if (input) {
+                state[name] = input.value;
+            }
+        });
         localStorage.setItem(storageKey, JSON.stringify(state));
     }
 
-    // Function to load filter state from localStorage
-    function loadFilterState() {
-        const savedState = localStorage.getItem(storageKey);
-        if (!savedState) return;
+    function loadFilterStateAndApply() {
+        const savedStateJSON = localStorage.getItem(storageKey);
+        if (!savedStateJSON) return;
 
-        const state = JSON.parse(savedState);
+        const savedState = JSON.parse(savedStateJSON);
 
-        if (state.partNumber) {
-            form.querySelector('#partNumber').value = state.partNumber;
-        }
-        if (state.colaborador) {
-            form.querySelector('#colaborador').value = state.colaborador;
-        }
-        if (state.hostname) {
-            form.querySelector('#hostname').value = state.hostname;
+        // Restore text inputs
+        let stateMatchesUrl = true;
+        const urlParams = new URLSearchParams(window.location.search);
+
+        textInputNames.forEach(name => {
+            const input = form.querySelector(`input[name="${name}"]`);
+            if (input) {
+                const savedValue = savedState[name] || '';
+                input.value = savedValue;
+
+                const urlValue = urlParams.get(name) || '';
+                if (savedValue !== urlValue) {
+                    stateMatchesUrl = false;
+                }
+            }
+        });
+
+        if (!stateMatchesUrl) {
+            form.submit();
         }
     }
 
-    // Add event listener to the form to save state on submit
     form.addEventListener('submit', saveFilterState);
 
-    // Add event listener to the "Limpar Filtros" (Clear Filters) button
     const clearButton = form.querySelector('a[href="/Manutencoes/Index"]');
     if (clearButton) {
         clearButton.addEventListener('click', function() {
@@ -43,6 +53,5 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Load the filter state when the page loads
-    loadFilterState();
+    loadFilterStateAndApply();
 });
