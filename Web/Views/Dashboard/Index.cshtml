@@ -6,7 +6,7 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-lg-3 col-md-6">
-            <div class="card text-white bg-primary mb-3">
+            <div class="card text-white bg-primary mb-3" style="background-color: var(--primary-green) !important;">
                 <div class="card-header">Total de Computadores</div>
                 <div class="card-body">
                     <h4 class="card-title">@Model.TotalComputadores</h4>
@@ -30,27 +30,27 @@
                     Últimas Manutenções
                 </div>
                 <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Computador</th>
-                                <th>Data</th>
-                                <th>Descrição</th>
-                                <th>Custo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var manutencao in Model.RecentManutencoes)
-                            {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
                                 <tr>
-                                    <td>@manutencao.ComputadorHostname</td>
-                                    <td>@manutencao.Data.ToShortDateString()</td>
-                                    <td>@manutencao.Descricao</td>
-                                    <td>@manutencao.Custo.ToString("C")</td>
+                                    <th>Computador</th>
+                                    <th>Data</th>
+                                    <th>Histórico</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var manutencao in Model.RecentManutencoes)
+                                {
+                                    <tr>
+                                        <td>@manutencao.Computador?.Hostname</td>
+                                        <td>@(manutencao.Data.HasValue ? manutencao.Data.Value.ToShortDateString() : "")</td>
+                                        <td>@manutencao.Historico</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

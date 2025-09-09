@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Web.Models;
-using Web.Services;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Data.SqlClient;
@@ -13,36 +12,47 @@ namespace Web.Controllers
     [Authorize]
     public class DashboardController : Controller
     {
-        private readonly ColetaService _coletaService;
-        private readonly ManutencaoService _manutencaoService;
         private readonly string _connectionString;
 
-        public DashboardController(ColetaService coletaService, ManutencaoService manutencaoService, IConfiguration configuration)
+        public DashboardController(IConfiguration configuration)
         {
-            _coletaService = coletaService;
-            _manutencaoService = manutencaoService;
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
         public async Task<IActionResult> Index()
         {
-            var totalComputadores = await _coletaService.GetTotalComputadoresAsync();
-            var recentManutencoes = await _manutencaoService.GetRecentManutencoesAsync(5);
-            var openChamados = await GetOpenChamadosCountAsync();
-
             var viewModel = new DashboardViewModel
             {
-                TotalComputadores = totalComputadores,
-                RecentManutencoes = recentManutencoes,
-                OpenChamados = openChamados
+                TotalComputadores = await GetTotalComputadoresCountAsync(),
+                OpenChamados = await GetOpenChamadosCountAsync(),
+                RecentManutencoes = await GetRecentManutencoesAsync(5)
             };
 
             return View(viewModel);
         }
 
+        private async Task<int> GetTotalComputadoresCountAsync()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Computadores", connection))
+                    {
+                        return (int)await cmd.ExecuteScalarAsync();
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Log exception
+                return 0;
+            }
+        }
+
         private async Task<int> GetOpenChamadosCountAsync()
         {
-            int count = 0;
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
@@ -51,17 +61,63 @@ namespace Web.Controllers
                     string sql = "SELECT COUNT(*) FROM Chamados WHERE AdminCPF IS NULL";
                     using (var cmd = new SqlCommand(sql, connection))
                     {
-                        count = (int)await cmd.ExecuteScalarAsync();
+                        return (int)await cmd.ExecuteScalarAsync();
                     }
                 }
             }
             catch (Exception)
             {
-                // Log the exception in a real application
-                // For now, just return 0
-                count = 0;
+                // Log exception
+                return 0;
             }
-            return count;
+        }
+
+        private async Task<IEnumerable<Manutencao>> GetRecentManutencoesAsync(int count)
+        {
+            var manutencoes = new List<Manutencao>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    string sql = @"
+                        SELECT TOP (@Count)
+                            m.Id, m.Data, m.Historico, m.ComputadorMAC,
+                            c.Hostname
+                        FROM Manutencoes m
+                        LEFT JOIN Computadores c ON m.ComputadorMAC = c.MAC
+                        ORDER BY m.Data DESC";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Count", count);
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                var manutencao = new Manutencao
+                                {
+                                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                    Data = reader.IsDBNull(reader.GetOrdinal("Data")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("Data")),
+                                    Historico = reader.IsDBNull(reader.GetOrdinal("Historico")) ? null : reader.GetString(reader.GetOrdinal("Historico")),
+                                    ComputadorMAC = reader.IsDBNull(reader.GetOrdinal("ComputadorMAC")) ? null : reader.GetString(reader.GetOrdinal("ComputadorMAC"))
+                                };
+
+                                if (!reader.IsDBNull(reader.GetOrdinal("Hostname")))
+                                {
+                                    manutencao.Computador = new Computador { Hostname = reader.GetString(reader.GetOrdinal("Hostname")) };
+                                }
+                                manutencoes.Add(manutencao);
+                            }
+                        }
+                    }
+                }
+            }
+            catch(Exception)
+            {
+                // Log exception
+            }
+            return manutencoes;
         }
     }
 }
