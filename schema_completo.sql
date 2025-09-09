@@ -124,7 +124,7 @@ CREATE TABLE Chamados (
     Descricao NVARCHAR(1000) NOT NULL,
     DataAlteracao DATETIME,
     DataCriacao DATETIME NOT NULL,
-    Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto'
+    Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado'))
 );
 
 CREATE TABLE Rede (

@@ -23,8 +23,14 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(List<string> statuses)
         {
+            if (statuses == null || !statuses.Any())
+            {
+                statuses = new List<string> { "Aberto", "Em Andamento" };
+            }
+            ViewBag.SelectedStatuses = statuses;
+
             var chamados = new List<Chamado>();
             var userCpf = User.FindFirstValue("ColaboradorCPF");
 
@@ -33,27 +39,49 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = @"SELECT c.*,
+                    var sqlBuilder = new System.Text.StringBuilder(@"SELECT c.*,
                                           a.Nome as AdminNome,
                                           co.Nome as ColaboradorNome
                                    FROM Chamados c
                                    LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
-                                   INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF";
+                                   INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
 
                     if (User.IsInRole("Colaborador"))
                     {
-                        sql += " WHERE c.ColaboradorCPF = @UserCpf";
+                        whereClauses.Add("c.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
                     else if (User.IsInRole("Coordenador"))
                     {
-                        sql += " WHERE co.CoordenadorCPF = @UserCpf";
+                        whereClauses.Add("co.CoordenadorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
 
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    if (statuses.Any())
                     {
-                        if (!User.IsInRole("Admin"))
+                        var statusClauses = new List<string>();
+                        for(int i = 0; i < statuses.Count; i++)
                         {
-                            cmd.Parameters.AddWithValue("@UserCpf", (object)userCpf ?? DBNull.Value);
+                            var paramName = $"@Status{i}";
+                            statusClauses.Add(paramName);
+                            parameters.Add(paramName, statuses[i]);
+                        }
+                        whereClauses.Add($"c.Status IN ({string.Join(", ", statusClauses)})");
+                    }
+
+                    if(whereClauses.Any())
+                    {
+                        sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
+                    }
+
+                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
+                    {
+                        foreach(var p in parameters)
+                        {
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
                         }
 
                         using (SqlDataReader reader = cmd.ExecuteReader())
@@ -305,13 +333,30 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
+
+                        // Check current status before updating
+                        string currentStatus = "";
+                        string checkSql = "SELECT Status FROM Chamados WHERE ID = @ID";
+                        using (SqlCommand checkCmd = new SqlCommand(checkSql, connection))
+                        {
+                            checkCmd.Parameters.AddWithValue("@ID", id);
+                            currentStatus = (string)checkCmd.ExecuteScalar();
+                        }
+
                         string sql = @"UPDATE Chamados SET
                                        AdminCPF = @AdminCPF,
                                        ColaboradorCPF = @ColaboradorCPF,
                                        Servico = @Servico,
                                        Descricao = @Descricao,
-                                       DataAlteracao = @DataAlteracao
-                                       WHERE ID = @ID";
+                                       DataAlteracao = @DataAlteracao";
+
+                        if (currentStatus == "Aberto")
+                        {
+                            sql += ", Status = 'Em Andamento'";
+                        }
+
+                        sql += " WHERE ID = @ID";
+
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
