@@ -23,13 +23,16 @@ namespace Web.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index(List<string> statuses)
+        public IActionResult Index(List<string> statuses, List<string> selectedAdmins)
         {
             if (statuses == null || !statuses.Any())
             {
                 statuses = new List<string> { "Aberto", "Em Andamento" };
             }
             ViewBag.SelectedStatuses = statuses;
+            ViewBag.Admins = GetAdminsFromChamados();
+            ViewBag.SelectedAdmins = selectedAdmins;
+
 
             var chamados = new List<Chamado>();
             var userCpf = User.FindFirstValue("ColaboradorCPF");
@@ -72,7 +75,19 @@ namespace Web.Controllers
                         whereClauses.Add($"c.Status IN ({string.Join(", ", statusClauses)})");
                     }
 
-                    if(whereClauses.Any())
+                    if (selectedAdmins != null && selectedAdmins.Any())
+                    {
+                        var adminClauses = new List<string>();
+                        for (int i = 0; i < selectedAdmins.Count; i++)
+                        {
+                            var paramName = $"@AdminCPF{i}";
+                            adminClauses.Add(paramName);
+                            parameters.Add(paramName, selectedAdmins[i]);
+                        }
+                        whereClauses.Add($"c.AdminCPF IN ({string.Join(", ", adminClauses)})");
+                    }
+
+                    if (whereClauses.Any())
                     {
                         sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
                     }
@@ -241,8 +256,8 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao)
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao)";
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status)
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
@@ -250,6 +265,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -297,6 +313,41 @@ namespace Web.Controllers
             return colaboradores;
         }
 
+        private List<Colaborador> GetAdminsFromChamados()
+        {
+            var admins = new List<Colaborador>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = @"SELECT DISTINCT a.CPF, a.Nome
+                                   FROM Colaboradores a
+                                   INNER JOIN Chamados c ON a.CPF = c.AdminCPF
+                                   ORDER BY a.Nome";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                admins.Add(new Colaborador
+                                {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de admins de chamados.");
+            }
+            return admins;
+        }
+
         // GET: Chamados/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(int? id)
@@ -334,28 +385,14 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        // Check current status before updating
-                        string currentStatus = "";
-                        string checkSql = "SELECT Status FROM Chamados WHERE ID = @ID";
-                        using (SqlCommand checkCmd = new SqlCommand(checkSql, connection))
-                        {
-                            checkCmd.Parameters.AddWithValue("@ID", id);
-                            currentStatus = (string)checkCmd.ExecuteScalar();
-                        }
-
                         string sql = @"UPDATE Chamados SET
                                        AdminCPF = @AdminCPF,
                                        ColaboradorCPF = @ColaboradorCPF,
                                        Servico = @Servico,
                                        Descricao = @Descricao,
-                                       DataAlteracao = @DataAlteracao";
-
-                        if (currentStatus == "Aberto")
-                        {
-                            sql += ", Status = 'Em Andamento'";
-                        }
-
-                        sql += " WHERE ID = @ID";
+                                       DataAlteracao = @DataAlteracao,
+                                       Status = @Status
+                                       WHERE ID = @ID";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -364,6 +401,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
                             cmd.Parameters.AddWithValue("@ID", id);
                             cmd.ExecuteNonQuery();
                         }
