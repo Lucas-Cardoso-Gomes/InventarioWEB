@@ -89,6 +89,12 @@
                                 <button type="submit" class="btn btn-info btn-sm">Fechar Chamado</button>
                             </form>
                         }
+                        else
+                        {
+                            <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-success btn-sm">Reabrir Chamado</button>
+                            </form>
+                        }
                     }
                 </td>
             </tr>

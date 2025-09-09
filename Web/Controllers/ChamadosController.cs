@@ -433,6 +433,33 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
+        public IActionResult ReopenTicket(int id)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "UPDATE Chamados SET Status = 'Aberto', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao reabrir chamado.");
+                TempData["ErrorMessage"] = "Erro ao reabrir o chamado.";
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
         public IActionResult CloseTicket(int id)
         {
             try
