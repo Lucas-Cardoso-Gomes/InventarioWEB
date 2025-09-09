@@ -135,10 +135,8 @@ CREATE TABLE Rede (
     DataInclusao DATETIME NOT NULL,
     DataAlteracao DATETIME,
     Observacao NVARCHAR(MAX),
-    Status NVARCHAR(10),
-    LastPingStatus BIT,
-    PreviousPingStatus BIT,
-    PingHistory NVARCHAR(MAX) NULL
 );
+
+select * from rede;
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
