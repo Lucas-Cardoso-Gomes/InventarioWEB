@@ -40,6 +40,10 @@ namespace Web.Models
         [Display(Name = "Data de Criação")]
         public DateTime DataCriacao { get; set; }
 
+        [Required]
+        [StringLength(50)]
+        public string Status { get; set; } = "Aberto";
+
         [NotMapped]
         public string? AdminNome { get; set; }
 

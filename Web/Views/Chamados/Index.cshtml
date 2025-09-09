@@ -38,6 +38,9 @@
                 <th>
                     @Html.DisplayNameFor(model => model.DataCriacao)
                 </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.Status)
+                </th>
                 @if (User.IsInRole("Admin"))
                 {
                     <th>Ações</th>
@@ -66,10 +69,26 @@
                     @Html.DisplayFor(modelItem => item.DataCriacao)
                 </td>
                 <td>
+                    @if (item.Status == "Aberto")
+                    {
+                        <span class="badge bg-success">Aberto</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Fechado</span>
+                    }
+                </td>
+                <td>
                     @if (User.IsInRole("Admin"))
                     {
                         <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
                         <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
+                        @if (item.Status == "Aberto")
+                        {
+                            <form asp-action="CloseTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-info btn-sm">Fechar Chamado</button>
+                            </form>
+                        }
                     }
                 </td>
             </tr>

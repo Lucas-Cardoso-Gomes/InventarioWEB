@@ -123,7 +123,8 @@ CREATE TABLE Chamados (
     Servico NVARCHAR(100) NOT NULL,
     Descricao NVARCHAR(1000) NOT NULL,
     DataAlteracao DATETIME,
-    DataCriacao DATETIME NOT NULL
+    DataCriacao DATETIME NOT NULL,
+    Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto'
 );
 
 CREATE TABLE Rede (

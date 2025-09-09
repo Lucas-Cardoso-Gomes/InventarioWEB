@@ -69,6 +69,7 @@ namespace Web.Controllers
                                     Descricao = reader["Descricao"].ToString(),
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    Status = reader["Status"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 });
@@ -425,6 +426,34 @@ namespace Web.Controllers
                 ViewBag.ErrorMessage = "Erro ao excluir o chamado.";
                 var chamado = FindChamadoById(id);
                 return View(chamado);
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public IActionResult CloseTicket(int id)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "UPDATE Chamados SET Status = 'Fechado', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao fechar chamado.");
+                // Optionally, add a message to the user that something went wrong
+                TempData["ErrorMessage"] = "Erro ao fechar o chamado.";
             }
             return RedirectToAction(nameof(Index));
         }

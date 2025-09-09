@@ -15,7 +15,7 @@ namespace Web.Services
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public List<Manutencao> GetAllManutencoes(string cpf, string computadorMAC)
+        public List<Manutencao> GetAllManutencoes(string partNumber, string colaborador, string hostname)
         {
             var manutencoes = new List<Manutencao>();
             using (var connection = new SqlConnection(_connectionString))
@@ -36,25 +36,32 @@ namespace Web.Services
                     LEFT JOIN Colaboradores col_p ON p.ColaboradorCPF = col_p.CPF
                     WHERE 1=1";
 
-                if (!string.IsNullOrEmpty(cpf))
+                if (!string.IsNullOrEmpty(partNumber))
                 {
-                    sql += " AND (col_c.CPF = @Cpf OR col_mo.CPF = @Cpf OR col_p.CPF = @Cpf)";
+                    sql += " AND (c.MAC LIKE @PartNumber OR mo.PartNumber LIKE @PartNumber OR p.PartNumber LIKE @PartNumber)";
                 }
-
-                if (!string.IsNullOrEmpty(computadorMAC))
+                if (!string.IsNullOrEmpty(colaborador))
                 {
-                    sql += " AND c.MAC = @ComputadorMAC";
+                    sql += " AND (col_c.Nome LIKE @Colaborador OR col_mo.Nome LIKE @Colaborador OR col_p.Nome LIKE @Colaborador)";
+                }
+                if (!string.IsNullOrEmpty(hostname))
+                {
+                    sql += " AND c.Hostname LIKE @Hostname";
                 }
 
                 using (var command = new SqlCommand(sql, connection))
                 {
-                    if (!string.IsNullOrEmpty(cpf))
+                    if (!string.IsNullOrEmpty(partNumber))
                     {
-                        command.Parameters.AddWithValue("@Cpf", cpf);
+                        command.Parameters.AddWithValue("@PartNumber", $"%{partNumber}%");
                     }
-                    if (!string.IsNullOrEmpty(computadorMAC))
+                    if (!string.IsNullOrEmpty(colaborador))
                     {
-                        command.Parameters.AddWithValue("@ComputadorMAC", computadorMAC);
+                        command.Parameters.AddWithValue("@Colaborador", $"%{colaborador}%");
+                    }
+                    if (!string.IsNullOrEmpty(hostname))
+                    {
+                        command.Parameters.AddWithValue("@Hostname", $"%{hostname}%");
                     }
 
                     using (var reader = command.ExecuteReader())
