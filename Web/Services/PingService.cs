@@ -27,7 +27,7 @@ namespace Web.Services
         {
             _logger = logger;
             _configuration = configuration;
-            _numberOfPingsToStore = _configuration.GetValue<int>("Monitoring:NumberOfPings", 120);
+            _numberOfPingsToStore = _configuration.GetValue<int>("Monitoring:NumberOfPings", 240);
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             StartTime = DateTime.UtcNow;
         }
@@ -90,7 +90,7 @@ namespace Web.Services
                     _logger.LogError(ex, "An error occurred while pinging devices.");
                 }
 
-                await Task.Delay(30000, stoppingToken);
+                await Task.Delay(15000, stoppingToken);
             }
         }
 
