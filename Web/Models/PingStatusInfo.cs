@@ -6,6 +6,6 @@ namespace Web.Models
     {
         public string Status { get; set; }
         public bool? LastPingStatus { get; set; }
-        public List<bool> History { get; set; } = new List<bool>();
+        public List<PingResult> History { get; set; } = new List<PingResult>();
     }
 }

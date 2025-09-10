@@ -76,7 +76,10 @@ namespace Web.Services
 
                             existingStatus.Status = newStatus;
                             existingStatus.LastPingStatus = currentPingStatus;
-                            existingStatus.History.Insert(0, currentPingStatus);
+
+                            var pingResult = new PingResult { Success = currentPingStatus, Latency = reply.RoundtripTime };
+                            existingStatus.History.Insert(0, pingResult);
+
                             if (existingStatus.History.Count > _numberOfPingsToStore)
                             {
                                 existingStatus.History = existingStatus.History.Take(_numberOfPingsToStore).ToList();

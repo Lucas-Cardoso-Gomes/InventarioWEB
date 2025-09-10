@@ -35,5 +35,9 @@ namespace Web.Models
         public string? Status { get; set; }
         [NotMapped]
         public double LossPercentage { get; set; }
+        [NotMapped]
+        public int PingCount { get; set; }
+        [NotMapped]
+        public double AverageLatency { get; set; }
     }
 }

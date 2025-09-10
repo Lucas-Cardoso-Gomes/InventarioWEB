@@ -26,15 +26,38 @@ namespace Web.Controllers
             _pingService = hostedServices.OfType<PingService>().FirstOrDefault();
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string tipo)
         {
             var redes = new List<Rede>();
+            var tiposDeDispositivo = new List<string>();
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede", connection);
+
+                    // Get all device types for the filter
+                    var tipoCommand = new SqlCommand("SELECT DISTINCT Tipo FROM Rede ORDER BY Tipo", connection);
+                    using (var reader = tipoCommand.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            tiposDeDispositivo.Add(reader["Tipo"].ToString());
+                        }
+                    }
+
+                    // Build the main query with an optional filter
+                    var query = "SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede";
+                    if (!string.IsNullOrEmpty(tipo))
+                    {
+                        query += " WHERE Tipo = @Tipo";
+                    }
+                    var command = new SqlCommand(query, connection);
+                    if (!string.IsNullOrEmpty(tipo))
+                    {
+                        command.Parameters.AddWithValue("@Tipo", tipo);
+                    }
+
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -62,13 +85,18 @@ namespace Web.Controllers
                     var pingStatuses = _pingService.GetPingStatuses();
                     foreach (var rede in redes)
                     {
-                        if (pingStatuses.TryGetValue(rede.IP, out var statusInfo))
+                        if (pingStatuses.TryGetValue(rede.IP, out var statusInfo) && statusInfo.History.Any())
                         {
                             rede.Status = statusInfo.Status;
-                            if (statusInfo.History.Any())
+                            rede.PingCount = statusInfo.History.Count;
+
+                            var successfulPings = statusInfo.History.Where(p => p.Success).ToList();
+                            var failures = statusInfo.History.Count - successfulPings.Count;
+                            rede.LossPercentage = (double)failures / statusInfo.History.Count * 100;
+
+                            if (successfulPings.Any())
                             {
-                                var failures = statusInfo.History.Count(s => !s);
-                                rede.LossPercentage = (double)failures / statusInfo.History.Count * 100;
+                                rede.AverageLatency = successfulPings.Average(p => p.Latency);
                             }
                         }
                     }
@@ -78,6 +106,10 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Error getting network assets list for monitoring.");
             }
+
+            ViewBag.TiposDeDispositivo = tiposDeDispositivo;
+            ViewBag.SelectedTipo = tipo;
+
             return View(redes);
         }
 
@@ -112,17 +144,29 @@ namespace Web.Controllers
                     if (pingStatuses.TryGetValue(rede.IP, out var statusInfo))
                     {
                         var lossPercentage = 0.0;
+                        var pingCount = 0;
+                        var averageLatency = 0.0;
+
                         if (statusInfo.History.Any())
                         {
-                            var failures = statusInfo.History.Count(s => !s);
-                            lossPercentage = (double)failures / statusInfo.History.Count * 100;
+                            pingCount = statusInfo.History.Count;
+                            var successfulPings = statusInfo.History.Where(p => p.Success).ToList();
+                            var failures = pingCount - successfulPings.Count;
+                            lossPercentage = (double)failures / pingCount * 100;
+
+                            if (successfulPings.Any())
+                            {
+                                averageLatency = successfulPings.Average(p => p.Latency);
+                            }
                         }
 
                         result.Add(new
                         {
                             id = rede.Id,
                             status = statusInfo.Status,
-                            lossPercentage = lossPercentage
+                            lossPercentage = lossPercentage,
+                            pingCount = pingCount,
+                            averageLatency = averageLatency
                         });
                     }
                 }
