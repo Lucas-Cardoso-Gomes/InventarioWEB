@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +13,7 @@ using Monitor = Web.Models.Monitor;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Normal")]
+    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class MonitoresController : Controller
     {
         private readonly string _connectionString;
@@ -49,6 +49,18 @@ namespace Web.Controllers
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
+                    var userCpf = User.FindFirstValue("ColaboradorCPF");
+
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("m.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("(c.CoordenadorCPF = @UserCpf OR m.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
 
                     Action<string, List<string>> addInClause = (columnName, values) =>
                     {

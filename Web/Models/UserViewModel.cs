@@ -26,6 +26,9 @@ namespace Web.Models
         [Display(Name = "Colaborador")]
         public string? ColaboradorCPF { get; set; }
 
+        [Display(Name = "É Coordenador?")]
+        public bool IsCoordinator { get; set; }
+
         public IEnumerable<SelectListItem>? Colaboradores { get; set; }
     }
 }

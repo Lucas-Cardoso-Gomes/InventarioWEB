@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -12,7 +12,7 @@ using Web.Services;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Normal")]
+    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class ComputadoresController : Controller
     {
         private readonly string _connectionString;
@@ -69,11 +69,24 @@ namespace Web.Controllers
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
-                    
+                    var userCpf = User.FindFirstValue("ColaboradorCPF");
+
                     string baseSql = @"
                         FROM Computadores comp
                         LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF
                     ";
+
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("comp.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("(col.CoordenadorCPF = @UserCpf OR comp.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+
 
                     if (!string.IsNullOrEmpty(searchString))
                     {
