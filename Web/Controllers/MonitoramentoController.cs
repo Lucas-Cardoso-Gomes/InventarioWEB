@@ -34,7 +34,7 @@ namespace Web.Controllers
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede ORDER BY IP", connection);
+                    var command = new SqlCommand("SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede", connection);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -53,6 +53,9 @@ namespace Web.Controllers
                         }
                     }
                 }
+
+                // Sort the list in-memory using System.Version for correct IP sorting
+                redes = redes.OrderBy(r => Version.Parse(r.IP)).ToList();
 
                 if (_pingService != null)
                 {

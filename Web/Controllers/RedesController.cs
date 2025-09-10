@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
 using System.Data.SqlClient;
@@ -32,7 +33,7 @@ namespace Web.Controllers
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT * FROM Rede ORDER BY IP", connection);
+                    var command = new SqlCommand("SELECT * FROM Rede", connection);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -51,13 +52,17 @@ namespace Web.Controllers
                         }
                     }
                 }
+
+                // Sort the list in-memory using System.Version for correct IP sorting
+                var redesOrdenadas = redes.OrderBy(r => Version.Parse(r.IP)).ToList();
+                return View(redesOrdenadas);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting network assets list.");
                 // Handle error appropriately
+                return View(redes); // Return unsorted list in case of an error
             }
-            return View(redes);
         }
 
         public IActionResult Create()
