@@ -11,7 +11,7 @@ using Web.Models;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Colaborador")]
+    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class ChamadosController : Controller
     {
         private readonly string _connectionString;
@@ -52,14 +52,14 @@ namespace Web.Controllers
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
 
-                    if (User.IsInRole("Colaborador"))
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
                     {
                         whereClauses.Add("c.ColaboradorCPF = @UserCpf");
                         parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
-                    else if (User.IsInRole("Coordenador"))
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
                     {
-                        whereClauses.Add("co.CoordenadorCPF = @UserCpf");
+                        whereClauses.Add("(co.CoordenadorCPF = @UserCpf OR c.ColaboradorCPF = @UserCpf)");
                         parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
 

@@ -34,6 +34,7 @@ namespace Web.Services
                             Login = reader.GetString(reader.GetOrdinal("Login")),
                             PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
                             Role = reader.GetString(reader.GetOrdinal("Role")),
+                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
                             ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
                         };
                     }
@@ -47,12 +48,13 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF)", connection);
+                var command = new SqlCommand("INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF, @IsCoordinator)", connection);
                 command.Parameters.AddWithValue("@Nome", user.Nome);
                 command.Parameters.AddWithValue("@Login", user.Login);
                 command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
                 command.Parameters.AddWithValue("@Role", user.Role);
                 command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
+                command.Parameters.AddWithValue("@IsCoordinator", user.IsCoordinator);
 
                 await command.ExecuteNonQueryAsync();
             }
@@ -75,6 +77,7 @@ namespace Web.Services
                             Nome = reader.GetString(reader.GetOrdinal("Nome")),
                             Login = reader.GetString(reader.GetOrdinal("Login")),
                             Role = reader.GetString(reader.GetOrdinal("Role")),
+                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
                             ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF")),
                         };
                         if (!reader.IsDBNull(reader.GetOrdinal("ColaboradorNome")))
@@ -107,6 +110,7 @@ namespace Web.Services
                             Login = reader.GetString(reader.GetOrdinal("Login")),
                             PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
                             Role = reader.GetString(reader.GetOrdinal("Role")),
+                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
                             ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
                         };
                     }
@@ -120,7 +124,7 @@ namespace Web.Services
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, ColaboradorCPF = @ColaboradorCPF");
+                var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, ColaboradorCPF = @ColaboradorCPF, IsCoordinator = @IsCoordinator");
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
                     query.Append(", PasswordHash = @PasswordHash");
@@ -133,6 +137,7 @@ namespace Web.Services
                 command.Parameters.AddWithValue("@Login", user.Login);
                 command.Parameters.AddWithValue("@Role", user.Role);
                 command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
+                command.Parameters.AddWithValue("@IsCoordinator", user.IsCoordinator);
                 command.Parameters.AddWithValue("@Id", user.Id);
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {

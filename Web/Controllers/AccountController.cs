@@ -49,6 +49,8 @@ namespace Web.Controllers
                         claims.Add(new Claim("ColaboradorCPF", user.ColaboradorCPF));
                     }
 
+                    claims.Add(new Claim("IsCoordinator", user.IsCoordinator.ToString()));
+
                     var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
                     var authProperties = new AuthenticationProperties

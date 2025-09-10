@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -11,7 +11,7 @@ using Web.Services;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Normal")]
+    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class PerifericosController : Controller
     {
         private readonly string _connectionString;
@@ -35,16 +35,39 @@ namespace Web.Controllers
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT p.*, c.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF";
+
+                    var sqlBuilder = new System.Text.StringBuilder("SELECT p.*, c.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF");
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+                    var userCpf = User.FindFirstValue("ColaboradorCPF");
+
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("p.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("(c.CoordenadorCPF = @UserCpf OR p.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        sql += " WHERE c.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search";
+                        whereClauses.Add("(c.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search)");
+                        parameters.Add("@search", $"%{searchString}%");
                     }
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+
+                    if (whereClauses.Count > 0)
                     {
-                        if (!string.IsNullOrEmpty(searchString))
+                        sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
+                    }
+
+                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
+                    {
+                        foreach(var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
                         }
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
