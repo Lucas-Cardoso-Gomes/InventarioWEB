@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Web.Services;
+using System.Security.Claims;
 
 namespace Web.Controllers
 {

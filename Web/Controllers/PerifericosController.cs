@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
 using Web.Services;
+using System.Security.Claims;
 
 namespace Web.Controllers
 {
