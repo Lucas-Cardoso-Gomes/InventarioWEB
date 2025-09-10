@@ -40,8 +40,9 @@ CREATE TABLE Usuarios (
     Nome NVARCHAR(100) NOT NULL,
     Login NVARCHAR(50) NOT NULL UNIQUE,
     PasswordHash NVARCHAR(255) NOT NULL,
-    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Normal', 'Diretoria')),
+    Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Colaborador', 'Diretoria')),
     ColaboradorCPF NVARCHAR(14) NULL,
+    IsCoordinator BIT NOT NULL DEFAULT 0,
     CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 
@@ -140,4 +141,4 @@ CREATE TABLE Rede (
 
 select * from rede;
 
-INSERT INTO Usuarios (Nome, Login, PasswordHash, Role) VALUES ('Admin', 'Admin', 'Admin', 'Admin');
+INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator) VALUES ('Admin', 'Admin', 'Admin', 'Admin', 1);
