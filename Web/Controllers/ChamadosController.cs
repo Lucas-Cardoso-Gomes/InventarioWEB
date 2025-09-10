@@ -451,6 +451,7 @@ namespace Web.Controllers
                                     Descricao = reader["Descricao"].ToString(),
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    Status = reader["Status"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 };
