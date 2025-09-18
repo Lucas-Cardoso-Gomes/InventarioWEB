@@ -17,27 +17,14 @@
 
 <h1>Colaboradores</h1>
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
-}
-
 <div class="row mb-3">
-    <div class="col-md-8">
+    <div class="col-md-6">
         @if (User.IsInRole("Admin"))
         {
-            <a asp-action="Create" class="btn btn-primary">Adicionar Novo</a>
-            <!-- Botão para acionar o modal de importação -->
-            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
-                Importar de Excel
-            </button>
+            <a asp-action="Create" class="btn btn-primary">Adicionar Novo Colaborador</a>
         }
     </div>
-    <div class="col-md-4">
+    <div class="col-md-6">
         <form asp-action="Index" method="get">
             <div class="input-group">
                 <input type="text" name="searchString" class="form-control" placeholder="Procurar por nome, CPF ou e-mail..." value="@ViewData["CurrentFilter"]">
@@ -92,31 +79,3 @@
         </tbody>
     </table>
 </div>
-
-<!-- Modal de Importação -->
-@if (User.IsInRole("Admin"))
-{
-    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form asp-action="Import" method="post" enctype="multipart/form-data">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="importModalLabel">Importar Colaboradores de Arquivo Excel</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>Selecione um arquivo Excel (.xlsx ou .xls) para importar. O arquivo deve ter as colunas na seguinte ordem: CPF, Nome, Email, etc.</p>
-                        <div class="mb-3">
-                            <label for="file" class="form-label">Arquivo Excel</label>
-                            <input type="file" name="file" class="form-control" accept=".xlsx, .xls" required />
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                        <button type="submit" class="btn btn-primary">Importar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-}
