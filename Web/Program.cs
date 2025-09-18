@@ -1,5 +1,9 @@
 using Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Text;
+
+// Registrar o provedor de codificação para suporte a arquivos Excel
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 
