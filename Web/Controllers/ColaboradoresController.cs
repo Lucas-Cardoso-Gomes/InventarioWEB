@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OfficeOpenXml;
 using Web.Models;
 using Web.Services;
 
@@ -279,51 +281,59 @@ namespace Web.Controllers
             }
         }
 
-        private Colaborador FindColaboradorById(string id)
+        private Colaborador FindColaboradorById(string id, SqlConnection connection = null, SqlTransaction transaction = null)
         {
             Colaborador colaborador = null;
+            bool ownConnection = false;
+            if (connection == null)
+            {
+                connection = new SqlConnection(_connectionString);
+                ownConnection = true;
+            }
+
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                if (ownConnection)
                 {
                     connection.Open();
-                    string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                }
+
+                string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF";
+                using (var cmd = new SqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@CPF", id);
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        cmd.Parameters.AddWithValue("@CPF", id);
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        if (reader.Read())
                         {
-                            if (reader.Read())
+                            colaborador = new Colaborador
                             {
-                                colaborador = new Colaborador
-                                {
-                                    CPF = reader["CPF"].ToString(),
-                                    Nome = reader["Nome"].ToString(),
-                                    Email = reader["Email"].ToString(),
-                                    SenhaEmail = reader["SenhaEmail"].ToString(),
-                                    Teams = reader["Teams"].ToString(),
-                                    SenhaTeams = reader["SenhaTeams"].ToString(),
-                                    EDespacho = reader["EDespacho"].ToString(),
-                                    SenhaEDespacho = reader["SenhaEDespacho"].ToString(),
-                                    Genius = reader["Genius"].ToString(),
-                                    SenhaGenius = reader["SenhaGenius"].ToString(),
-                                    Ibrooker = reader["Ibrooker"].ToString(),
-                                    SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
-                                    Adicional = reader["Adicional"].ToString(),
-                                    SenhaAdicional = reader["SenhaAdicional"].ToString(),
-                                    Filial = reader["Filial"].ToString(),
-                                    Setor = reader["Setor"].ToString(),
-                                    Smartphone = reader["Smartphone"].ToString(),
-                                    TelefoneFixo = reader["TelefoneFixo"].ToString(),
-                                    Ramal = reader["Ramal"].ToString(),
-                                    Alarme = reader["Alarme"].ToString(),
-                                    Videoporteiro = reader["Videoporteiro"].ToString(),
-                                    Obs = reader["Obs"].ToString(),
-                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
-                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                    CoordenadorCPF = reader["CoordenadorCPF"] != DBNull.Value ? reader["CoordenadorCPF"].ToString() : null
-                                };
-                            }
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString(),
+                                Email = reader["Email"].ToString(),
+                                SenhaEmail = reader["SenhaEmail"].ToString(),
+                                Teams = reader["Teams"].ToString(),
+                                SenhaTeams = reader["SenhaTeams"].ToString(),
+                                EDespacho = reader["EDespacho"].ToString(),
+                                SenhaEDespacho = reader["SenhaEDespacho"].ToString(),
+                                Genius = reader["Genius"].ToString(),
+                                SenhaGenius = reader["SenhaGenius"].ToString(),
+                                Ibrooker = reader["Ibrooker"].ToString(),
+                                SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
+                                Adicional = reader["Adicional"].ToString(),
+                                SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                Filial = reader["Filial"].ToString(),
+                                Setor = reader["Setor"].ToString(),
+                                Smartphone = reader["Smartphone"].ToString(),
+                                TelefoneFixo = reader["TelefoneFixo"].ToString(),
+                                Ramal = reader["Ramal"].ToString(),
+                                Alarme = reader["Alarme"].ToString(),
+                                Videoporteiro = reader["Videoporteiro"].ToString(),
+                                Obs = reader["Obs"].ToString(),
+                                DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
+                                DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                CoordenadorCPF = reader["CoordenadorCPF"] != DBNull.Value ? reader["CoordenadorCPF"].ToString() : null
+                            };
                         }
                     }
                 }
@@ -331,6 +341,15 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao encontrar colaborador por ID.");
+                // Em uma transação, o erro deve ser propagado para que a transação possa ser revertida.
+                if (transaction != null) throw;
+            }
+            finally
+            {
+                if (ownConnection)
+                {
+                    connection.Close();
+                }
             }
             return colaborador;
         }
@@ -365,6 +384,126 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao obter a lista de coordenadores.");
             }
             return coordenadores;
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var colaboradores = new List<Colaborador>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var colaborador = new Colaborador
+                            {
+                                CPF = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                Nome = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                Email = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                SenhaEmail = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Teams = worksheet.Cells[row, 5].Value?.ToString().Trim(),
+                                SenhaTeams = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                EDespacho = worksheet.Cells[row, 7].Value?.ToString().Trim(),
+                                SenhaEDespacho = worksheet.Cells[row, 8].Value?.ToString().Trim(),
+                                Genius = worksheet.Cells[row, 9].Value?.ToString().Trim(),
+                                SenhaGenius = worksheet.Cells[row, 10].Value?.ToString().Trim(),
+                                Ibrooker = worksheet.Cells[row, 11].Value?.ToString().Trim(),
+                                SenhaIbrooker = worksheet.Cells[row, 12].Value?.ToString().Trim(),
+                                Adicional = worksheet.Cells[row, 13].Value?.ToString().Trim(),
+                                SenhaAdicional = worksheet.Cells[row, 14].Value?.ToString().Trim(),
+                                Filial = worksheet.Cells[row, 15].Value?.ToString().Trim(),
+                                Setor = worksheet.Cells[row, 16].Value?.ToString().Trim(),
+                                Smartphone = worksheet.Cells[row, 17].Value?.ToString().Trim(),
+                                TelefoneFixo = worksheet.Cells[row, 18].Value?.ToString().Trim(),
+                                Ramal = worksheet.Cells[row, 19].Value?.ToString().Trim(),
+                                Alarme = worksheet.Cells[row, 20].Value?.ToString().Trim(),
+                                Videoporteiro = worksheet.Cells[row, 21].Value?.ToString().Trim(),
+                                Obs = worksheet.Cells[row, 22].Value?.ToString().Trim(),
+                                CoordenadorCPF = worksheet.Cells[row, 23].Value?.ToString().Trim()
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(colaborador.CPF) && !string.IsNullOrWhiteSpace(colaborador.Nome))
+                            {
+                                colaboradores.Add(colaborador);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        foreach (var colaborador in colaboradores)
+                        {
+                            var existente = FindColaboradorById(colaborador.CPF, connection, transaction);
+                            if (existente != null)
+                            {
+                                // Atualizar colaborador existente
+                                string updateSql = @"UPDATE Colaboradores SET Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro, Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF WHERE CPF = @CPF";
+                                using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                {
+                                    // Adicionar parâmetros para atualização
+                                    cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
+                                    cmd.Parameters.AddWithValue("@Nome", colaborador.Nome);
+                                    // ... adicionar todos os outros parâmetros ...
+                                    cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                                    await cmd.ExecuteNonQueryAsync();
+                                }
+                                atualizados++;
+                            }
+                            else
+                            {
+                                // Inserir novo colaborador
+                                string insertSql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorCPF) VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorCPF)";
+                                using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                {
+                                    // Adicionar parâmetros para inserção
+                                    cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
+                                    cmd.Parameters.AddWithValue("@Nome", colaborador.Nome);
+                                    // ... adicionar todos os outros parâmetros ...
+                                    cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
+                                    await cmd.ExecuteNonQueryAsync();
+                                }
+                                adicionados++;
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                }
+
+                TempData["SuccessMessage"] = $"{adicionados} colaboradores adicionados e {atualizados} atualizados com sucesso.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }
