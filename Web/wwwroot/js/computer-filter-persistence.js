@@ -74,10 +74,11 @@ window.addEventListener('pageshow', function (event) {
 
     form.addEventListener('submit', saveFilterState);
 
-    const clearButton = form.querySelector('a[href="/Computadores/Index"]');
+    const clearButton = document.querySelector('#clear-filters-btn');
     if (clearButton) {
         clearButton.addEventListener('click', function() {
             localStorage.removeItem(storageKey);
+            // Allow the link's default navigation to proceed
         });
     }
 
