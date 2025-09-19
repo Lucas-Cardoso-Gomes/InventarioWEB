@@ -1,0 +1,64 @@
+@model Web.Models.DatabaseLogViewModel
+
+@{
+    ViewData["Title"] = "Logs do Banco de Dados";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<form asp-action="DatabaseLogs" method="get" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label for="entityTypeFilter" class="form-label">Filtrar por Tabela</label>
+            <select name="entityTypeFilter" id="entityTypeFilter" class="form-select" onchange="this.form.submit()">
+                <option value="">Todos</option>
+                <option value="Usuarios" selected="@("Usuarios".Equals(Model.EntityTypeFilter))">Usuários</option>
+                <option value="Computadores" selected="@("Computadores".Equals(Model.EntityTypeFilter))">Computadores</option>
+                <option value="Monitores" selected="@("Monitores".Equals(Model.EntityTypeFilter))">Monitores</option>
+                <option value="Perifericos" selected="@("Perifericos".Equals(Model.EntityTypeFilter))">Periféricos</option>
+                <option value="Colaboradores" selected="@("Colaboradores".Equals(Model.EntityTypeFilter))">Colaboradores</option>
+                <option value="Chamados" selected="@("Chamados".Equals(Model.EntityTypeFilter))">Chamados</option>
+                <option value="Rede" selected="@("Rede".Equals(Model.EntityTypeFilter))">Rede</option>
+                <option value="Manutencoes" selected="@("Manutencoes".Equals(Model.EntityTypeFilter))">Manutenções</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="actionTypeFilter" class="form-label">Filtrar por Tipo de Operação</label>
+            <select name="actionTypeFilter" id="actionTypeFilter" class="form-select" onchange="this.form.submit()">
+                <option value="">Todas</option>
+                <option value="I" selected="@("I".Equals(Model.ActionTypeFilter))">Inclusão</option>
+                <option value="U" selected="@("U".Equals(Model.ActionTypeFilter))">Alteração</option>
+                <option value="D" selected="@("D".Equals(Model.ActionTypeFilter))">Remoção</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <a asp-action="DatabaseLogs" class="btn btn-secondary">Limpar Filtros</a>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered">
+        <thead class="thead-dark">
+            <tr>
+                <th>Timestamp</th>
+                <th>Tipo de Entidade</th>
+                <th>Tipo de Ação</th>
+                <th>Realizado Por</th>
+                <th>Detalhes</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Logs)
+            {
+                <tr>
+                    <td>@item.Timestamp.ToString("g")</td>
+                    <td>@item.EntityType</td>
+                    <td>@item.ActionType</td>
+                    <td>@item.PerformedBy</td>
+                    <td>@item.Details</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

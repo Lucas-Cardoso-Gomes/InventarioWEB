@@ -17,14 +17,14 @@ namespace Web.Controllers
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly DatabaseLogService _databaseLogService;
         
-        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration, PersistentLogService persistentLogService)
+        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration, DatabaseLogService databaseLogService)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
             _configuration = configuration;
-            _persistentLogService = persistentLogService;
+            _databaseLogService = databaseLogService;
         }
 
         // GET: /Gerenciamento/Logs
@@ -163,10 +163,10 @@ namespace Web.Controllers
             return View();
         }
 
-        public IActionResult PersistentLogs(string entityTypeFilter, string actionTypeFilter)
+        public IActionResult DatabaseLogs(string entityTypeFilter, string actionTypeFilter)
         {
-            var logs = _persistentLogService.GetLogs(entityTypeFilter, actionTypeFilter);
-            var viewModel = new PersistentLogViewModel
+            var logs = _databaseLogService.GetLogs(entityTypeFilter, actionTypeFilter);
+            var viewModel = new DatabaseLogViewModel
             {
                 Logs = logs,
                 EntityTypeFilter = entityTypeFilter,

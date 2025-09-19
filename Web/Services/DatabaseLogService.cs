@@ -6,11 +6,11 @@ using Web.Models;
 
 namespace Web.Services
 {
-    public class PersistentLogService
+    public class DatabaseLogService
     {
         private readonly string _connectionString;
 
-        public PersistentLogService(IConfiguration configuration)
+        public DatabaseLogService(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
@@ -20,7 +20,7 @@ namespace Web.Services
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details) VALUES (@Timestamp, @EntityType, @ActionType, @PerformedBy, @Details)";
+                string sql = "INSERT INTO DatabaseLogs (Timestamp, EntityType, ActionType, PerformedBy, Details) VALUES (@Timestamp, @EntityType, @ActionType, @PerformedBy, @Details)";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@Timestamp", DateTime.Now);
@@ -33,13 +33,13 @@ namespace Web.Services
             }
         }
 
-        public List<PersistentLog> GetLogs(string entityTypeFilter, string actionTypeFilter)
+        public List<DatabaseLog> GetLogs(string entityTypeFilter, string actionTypeFilter)
         {
-            var logs = new List<PersistentLog>();
+            var logs = new List<DatabaseLog>();
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM PersistentLogs WHERE 1=1";
+                string sql = "SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM DatabaseLogs WHERE 1=1";
                 if (!string.IsNullOrEmpty(entityTypeFilter))
                 {
                     sql += " AND EntityType = @EntityType";
@@ -65,7 +65,7 @@ namespace Web.Services
                     {
                         while (reader.Read())
                         {
-                            logs.Add(new PersistentLog
+                            logs.Add(new DatabaseLog
                             {
                                 Id = Convert.ToInt32(reader["Id"]),
                                 Timestamp = Convert.ToDateTime(reader["Timestamp"]),
