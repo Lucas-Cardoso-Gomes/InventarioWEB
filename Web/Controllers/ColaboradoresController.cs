@@ -21,13 +21,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ColaboradoresController> _logger;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly DatabaseLogService _databaseLogService;
 
-        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
+        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, DatabaseLogService databaseLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _persistentLogService = persistentLogService;
+            _databaseLogService = databaseLogService;
         }
 
         private string SanitizeCpf(string cpf)
@@ -136,7 +136,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Create", User.Identity.Name, $"Collaborator '{colaborador.Nome}' created.");
+                    _databaseLogService.AddLog("Colaborador", "Create", User.Identity.Name, $"Collaborator '{colaborador.Nome}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -193,7 +193,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Update", User.Identity.Name, $"Collaborator '{colaborador.Nome}' updated.");
+                    _databaseLogService.AddLog("Colaborador", "Update", User.Identity.Name, $"Collaborator '{colaborador.Nome}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -238,7 +238,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Delete", User.Identity.Name, $"Collaborator '{colaborador.Nome}' deleted.");
+                    _databaseLogService.AddLog("Colaborador", "Delete", User.Identity.Name, $"Collaborator '{colaborador.Nome}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
             }

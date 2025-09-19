@@ -17,13 +17,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<PerifericosController> _logger;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly DatabaseLogService _databaseLogService;
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
+        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, DatabaseLogService databaseLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _persistentLogService = persistentLogService;
+            _databaseLogService = databaseLogService;
         }
 
         // GET: Perifericos
@@ -125,7 +125,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Periferico", "Create", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' created.");
+                    _databaseLogService.AddLog("Periferico", "Create", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -173,7 +173,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Periferico", "Update", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' updated.");
+                    _databaseLogService.AddLog("Periferico", "Update", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -216,7 +216,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Periferico", "Delete", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' deleted.");
+                    _databaseLogService.AddLog("Periferico", "Delete", User.Identity.Name, $"Peripheral '{periferico.Tipo} - {periferico.PartNumber}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
             }

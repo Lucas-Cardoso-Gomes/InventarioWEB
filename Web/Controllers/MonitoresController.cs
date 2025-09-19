@@ -24,13 +24,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<MonitoresController> _logger;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly DatabaseLogService _databaseLogService;
 
-        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
+        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, DatabaseLogService databaseLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _persistentLogService = persistentLogService;
+            _databaseLogService = databaseLogService;
         }
 
         public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
@@ -340,7 +340,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Monitor", "Create", User.Identity.Name, $"Monitor '{monitor.PartNumber}' created.");
+                    _databaseLogService.AddLog("Monitor", "Create", User.Identity.Name, $"Monitor '{monitor.PartNumber}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -390,7 +390,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Monitor", "Update", User.Identity.Name, $"Monitor '{monitor.PartNumber}' updated.");
+                    _databaseLogService.AddLog("Monitor", "Update", User.Identity.Name, $"Monitor '{monitor.PartNumber}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -431,7 +431,7 @@ namespace Web.Controllers
                         cmd.ExecuteNonQuery();
                     }
                 }
-                _persistentLogService.AddLog("Monitor", "Delete", User.Identity.Name, $"Monitor '{id}' deleted.");
+                _databaseLogService.AddLog("Monitor", "Delete", User.Identity.Name, $"Monitor '{id}' deleted.");
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)

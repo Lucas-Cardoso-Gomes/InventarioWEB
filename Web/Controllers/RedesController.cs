@@ -16,13 +16,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<RedesController> _logger;
-        private readonly PersistentLogService _persistentLogService;
+        private readonly DatabaseLogService _databaseLogService;
 
-        public RedesController(IConfiguration configuration, ILogger<RedesController> logger, PersistentLogService persistentLogService)
+        public RedesController(IConfiguration configuration, ILogger<RedesController> logger, DatabaseLogService databaseLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _persistentLogService = persistentLogService;
+            _databaseLogService = databaseLogService;
         }
 
         public IActionResult Index()
@@ -95,7 +95,7 @@ namespace Web.Controllers
                         command.ExecuteNonQuery();
                         _logger.LogInformation("INSERT command executed successfully.");
                     }
-                    _persistentLogService.AddLog("Rede", "Create", User.Identity.Name, $"Network asset '{rede.Nome}' created.");
+                    _databaseLogService.AddLog("Rede", "Create", User.Identity.Name, $"Network asset '{rede.Nome}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -161,7 +161,7 @@ namespace Web.Controllers
                         command.ExecuteNonQuery();
                         _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
                     }
-                    _persistentLogService.AddLog("Rede", "Update", User.Identity.Name, $"Network asset '{rede.Nome}' updated.");
+                    _databaseLogService.AddLog("Rede", "Update", User.Identity.Name, $"Network asset '{rede.Nome}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -209,7 +209,7 @@ namespace Web.Controllers
                     command.Parameters.AddWithValue("@Id", id);
                     command.ExecuteNonQuery();
                 }
-                _persistentLogService.AddLog("Rede", "Delete", User.Identity.Name, $"Network asset with id '{id}' deleted.");
+                _databaseLogService.AddLog("Rede", "Delete", User.Identity.Name, $"Network asset with id '{id}' deleted.");
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
