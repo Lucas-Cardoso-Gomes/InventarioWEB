@@ -22,13 +22,13 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ComputadoresController> _logger;
-        private readonly DatabaseLogService _databaseLogService;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, DatabaseLogService databaseLogService)
+        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _databaseLogService = databaseLogService;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(string sortOrder, string searchString,
@@ -514,7 +514,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _databaseLogService.AddLog("Computer", "Create", User.Identity.Name, $"Computer '{viewModel.MAC}' created.");
+                    _persistentLogService.AddLog("Computer", "Create", User.Identity.Name, $"Computer '{viewModel.MAC}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -609,7 +609,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _databaseLogService.AddLog("Computer", "Update", User.Identity.Name, $"Computer '{viewModel.MAC}' updated.");
+                    _persistentLogService.AddLog("Computer", "Update", User.Identity.Name, $"Computer '{viewModel.MAC}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -648,7 +648,7 @@ namespace Web.Controllers
                         cmd.ExecuteNonQuery();
                     }
                 }
-                _databaseLogService.AddLog("Computer", "Delete", User.Identity.Name, $"Computer '{id}' deleted.");
+                _persistentLogService.AddLog("Computer", "Delete", User.Identity.Name, $"Computer '{id}' deleted.");
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)

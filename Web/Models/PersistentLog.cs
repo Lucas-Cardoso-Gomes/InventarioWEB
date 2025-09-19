@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Web.Models
 {
-    public class DatabaseLog
+    public class PersistentLog
     {
         [Key]
         public int Id { get; set; }

@@ -14,13 +14,13 @@ namespace Web.Controllers
     public class ManutencoesController : Controller
     {
         private readonly ManutencaoService _manutencaoService;
-        private readonly DatabaseLogService _databaseLogService;
+        private readonly PersistentLogService _persistentLogService;
         private readonly string _connectionString;
 
-        public ManutencoesController(ManutencaoService manutencaoService, DatabaseLogService databaseLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _manutencaoService = manutencaoService;
-            _databaseLogService = databaseLogService;
+            _persistentLogService = persistentLogService;
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
@@ -56,7 +56,7 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 _manutencaoService.AddManutencao(manutencao);
-                _databaseLogService.AddLog("Maintenance", "Create", User.Identity.Name, $"Maintenance for item created.");
+                _persistentLogService.AddLog("Maintenance", "Create", User.Identity.Name, $"Maintenance for item created.");
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
@@ -167,7 +167,7 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 _manutencaoService.UpdateManutencao(manutencao);
-                _databaseLogService.AddLog("Maintenance", "Update", User.Identity.Name, $"Maintenance '{manutencao.Id}' updated.");
+                _persistentLogService.AddLog("Maintenance", "Update", User.Identity.Name, $"Maintenance '{manutencao.Id}' updated.");
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
@@ -195,7 +195,7 @@ namespace Web.Controllers
             var manutencao = _manutencaoService.GetManutencaoById(id);
             if (manutencao != null)
             {
-                _databaseLogService.AddLog("Maintenance", "Delete", User.Identity.Name, $"Maintenance '{manutencao.Id}' deleted.");
+                _persistentLogService.AddLog("Maintenance", "Delete", User.Identity.Name, $"Maintenance '{manutencao.Id}' deleted.");
             }
             _manutencaoService.DeleteManutencao(id);
             return RedirectToAction(nameof(Index));

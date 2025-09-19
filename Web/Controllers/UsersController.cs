@@ -14,13 +14,13 @@ namespace Web.Controllers
     public class UsersController : Controller
     {
         private readonly UserService _userService;
-        private readonly DatabaseLogService _databaseLogService;
+        private readonly PersistentLogService _persistentLogService;
         private readonly string _connectionString;
 
-        public UsersController(UserService userService, DatabaseLogService databaseLogService, IConfiguration configuration)
+        public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration)
         {
             _userService = userService;
-            _databaseLogService = databaseLogService;
+            _persistentLogService = persistentLogService;
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
@@ -93,7 +93,7 @@ namespace Web.Controllers
 
                 await _userService.CreateAsync(user);
 
-                _databaseLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
+                _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
                 
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
@@ -158,7 +158,7 @@ namespace Web.Controllers
 
                 await _userService.UpdateAsync(user);
 
-                _databaseLogService.AddLog("User", "Update", User.Identity.Name, $"User '{user.Login}' updated.");
+                _persistentLogService.AddLog("User", "Update", User.Identity.Name, $"User '{user.Login}' updated.");
                 
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
@@ -189,7 +189,7 @@ namespace Web.Controllers
             if (user != null)
             {
                 await _userService.DeleteAsync(id);
-                _databaseLogService.AddLog("User", "Delete", User.Identity.Name, $"User '{user.Login}' deleted.");
+                _persistentLogService.AddLog("User", "Delete", User.Identity.Name, $"User '{user.Login}' deleted.");
                 TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
             }
             else

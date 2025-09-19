@@ -22,7 +22,7 @@ builder.Services.AddScoped<ColetaService>();
 builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ComandoService>();
 builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<DatabaseLogService>();
+builder.Services.AddScoped<PersistentLogService>();
 builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddHostedService<PingService>();
 
