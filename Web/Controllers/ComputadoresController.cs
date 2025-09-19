@@ -245,7 +245,7 @@ namespace Web.Controllers
                             {
                                 MAC = worksheet.Cells[row, 1].Value?.ToString().Trim(),
                                 IP = worksheet.Cells[row, 2].Value?.ToString().Trim(),
-                                ColaboradorCPF = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                ColaboradorCPF = SanitizeCpf(worksheet.Cells[row, 3].Value?.ToString().Trim()),
                                 Hostname = worksheet.Cells[row, 4].Value?.ToString().Trim(),
                                 Fabricante = worksheet.Cells[row, 5].Value?.ToString().Trim(),
                                 Processador = worksheet.Cells[row, 6].Value?.ToString().Trim(),
@@ -742,6 +742,12 @@ namespace Web.Controllers
                 }
             }
             return colaboradores;
+        }
+
+        private string SanitizeCpf(string cpf)
+        {
+            if (string.IsNullOrEmpty(cpf)) return cpf;
+            return new string(cpf.Where(char.IsDigit).ToArray());
         }
     }
 }

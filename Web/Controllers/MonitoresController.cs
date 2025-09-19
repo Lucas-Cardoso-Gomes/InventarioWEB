@@ -154,7 +154,7 @@ namespace Web.Controllers
                             var monitor = new Monitor
                             {
                                 PartNumber = worksheet.Cells[row, 1].Value?.ToString().Trim(),
-                                ColaboradorCPF = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                ColaboradorCPF = SanitizeCpf(worksheet.Cells[row, 2].Value?.ToString().Trim()),
                                 Marca = worksheet.Cells[row, 3].Value?.ToString().Trim(),
                                 Modelo = worksheet.Cells[row, 4].Value?.ToString().Trim(),
                                 Tamanho = worksheet.Cells[row, 5].Value?.ToString().Trim()
@@ -493,6 +493,12 @@ namespace Web.Controllers
                 }
             }
             return colaboradores;
+        }
+
+        private string SanitizeCpf(string cpf)
+        {
+            if (string.IsNullOrEmpty(cpf)) return cpf;
+            return new string(cpf.Where(char.IsDigit).ToArray());
         }
     }
 }
