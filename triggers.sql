@@ -12,7 +12,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Colaborador', @ActionType, SUSER_SNAME(),
            COALESCE('CPF: ' + i.CPF, 'CPF: ' + d.CPF)
     FROM inserted i FULL OUTER JOIN deleted d ON i.CPF = d.CPF;
@@ -33,7 +33,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Usuario', @ActionType, SUSER_SNAME(),
            'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
     FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
@@ -54,7 +54,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Computador', @ActionType, SUSER_SNAME(),
            'MAC: ' + COALESCE(i.MAC, d.MAC)
     FROM inserted i FULL OUTER JOIN deleted d ON i.MAC = d.MAC;
@@ -75,7 +75,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Monitor', @ActionType, SUSER_SNAME(),
            'PartNumber: ' + COALESCE(i.PartNumber, d.PartNumber)
     FROM inserted i FULL OUTER JOIN deleted d ON i.PartNumber = d.PartNumber;
@@ -96,7 +96,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Periferico', @ActionType, SUSER_SNAME(),
            'PartNumber: ' + COALESCE(i.PartNumber, d.PartNumber)
     FROM inserted i FULL OUTER JOIN deleted d ON i.PartNumber = d.PartNumber;
@@ -117,7 +117,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Manutencao', @ActionType, SUSER_SNAME(),
            'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
     FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
@@ -138,7 +138,7 @@ BEGIN
     ELSE
         SET @ActionType = 'Delete';
 
-    INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     SELECT GETDATE(), 'Rede', @ActionType, SUSER_SNAME(),
            'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
     FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
