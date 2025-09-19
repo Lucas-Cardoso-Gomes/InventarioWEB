@@ -241,11 +241,12 @@ namespace Web.Controllers
                         int rowCount = worksheet.Dimension.Rows;
                         for (int row = 2; row <= rowCount; row++)
                         {
+                            var sanitizedCpf = SanitizeCpf(worksheet.Cells[row, 3].Value?.ToString().Trim());
                             var computador = new Computador
                             {
                                 MAC = worksheet.Cells[row, 1].Value?.ToString().Trim(),
                                 IP = worksheet.Cells[row, 2].Value?.ToString().Trim(),
-                                ColaboradorCPF = SanitizeCpf(worksheet.Cells[row, 3].Value?.ToString().Trim()),
+                                ColaboradorCPF = string.IsNullOrEmpty(sanitizedCpf) ? null : sanitizedCpf,
                                 Hostname = worksheet.Cells[row, 4].Value?.ToString().Trim(),
                                 Fabricante = worksheet.Cells[row, 5].Value?.ToString().Trim(),
                                 Processador = worksheet.Cells[row, 6].Value?.ToString().Trim(),
