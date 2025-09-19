@@ -15,24 +15,6 @@ namespace Web.Services
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public void AddLog(string entityType, string actionType, string performedBy, string details)
-        {
-            using (SqlConnection connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-                string sql = "INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details) VALUES (@Timestamp, @EntityType, @ActionType, @PerformedBy, @Details)";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
-                {
-                    cmd.Parameters.AddWithValue("@Timestamp", DateTime.Now);
-                    cmd.Parameters.AddWithValue("@EntityType", entityType);
-                    cmd.Parameters.AddWithValue("@ActionType", actionType);
-                    cmd.Parameters.AddWithValue("@PerformedBy", performedBy);
-                    cmd.Parameters.AddWithValue("@Details", (object)details ?? DBNull.Value);
-                    cmd.ExecuteNonQuery();
-                }
-            }
-        }
-
         public List<PersistentLog> GetLogs(string entityTypeFilter, string actionTypeFilter)
         {
             var logs = new List<PersistentLog>();

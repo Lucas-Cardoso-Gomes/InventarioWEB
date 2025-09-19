@@ -14,13 +14,11 @@ namespace Web.Controllers
     public class UsersController : Controller
     {
         private readonly UserService _userService;
-        private readonly PersistentLogService _persistentLogService;
         private readonly string _connectionString;
 
         public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration)
         {
             _userService = userService;
-            _persistentLogService = persistentLogService;
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
@@ -93,8 +91,6 @@ namespace Web.Controllers
 
                 await _userService.CreateAsync(user);
 
-                _persistentLogService.AddLog("User", "Create", User.Identity.Name, $"User '{user.Login}' created.");
-                
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
                 return RedirectToAction(nameof(Index));
@@ -158,8 +154,6 @@ namespace Web.Controllers
 
                 await _userService.UpdateAsync(user);
 
-                _persistentLogService.AddLog("User", "Update", User.Identity.Name, $"User '{user.Login}' updated.");
-                
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
@@ -189,7 +183,6 @@ namespace Web.Controllers
             if (user != null)
             {
                 await _userService.DeleteAsync(id);
-                _persistentLogService.AddLog("User", "Delete", User.Identity.Name, $"User '{user.Login}' deleted.");
                 TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
             }
             else

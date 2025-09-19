@@ -21,13 +21,11 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ColaboradoresController> _logger;
-        private readonly PersistentLogService _persistentLogService;
 
         public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
-            _persistentLogService = persistentLogService;
         }
 
         private string SanitizeCpf(string cpf)
@@ -136,7 +134,6 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Create", User.Identity.Name, $"Collaborator '{colaborador.Nome}' created.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -193,7 +190,6 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Update", User.Identity.Name, $"Collaborator '{colaborador.Nome}' updated.");
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -238,7 +234,6 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
-                    _persistentLogService.AddLog("Colaborador", "Delete", User.Identity.Name, $"Collaborator '{colaborador.Nome}' deleted.");
                 }
                 return RedirectToAction(nameof(Index));
             }
