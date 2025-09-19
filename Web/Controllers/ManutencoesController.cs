@@ -14,8 +14,8 @@ namespace Web.Controllers
     public class ManutencoesController : Controller
     {
         private readonly ManutencaoService _manutencaoService;
-        private readonly PersistentLogService _persistentLogService;
         private readonly DatabaseLogService _databaseLogService;
+        private readonly string _connectionString;
 
         public ManutencoesController(ManutencaoService manutencaoService, DatabaseLogService databaseLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
         {

@@ -14,8 +14,8 @@ namespace Web.Controllers
     public class UsersController : Controller
     {
         private readonly UserService _userService;
-        private readonly PersistentLogService _persistentLogService;
         private readonly DatabaseLogService _databaseLogService;
+        private readonly string _connectionString;
 
         public UsersController(UserService userService, DatabaseLogService databaseLogService, IConfiguration configuration)
         {
