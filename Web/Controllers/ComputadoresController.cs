@@ -278,16 +278,34 @@ namespace Web.Controllers
 
                 int adicionados = 0;
                 int atualizados = 0;
+                var invalidCpfs = new List<string>();
 
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
+
+                    var colaboradoresCpf = new HashSet<string>();
+                    using (var cmd = new SqlCommand("SELECT CPF FROM Colaboradores", connection))
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            colaboradoresCpf.Add(reader.GetString(0));
+                        }
+                    }
+
                     using (var transaction = connection.BeginTransaction())
                     {
                         try
                         {
                             foreach (var computador in computadores)
                             {
+                                if (!string.IsNullOrEmpty(computador.ColaboradorCPF) && !colaboradoresCpf.Contains(computador.ColaboradorCPF))
+                                {
+                                    invalidCpfs.Add(computador.MAC);
+                                    computador.ColaboradorCPF = null;
+                                }
+
                                 var existente = FindComputadorById(computador.MAC, connection, transaction);
                                 if (existente != null)
                                 {
@@ -323,6 +341,10 @@ namespace Web.Controllers
                             }
                             transaction.Commit();
                             TempData["SuccessMessage"] = $"{adicionados} computadores adicionados e {atualizados} atualizados com sucesso.";
+                            if (invalidCpfs.Any())
+                            {
+                                TempData["WarningMessage"] = $"Os seguintes computadores (MAC) foram importados, mas o CPF do colaborador não foi encontrado: {string.Join(", ", invalidCpfs)}";
+                            }
                         }
                         catch (Exception ex)
                         {
