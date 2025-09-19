@@ -144,148 +144,239 @@ select * from rede;
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator) VALUES ('Admin', 'Admin', 'Admin', 'Admin', 0);
 
 -- Trigger for Colaboradores table
-CREATE TRIGGER trg_Colaboradores_Log
+ALTER TRIGGER trg_Colaboradores_Log
 ON Colaboradores
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Colaborador', @ActionType, SUSER_SNAME(),
-           COALESCE('CPF: ' + i.CPF, 'CPF: ' + d.CPF)
-    FROM inserted i FULL OUTER JOIN deleted d ON i.CPF = d.CPF;
+    VALUES (GETDATE(), 'Colaborador', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Usuarios table
-CREATE TRIGGER trg_Usuarios_Log
+ALTER TRIGGER trg_Usuarios_Log
 ON Usuarios
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Usuario', @ActionType, SUSER_SNAME(),
-           'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
-    FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
+    VALUES (GETDATE(), 'Usuario', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Computadores table
-CREATE TRIGGER trg_Computadores_Log
+ALTER TRIGGER trg_Computadores_Log
 ON Computadores
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Computador', @ActionType, SUSER_SNAME(),
-           'MAC: ' + COALESCE(i.MAC, d.MAC)
-    FROM inserted i FULL OUTER JOIN deleted d ON i.MAC = d.MAC;
+    VALUES (GETDATE(), 'Computador', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Monitores table
-CREATE TRIGGER trg_Monitores_Log
+ALTER TRIGGER trg_Monitores_Log
 ON Monitores
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Monitor', @ActionType, SUSER_SNAME(),
-           'PartNumber: ' + COALESCE(i.PartNumber, d.PartNumber)
-    FROM inserted i FULL OUTER JOIN deleted d ON i.PartNumber = d.PartNumber;
+    VALUES (GETDATE(), 'Monitor', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Perifericos table
-CREATE TRIGGER trg_Perifericos_Log
+ALTER TRIGGER trg_Perifericos_Log
 ON Perifericos
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Periferico', @ActionType, SUSER_SNAME(),
-           'PartNumber: ' + COALESCE(i.PartNumber, d.PartNumber)
-    FROM inserted i FULL OUTER JOIN deleted d ON i.PartNumber = d.PartNumber;
+    VALUES (GETDATE(), 'Periferico', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Manutencoes table
-CREATE TRIGGER trg_Manutencoes_Log
+ALTER TRIGGER trg_Manutencoes_Log
 ON Manutencoes
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Manutencao', @ActionType, SUSER_SNAME(),
-           'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
-    FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
+    VALUES (GETDATE(), 'Manutencao', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
 
 -- Trigger for Rede table
-CREATE TRIGGER trg_Rede_Log
+ALTER TRIGGER trg_Rede_Log
 ON Rede
 AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
     IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
         SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
         SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
     ELSE
+    BEGIN
         SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
-    SELECT GETDATE(), 'Rede', @ActionType, SUSER_SNAME(),
-           'ID: ' + CAST(COALESCE(i.Id, d.Id) AS NVARCHAR(10))
-    FROM inserted i FULL OUTER JOIN deleted d ON i.Id = d.Id;
+    VALUES (GETDATE(), 'Rede', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO
