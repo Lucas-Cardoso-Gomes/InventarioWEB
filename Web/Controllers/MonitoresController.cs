@@ -11,6 +11,11 @@ using Web.Models;
 using Web.Services;
 using Monitor = Web.Models.Monitor;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -116,6 +121,152 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao obter a lista de monitores.");
             }
             return View(viewModel);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var monitores = new List<Monitor>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var monitor = new Monitor
+                            {
+                                PartNumber = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                ColaboradorCPF = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                Marca = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                Modelo = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Tamanho = worksheet.Cells[row, 5].Value?.ToString().Trim()
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(monitor.PartNumber))
+                            {
+                                monitores.Add(monitor);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var monitor in monitores)
+                            {
+                                var existente = FindMonitorById(monitor.PartNumber, connection, transaction);
+
+                                if (existente != null)
+                                {
+                                    string updateSql = @"UPDATE Monitores SET
+                                                       ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho
+                                                       WHERE PartNumber = @PartNumber";
+                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        AddMonitorParameters(cmd, monitor);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    atualizados++;
+                                }
+                                else
+                                {
+                                    string insertSql = @"INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho)
+                                                       VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
+                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    {
+                                        AddMonitorParameters(cmd, monitor);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    adicionados++;
+                                }
+                            }
+                            transaction.Commit();
+                            TempData["SuccessMessage"] = $"{adicionados} monitores adicionados e {atualizados} atualizados com sucesso.";
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
+                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private void AddMonitorParameters(SqlCommand cmd, Monitor monitor)
+        {
+            cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
+            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
+        }
+
+        private Monitor FindMonitorById(string id, SqlConnection connection, SqlTransaction transaction)
+        {
+            Monitor monitor = null;
+            try
+            {
+                string sql = "SELECT * FROM Monitores WHERE PartNumber = @PartNumber";
+                using (var cmd = new SqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@PartNumber", id);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            monitor = new Monitor
+                            {
+                                PartNumber = reader["PartNumber"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                Marca = reader["Marca"].ToString(),
+                                Modelo = reader["Modelo"].ToString(),
+                                Tamanho = reader["Tamanho"].ToString()
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar monitor por ID.");
+                if (transaction != null) throw;
+            }
+            return monitor;
         }
 
         private List<string> GetDistinctMonitorValues(SqlConnection connection, string columnName)

@@ -10,6 +10,10 @@ using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Web.Services;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -207,6 +211,216 @@ namespace Web.Controllers
             }
 
             return View(viewModel);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var computadores = new List<Computador>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var computador = new Computador
+                            {
+                                MAC = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                IP = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                ColaboradorCPF = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                Hostname = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Fabricante = worksheet.Cells[row, 5].Value?.ToString().Trim(),
+                                Processador = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                ProcessadorFabricante = worksheet.Cells[row, 7].Value?.ToString().Trim(),
+                                ProcessadorCore = worksheet.Cells[row, 8].Value?.ToString().Trim(),
+                                ProcessadorThread = worksheet.Cells[row, 9].Value?.ToString().Trim(),
+                                ProcessadorClock = worksheet.Cells[row, 10].Value?.ToString().Trim(),
+                                Ram = worksheet.Cells[row, 11].Value?.ToString().Trim(),
+                                RamTipo = worksheet.Cells[row, 12].Value?.ToString().Trim(),
+                                RamVelocidade = worksheet.Cells[row, 13].Value?.ToString().Trim(),
+                                RamVoltagem = worksheet.Cells[row, 14].Value?.ToString().Trim(),
+                                RamPorModule = worksheet.Cells[row, 15].Value?.ToString().Trim(),
+                                ArmazenamentoC = worksheet.Cells[row, 16].Value?.ToString().Trim(),
+                                ArmazenamentoCTotal = worksheet.Cells[row, 17].Value?.ToString().Trim(),
+                                ArmazenamentoCLivre = worksheet.Cells[row, 18].Value?.ToString().Trim(),
+                                ArmazenamentoD = worksheet.Cells[row, 19].Value?.ToString().Trim(),
+                                ArmazenamentoDTotal = worksheet.Cells[row, 20].Value?.ToString().Trim(),
+                                ArmazenamentoDLivre = worksheet.Cells[row, 21].Value?.ToString().Trim(),
+                                ConsumoCPU = worksheet.Cells[row, 22].Value?.ToString().Trim(),
+                                SO = worksheet.Cells[row, 23].Value?.ToString().Trim(),
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(computador.MAC))
+                            {
+                                computadores.Add(computador);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var computador in computadores)
+                            {
+                                var existente = FindComputadorById(computador.MAC, connection, transaction);
+                                if (existente != null)
+                                {
+                                    string updateSql = @"UPDATE Computadores SET
+                                                       IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante,
+                                                       Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore,
+                                                       ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram,
+                                                       RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem,
+                                                       RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal,
+                                                       ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
+                                                       ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta
+                                                       WHERE MAC = @MAC";
+                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        AddComputadorParameters(cmd, computador);
+                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    atualizados++;
+                                }
+                                else
+                                {
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta)
+                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
+                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    {
+                                        AddComputadorParameters(cmd, computador);
+                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    adicionados++;
+                                }
+                            }
+                            transaction.Commit();
+                            TempData["SuccessMessage"] = $"{adicionados} computadores adicionados e {atualizados} atualizados com sucesso.";
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
+                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        private void AddComputadorParameters(SqlCommand cmd, Computador computador)
+        {
+            cmd.Parameters.AddWithValue("@MAC", computador.MAC);
+            cmd.Parameters.AddWithValue("@IP", (object)computador.IP ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)computador.ColaboradorCPF ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Hostname", (object)computador.Hostname ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Fabricante", (object)computador.Fabricante ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Processador", (object)computador.Processador ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)computador.ProcessadorFabricante ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)computador.ProcessadorCore ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)computador.ProcessadorThread ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)computador.ProcessadorClock ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Ram", (object)computador.Ram ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamTipo", (object)computador.RamTipo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamVelocidade", (object)computador.RamVelocidade ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamVoltagem", (object)computador.RamVoltagem ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamPorModule", (object)computador.RamPorModule ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)computador.ArmazenamentoC ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)computador.ArmazenamentoCTotal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)computador.ArmazenamentoCLivre ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)computador.ArmazenamentoD ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)computador.ArmazenamentoDTotal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)computador.ArmazenamentoDLivre ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)computador.ConsumoCPU ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SO", (object)computador.SO ?? DBNull.Value);
+        }
+
+        private Computador FindComputadorById(string id, SqlConnection connection, SqlTransaction transaction)
+        {
+            Computador computador = null;
+
+            try
+            {
+                string sql = "SELECT * FROM Computadores WHERE MAC = @MAC";
+                using (var cmd = new SqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@MAC", id);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            computador = new Computador
+                            {
+                                MAC = reader["MAC"].ToString(),
+                                IP = reader["IP"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                Hostname = reader["Hostname"].ToString(),
+                                Fabricante = reader["Fabricante"].ToString(),
+                                Processador = reader["Processador"].ToString(),
+                                ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
+                                ProcessadorCore = reader["ProcessadorCore"].ToString(),
+                                ProcessadorThread = reader["ProcessadorThread"].ToString(),
+                                ProcessadorClock = reader["ProcessadorClock"].ToString(),
+                                Ram = reader["Ram"].ToString(),
+                                RamTipo = reader["RamTipo"].ToString(),
+                                RamVelocidade = reader["RamVelocidade"].ToString(),
+                                RamVoltagem = reader["RamVoltagem"].ToString(),
+                                RamPorModule = reader["RamPorModule"].ToString(),
+                                ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
+                                ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
+                                ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
+                                ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
+                                ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
+                                ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
+                                ConsumoCPU = reader["ConsumoCPU"].ToString(),
+                                SO = reader["SO"].ToString(),
+                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar computador por ID.");
+                if (transaction != null) throw;
+            }
+
+            return computador;
         }
 
         private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
