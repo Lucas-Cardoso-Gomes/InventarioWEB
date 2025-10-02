@@ -1,54 +1,59 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using Web.Models;
-using Web.Services;
+using FirebaseAdmin.Auth;
+using Google.Cloud.Firestore;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Configuration;
-using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Collections.Generic;
+using System.Linq;
+using System;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin")]
     public class UsersController : Controller
     {
-        private readonly UserService _userService;
-        private readonly string _connectionString;
+        private readonly FirestoreDb _firestoreDb;
 
-        public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration)
+        public UsersController(FirestoreDb firestoreDb)
         {
-            _userService = userService;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _firestoreDb = firestoreDb;
         }
 
         private async Task<List<Colaborador>> GetAllColaboradoresAsync()
         {
             var colaboradores = new List<Colaborador>();
-            using (var connection = new SqlConnection(_connectionString))
+            var snapshot = await _firestoreDb.Collection("colaboradores").OrderBy("Nome").GetSnapshotAsync();
+            foreach (var document in snapshot.Documents)
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("SELECT CPF, Nome FROM Colaboradores ORDER BY Nome", connection);
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        colaboradores.Add(new Colaborador { CPF = reader.GetString(0), Nome = reader.GetString(1) });
-                    }
-                }
+                var colab = document.ConvertTo<Colaborador>();
+                colab.CPF = document.Id; // The document ID is the CPF
+                colaboradores.Add(colab);
             }
             return colaboradores;
         }
 
-        // GET: Users
         public async Task<IActionResult> Index()
         {
-            var users = await _userService.GetAllUsersWithColaboradoresAsync();
-            return View(users);
+            var userRecords = new List<UserViewModel>();
+            var pagedEnumerable = FirebaseAuth.DefaultInstance.ListUsersAsync(null);
+            var enumerator = pagedEnumerable.GetEnumerator();
+            while (await enumerator.MoveNext())
+            {
+                var user = enumerator.Current;
+                var role = user.CustomClaims.ContainsKey("role") ? user.CustomClaims["role"].ToString() : "N/A";
+                userRecords.Add(new UserViewModel
+                {
+                    Uid = user.Uid,
+                    Nome = user.DisplayName,
+                    Login = user.Email,
+                    Role = role
+                });
+            }
+            return View(userRecords);
         }
 
-        // GET: Users/Create
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create()
         {
             var model = new UserViewModel
@@ -58,136 +63,139 @@ namespace Web.Controllers
             return View(model);
         }
 
-        // POST: Users/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create(UserViewModel model)
         {
             if (string.IsNullOrEmpty(model.Password))
             {
-                ModelState.AddModelError("Password", "A senha é obrigatória ao criar um novo usuário.");
+                ModelState.AddModelError("Password", "A senha é obrigatória.");
             }
 
             if (ModelState.IsValid)
             {
-                var existingUser = await _userService.FindByLoginAsync(model.Login);
-                if (existingUser != null)
+                try
                 {
-                    ModelState.AddModelError("Login", "Este login já está em uso.");
-                    model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
-                    return View(model);
+                    var userArgs = new UserRecordArgs
+                    {
+                        Email = model.Login,
+                        Password = model.Password,
+                        DisplayName = model.Nome,
+                        Disabled = false
+                    };
+                    var userRecord = await FirebaseAuth.DefaultInstance.CreateUserAsync(userArgs);
+
+                    var claims = new Dictionary<string, object>
+                    {
+                        { "role", model.Role },
+                        { "ColaboradorCPF", model.ColaboradorCPF ?? string.Empty }
+                    };
+                    await FirebaseAuth.DefaultInstance.SetCustomUserClaimsAsync(userRecord.Uid, claims);
+
+                    TempData["SuccessMessage"] = "Usuário criado com sucesso!";
+                    return RedirectToAction(nameof(Index));
                 }
-
-                var user = new User
+                catch (FirebaseAuthException ex)
                 {
-                    Nome = model.Nome,
-                    Login = model.Login,
-                    PasswordHash = model.Password, // Placeholder for real hash
-                    Role = model.Role,
-                    ColaboradorCPF = model.ColaboradorCPF,
-                    IsCoordinator = model.IsCoordinator
-                };
-
-                await _userService.CreateAsync(user);
-
-                TempData["SuccessMessage"] = "Usuário criado com sucesso!";
-
-                return RedirectToAction(nameof(Index));
+                    ModelState.AddModelError(string.Empty, $"Erro ao criar usuário: {ex.Message}");
+                }
             }
             model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
             return View(model);
         }
 
-        // GET: Users/Edit/5
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(int id)
+        public async Task<IActionResult> Edit(string id) // id is UID
         {
-            var user = await _userService.FindByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var userRecord = await FirebaseAuth.DefaultInstance.GetUserAsync(id);
+            if (userRecord == null) return NotFound();
 
             var model = new UserViewModel
             {
-                Id = user.Id,
-                Nome = user.Nome,
-                Login = user.Login,
-                Role = user.Role,
-                ColaboradorCPF = user.ColaboradorCPF,
-                IsCoordinator = user.IsCoordinator,
-                Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", user.ColaboradorCPF)
+                Uid = userRecord.Uid,
+                Nome = userRecord.DisplayName,
+                Login = userRecord.Email,
+                Role = userRecord.CustomClaims.ContainsKey("role") ? userRecord.CustomClaims["role"].ToString() : null,
+                ColaboradorCPF = userRecord.CustomClaims.ContainsKey("ColaboradorCPF") ? userRecord.CustomClaims["ColaboradorCPF"].ToString() : null,
+                Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", userRecord.CustomClaims.ContainsKey("ColaboradorCPF") ? userRecord.CustomClaims["ColaboradorCPF"].ToString() : null)
             };
 
             return View(model);
         }
 
-        // POST: Users/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(int id, UserViewModel model)
+        public async Task<IActionResult> Edit(string id, UserViewModel model)
         {
+            if (id != model.Uid) return BadRequest();
+
             if (ModelState.IsValid)
             {
-                var user = await _userService.FindByIdAsync(id);
-                if (user == null)
+                try
                 {
-                    return NotFound();
+                    var args = new UserRecordArgs
+                    {
+                        Uid = id,
+                        Email = model.Login,
+                        DisplayName = model.Nome,
+                    };
+
+                    if (!string.IsNullOrEmpty(model.Password))
+                    {
+                        args.Password = model.Password;
+                    }
+
+                    await FirebaseAuth.DefaultInstance.UpdateUserAsync(args);
+
+                    var claims = new Dictionary<string, object>
+                    {
+                        { "role", model.Role },
+                        { "ColaboradorCPF", model.ColaboradorCPF ?? string.Empty }
+                    };
+                    await FirebaseAuth.DefaultInstance.SetCustomUserClaimsAsync(id, claims);
+
+                    TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
+                    return RedirectToAction(nameof(Index));
                 }
-
-                user.Nome = model.Nome;
-                user.Login = model.Login;
-                user.Role = model.Role;
-                user.ColaboradorCPF = model.ColaboradorCPF;
-                user.IsCoordinator = model.IsCoordinator;
-
-                if (!string.IsNullOrEmpty(model.Password))
+                catch (FirebaseAuthException ex)
                 {
-                    user.PasswordHash = model.Password;
+                    ModelState.AddModelError(string.Empty, $"Erro ao atualizar usuário: {ex.Message}");
                 }
-                else
-                {
-                    user.PasswordHash = null;
-                }
-
-                await _userService.UpdateAsync(user);
-
-                TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
-                return RedirectToAction(nameof(Index));
             }
             model.Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", model.ColaboradorCPF);
             return View(model);
         }
 
-        // GET: Users/Delete/5
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(string id) // id is UID
         {
-            var user = await _userService.FindByIdAsync(id);
-            if (user == null)
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var userRecord = await FirebaseAuth.DefaultInstance.GetUserAsync(id);
+            if (userRecord == null) return NotFound();
+
+            var model = new UserViewModel
             {
-                return NotFound();
-            }
-            return View(user);
+                Uid = userRecord.Uid,
+                Nome = userRecord.DisplayName,
+                Login = userRecord.Email
+            };
+
+            return View(model);
         }
 
-        // POST: Users/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
-            var user = await _userService.FindByIdAsync(id);
-            if (user != null)
+            try
             {
-                await _userService.DeleteAsync(id);
+                await FirebaseAuth.DefaultInstance.DeleteUserAsync(id);
                 TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
             }
-            else
+            catch (FirebaseAuthException ex)
             {
-                TempData["ErrorMessage"] = "Usuário não encontrado.";
+                TempData["ErrorMessage"] = $"Erro ao excluir usuário: {ex.Message}";
             }
             return RedirectToAction(nameof(Index));
         }
