@@ -70,7 +70,8 @@ CREATE TABLE Computadores (
     ArmazenamentoDLivre NVARCHAR(50),
     ConsumoCPU NVARCHAR(50),
     SO NVARCHAR(255),
-    DataColeta DATETIME
+    DataColeta DATETIME,
+    PartNumber VARCHAR(255)
 );
 
 CREATE TABLE Monitores (
