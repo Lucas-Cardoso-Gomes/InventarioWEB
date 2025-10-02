@@ -1,155 +1,118 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
-using Web.Services;
 using System.Security.Claims;
+using System.Threading.Tasks;
+using Google.Cloud.Firestore;
+using System.Linq;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class PerifericosController : Controller
     {
-        private readonly string _connectionString;
+        private readonly FirestoreDb _firestoreDb;
         private readonly ILogger<PerifericosController> _logger;
+        private const string CollectionName = "perifericos";
+        private const string ColaboradoresCollection = "colaboradores";
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
+        public PerifericosController(FirestoreDb firestoreDb, ILogger<PerifericosController> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _firestoreDb = firestoreDb;
             _logger = logger;
         }
 
-        // GET: Perifericos
-        public IActionResult Index(string searchString)
+        public async Task<IActionResult> Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
             var perifericos = new List<Periferico>();
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                Query query = _firestoreDb.Collection(CollectionName);
+                var snapshot = await query.GetSnapshotAsync();
+                var allPerifericos = new List<Periferico>();
+
+                foreach (var doc in snapshot.Documents)
                 {
-                    connection.Open();
-
-                    var sqlBuilder = new System.Text.StringBuilder("SELECT p.*, c.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF");
-                    var whereClauses = new List<string>();
-                    var parameters = new Dictionary<string, object>();
-                    var userCpf = User.FindFirstValue("ColaboradorCPF");
-
-                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    var periferico = doc.ConvertTo<Periferico>();
+                    periferico.PartNumber = doc.Id;
+                    if (!string.IsNullOrEmpty(periferico.ColaboradorCPF))
                     {
-                        whereClauses.Add("p.ColaboradorCPF = @UserCpf");
-                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                        var colabDoc = await _firestoreDb.Collection(ColaboradoresCollection).Document(periferico.ColaboradorCPF).GetSnapshotAsync();
+                        if (colabDoc.Exists) periferico.ColaboradorNome = colabDoc.GetValue<string>("Nome");
                     }
-                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                    {
-                        whereClauses.Add("(c.CoordenadorCPF = @UserCpf OR p.ColaboradorCPF = @UserCpf)");
-                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
-                    }
-
-                    if (!string.IsNullOrEmpty(searchString))
-                    {
-                        whereClauses.Add("(c.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search)");
-                        parameters.Add("@search", $"%{searchString}%");
-                    }
-
-                    if (whereClauses.Count > 0)
-                    {
-                        sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
-                    }
-
-                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
-                    {
-                        foreach(var p in parameters)
-                        {
-                            cmd.Parameters.AddWithValue(p.Key, p.Value);
-                        }
-                        using (SqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                perifericos.Add(new Periferico
-                                {
-                                    PartNumber = reader["PartNumber"].ToString(),
-                                    ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                    ColaboradorNome = reader["ColaboradorNome"] as string,
-                                    Tipo = reader["Tipo"].ToString(),
-                                    DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
-                                });
-                            }
-                        }
-                    }
+                    allPerifericos.Add(periferico);
                 }
+
+                if (!string.IsNullOrEmpty(searchString))
+                {
+                    allPerifericos = allPerifericos.Where(p =>
+                        (p.ColaboradorNome != null && p.ColaboradorNome.Contains(searchString, StringComparison.OrdinalIgnoreCase)) ||
+                        (p.Tipo != null && p.Tipo.Contains(searchString, StringComparison.OrdinalIgnoreCase)) ||
+                        (p.PartNumber != null && p.PartNumber.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
+                }
+
+                perifericos = allPerifericos;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de periféricos.");
+                _logger.LogError(ex, "Erro ao obter a lista de periféricos do Firestore.");
             }
             return View(perifericos);
         }
 
-        // GET: Perifericos/Create
         [Authorize(Roles = "Admin")]
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
+            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome");
             return View();
         }
 
-        // POST: Perifericos/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Periferico periferico)
+        public async Task<IActionResult> Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
-                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    await _firestoreDb.Collection(CollectionName).Document(periferico.PartNumber).SetAsync(periferico);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao criar periférico.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
+                    _logger.LogError(ex, "Erro ao criar periférico no Firestore.");
+                    ModelState.AddModelError("", "Erro ao criar periférico.");
                 }
             }
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
-        // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id)
+        public async Task<IActionResult> Edit(string id)
         {
-            Periferico periferico = FindPerifericoById(id);
-            if (periferico == null) return NotFound();
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            if (string.IsNullOrEmpty(id)) return NotFound();
+            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
+            if (!doc.Exists) return NotFound();
+
+            var periferico = doc.ConvertTo<Periferico>();
+            periferico.PartNumber = doc.Id;
+
+            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
-        // POST: Perifericos/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Periferico periferico)
+        public async Task<IActionResult> Edit(string id, Periferico periferico)
         {
             if (id != periferico.PartNumber) return NotFound();
 
@@ -157,121 +120,56 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
-                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    await _firestoreDb.Collection(CollectionName).Document(id).SetAsync(periferico, SetOptions.MergeAll);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao editar periférico.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
+                     _logger.LogError(ex, $"Erro ao editar periférico {id} no Firestore.");
                 }
             }
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
-        // GET: Perifericos/Delete/5
         [Authorize(Roles = "Admin")]
-        public IActionResult Delete(string id)
+        public async Task<IActionResult> Delete(string id)
         {
-            Periferico periferico = FindPerifericoById(id);
-            if (periferico == null) return NotFound();
+            if (string.IsNullOrEmpty(id)) return NotFound();
+            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
+            if (!doc.Exists) return NotFound();
+
+            var periferico = doc.ConvertTo<Periferico>();
+            periferico.PartNumber = doc.Id;
             return View(periferico);
         }
 
-        // POST: Perifericos/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
-                var periferico = FindPerifericoById(id);
-                if (periferico != null)
-                {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-                        string sql = "DELETE FROM Perifericos WHERE PartNumber = @PartNumber";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
-                        {
-                            cmd.Parameters.AddWithValue("@PartNumber", id);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-                }
+                await _firestoreDb.Collection(CollectionName).Document(id).DeleteAsync();
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                _logger.LogError(ex, "Erro ao excluir periférico.");
-                ViewBag.ErrorMessage = "Ocorreu um erro ao excluir o periférico.";
-                return View(FindPerifericoById(id));
+                _logger.LogError(ex, $"Erro ao excluir periférico {id} do Firestore.");
+                return RedirectToAction(nameof(Index));
             }
         }
 
-        private Periferico FindPerifericoById(string id)
-        {
-            Periferico periferico = null;
-            using (SqlConnection connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-                string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
-                {
-                    cmd.Parameters.AddWithValue("@PartNumber", id);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            periferico = new Periferico
-                            {
-                                PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                ColaboradorNome = reader["ColaboradorNome"] as string,
-                                Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
-                            };
-                        }
-                    }
-                }
-            }
-            return periferico;
-        }
-
-        private List<Colaborador> GetColaboradores()
+        private async Task<List<Colaborador>> GetColaboradoresAsync()
         {
             var colaboradores = new List<Colaborador>();
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            var snapshot = await _firestoreDb.Collection(ColaboradoresCollection).OrderBy("Nome").GetSnapshotAsync();
+            foreach (var document in snapshot.Documents)
             {
-                connection.Open();
-                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
-                {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            colaboradores.Add(new Colaborador {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
-                            });
-                        }
-                    }
-                }
+                var colab = document.ConvertTo<Colaborador>();
+                colab.CPF = document.Id;
+                colaboradores.Add(colab);
             }
             return colaboradores;
         }

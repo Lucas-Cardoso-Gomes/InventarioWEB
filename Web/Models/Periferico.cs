@@ -1,34 +1,33 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Google.Cloud.Firestore;
 
 namespace Web.Models
 {
+    [FirestoreData]
     public class Periferico
     {
-        [Key]
+        [FirestoreDocumentId]
         [Required(ErrorMessage = "O Part Number é obrigatório.")]
-        [StringLength(50)]
         public string PartNumber { get; set; }
 
+        [FirestoreProperty]
         [Display(Name = "Colaborador")]
         public string? ColaboradorCPF { get; set; }
 
-        [ForeignKey("ColaboradorCPF")]
-        [ValidateNever]
+        [FirestoreDocumentIgnore]
         public virtual Colaborador? Colaborador { get; set; }
 
-        [NotMapped]
+        [FirestoreDocumentIgnore]
         public string? ColaboradorNome { get; set; }
 
+        [FirestoreProperty]
         [Required(ErrorMessage = "O Tipo é obrigatório.")]
-        [StringLength(50)]
         public string Tipo { get; set; }
 
+        [FirestoreProperty]
         [Display(Name = "Data de Entrega")]
         [DataType(DataType.Date)]
-        [ValidateNever]
         public DateTime? DataEntrega { get; set; }
     }
 }

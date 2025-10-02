@@ -2,21 +2,24 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Web.Models;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
+using Google.Cloud.Firestore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Web.Controllers
 {
     [Authorize]
     public class DashboardController : Controller
     {
-        private readonly string _connectionString;
+        private readonly FirestoreDb _firestoreDb;
+        private readonly ILogger<DashboardController> _logger;
 
-        public DashboardController(IConfiguration configuration)
+        public DashboardController(FirestoreDb firestoreDb, ILogger<DashboardController> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _firestoreDb = firestoreDb;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -35,18 +38,15 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Computadores", connection))
-                    {
-                        return (int)await cmd.ExecuteScalarAsync();
-                    }
-                }
+                // Note: For very large collections, fetching all documents to count them is inefficient.
+                // A better approach for large-scale apps is to maintain a counter in a separate document
+                // that is updated via Cloud Functions. For this project's scale, this is acceptable.
+                var snapshot = await _firestoreDb.Collection("computadores").GetSnapshotAsync();
+                return snapshot.Count;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Log exception
+                _logger.LogError(ex, "Error getting total computer count from Firestore.");
                 return 0;
             }
         }
@@ -55,19 +55,13 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    string sql = "SELECT COUNT(*) FROM Chamados WHERE Status IN ('Aberto', 'Em Andamento')";
-                    using (var cmd = new SqlCommand(sql, connection))
-                    {
-                        return (int)await cmd.ExecuteScalarAsync();
-                    }
-                }
+                var query = _firestoreDb.Collection("chamados").WhereIn("Status", new[] { "Aberto", "Em Andamento" });
+                var snapshot = await query.GetSnapshotAsync();
+                return snapshot.Count;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Log exception
+                _logger.LogError(ex, "Error getting open chamados count from Firestore.");
                 return 0;
             }
         }
@@ -77,47 +71,36 @@ namespace Web.Controllers
             var manutencoes = new List<Manutencao>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                var query = _firestoreDb.Collection("manutencoes").OrderByDescending("Data").Limit(count);
+                var snapshot = await query.GetSnapshotAsync();
+
+                foreach (var doc in snapshot.Documents)
                 {
-                    await connection.OpenAsync();
-                    string sql = @"
-                        SELECT TOP (@Count)
-                            m.Id, m.Data, m.Historico, m.ComputadorMAC,
-                            c.Hostname
-                        FROM Manutencoes m
-                        LEFT JOIN Computadores c ON m.ComputadorMAC = c.MAC
-                        ORDER BY m.Data DESC";
+                    var manutencao = doc.ConvertTo<Manutencao>();
+                    manutencao.Id = doc.Id;
 
-                    using (var command = new SqlCommand(sql, connection))
+                    if (!string.IsNullOrEmpty(manutencao.ComputadorMAC))
                     {
-                        command.Parameters.AddWithValue("@Count", count);
-                        using (var reader = await command.ExecuteReaderAsync())
+                        var computadorDoc = await _firestoreDb.Collection("computadores").Document(manutencao.ComputadorMAC).GetSnapshotAsync();
+                        if (computadorDoc.Exists)
                         {
-                            while (await reader.ReadAsync())
-                            {
-                                var manutencao = new Manutencao
-                                {
-                                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                    Data = reader.IsDBNull(reader.GetOrdinal("Data")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("Data")),
-                                    Historico = reader.IsDBNull(reader.GetOrdinal("Historico")) ? null : reader.GetString(reader.GetOrdinal("Historico")),
-                                    ComputadorMAC = reader.IsDBNull(reader.GetOrdinal("ComputadorMAC")) ? null : reader.GetString(reader.GetOrdinal("ComputadorMAC"))
-                                };
-
-                                if (!reader.IsDBNull(reader.GetOrdinal("Hostname")))
-                                {
-                                    manutencao.Computador = new Computador { Hostname = reader.GetString(reader.GetOrdinal("Hostname")) };
-                                }
-                                manutencoes.Add(manutencao);
-                            }
+                            manutencao.Computador = new Computador { Hostname = computadorDoc.GetValue<string>("Hostname") };
                         }
                     }
+                    manutencoes.Add(manutencao);
                 }
             }
-            catch(Exception)
+            catch (Exception ex)
             {
-                // Log exception
+                _logger.LogError(ex, "Error getting recent manutencoes from Firestore.");
             }
             return manutencoes;
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View(new ErrorViewModel { RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
     }
 }

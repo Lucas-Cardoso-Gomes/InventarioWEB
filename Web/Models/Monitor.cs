@@ -1,36 +1,33 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Google.Cloud.Firestore;
 
 namespace Web.Models
 {
+    [FirestoreData]
     public class Monitor
     {
-        [Key]
+        [FirestoreDocumentId]
         [Required(ErrorMessage = "O Part Number é obrigatório.")]
-        [StringLength(50)]
         public string PartNumber { get; set; }
 
+        [FirestoreProperty]
         [Display(Name = "Colaborador")]
         public string? ColaboradorCPF { get; set; }
 
-        [ForeignKey("ColaboradorCPF")]
-        [ValidateNever]
-        public virtual Colaborador? Colaborador { get; set; }
-
-        [NotMapped]
+        [FirestoreDocumentIgnore]
         public string? ColaboradorNome { get; set; }
 
-        [StringLength(50)]
-        [ValidateNever]
+        [FirestoreDocumentIgnore]
+        public virtual Colaborador? Colaborador { get; set; }
+
+        [FirestoreProperty]
         public string? Marca { get; set; }
 
-        [StringLength(50)]
+        [FirestoreProperty]
         [Required(ErrorMessage = "O Modelo é obrigatório.")]
         public string Modelo { get; set; }
 
-        [StringLength(20)]
-        [ValidateNever]
+        [FirestoreProperty]
         public string Tamanho { get; set; }
     }
 }

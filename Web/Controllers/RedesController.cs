@@ -3,52 +3,37 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
-using System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Configuration;
-using Web.Services;
+using System.Threading.Tasks;
+using Google.Cloud.Firestore;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin")]
     public class RedesController : Controller
     {
-        private readonly string _connectionString;
+        private readonly FirestoreDb _firestoreDb;
         private readonly ILogger<RedesController> _logger;
+        private const string CollectionName = "redes";
 
-        public RedesController(IConfiguration configuration, ILogger<RedesController> logger, PersistentLogService persistentLogService)
+        public RedesController(FirestoreDb firestoreDb, ILogger<RedesController> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _firestoreDb = firestoreDb;
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             var redes = new List<Rede>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                var snapshot = await _firestoreDb.Collection(CollectionName).GetSnapshotAsync();
+                foreach (var doc in snapshot.Documents)
                 {
-                    connection.Open();
-                    var command = new SqlCommand("SELECT * FROM Rede", connection);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            redes.Add(new Rede
-                            {
-                                Id = (int)reader["Id"],
-                                Tipo = reader["Tipo"].ToString(),
-                                IP = reader["IP"].ToString(),
-                                MAC = reader["MAC"].ToString(),
-                                Nome = reader["Nome"].ToString(),
-                                DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
-                            });
-                        }
-                    }
+                    var rede = doc.ConvertTo<Rede>();
+                    rede.Id = doc.Id;
+                    redes.Add(rede);
                 }
 
                 // Sort the list in-memory using System.Version for correct IP sorting
@@ -57,8 +42,7 @@ namespace Web.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting network assets list.");
-                // Handle error appropriately
+                _logger.LogError(ex, "Error getting network assets list from Firestore.");
                 return View(redes); // Return unsorted list in case of an error
             }
         }
@@ -70,186 +54,86 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Rede rede)
+        public async Task<IActionResult> Create(Rede rede)
         {
-            _logger.LogInformation("Create POST action called for network asset.");
             if (ModelState.IsValid)
             {
-                _logger.LogInformation("ModelState is valid. Attempting to save to the database.");
                 try
                 {
-                    using (var connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)", connection);
-                        command.Parameters.AddWithValue("@Tipo", rede.Tipo);
-                        command.Parameters.AddWithValue("@IP", rede.IP);
-                        command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
-                        command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
-
-                        _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
-                        command.ExecuteNonQuery();
-                        _logger.LogInformation("INSERT command executed successfully.");
-                    }
+                    rede.DataInclusao = DateTime.UtcNow;
+                    await _firestoreDb.Collection(CollectionName).AddAsync(rede);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error creating network asset in the database.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
+                    _logger.LogError(ex, "Error creating network asset in Firestore.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados.");
                 }
             }
-            else
-            {
-                _logger.LogWarning("ModelState is invalid. Validation errors:");
-                foreach (var state in ModelState)
-                {
-                    if (state.Value.Errors.Any())
-                    {
-                        var errors = string.Join(", ", state.Value.Errors.Select(e => e.ErrorMessage));
-                        _logger.LogWarning($"- {state.Key}: {errors}");
-                    }
-                }
-            }
-            _logger.LogInformation("Returning view with model due to validation errors or exception.");
             return View(rede);
         }
 
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(string id)
         {
-            var rede = FindRedeById(id);
-            if (rede == null)
-            {
-                return NotFound();
-            }
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
+            if (!doc.Exists) return NotFound();
+
+            var rede = doc.ConvertTo<Rede>();
+            rede.Id = doc.Id;
             return View(rede);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, Rede rede)
+        public async Task<IActionResult> Edit(string id, Rede rede)
         {
-            if (id != rede.Id)
-            {
-                return NotFound();
-            }
+            if (id != rede.Id) return NotFound();
 
-            _logger.LogInformation("Edit POST action called for network asset ID {Id}.", id);
             if (ModelState.IsValid)
             {
-                _logger.LogInformation("ModelState is valid. Attempting to update the database.");
                 try
                 {
-                    using (var connection = new SqlConnection(_connectionString))
-                    {
-                        connection.Open();
-                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id", connection);
-                        command.Parameters.AddWithValue("@Id", rede.Id);
-                        command.Parameters.AddWithValue("@Tipo", rede.Tipo);
-                        command.Parameters.AddWithValue("@IP", rede.IP);
-                        command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                        command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
-
-                        _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
-                        command.ExecuteNonQuery();
-                        _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
-                    }
+                    rede.DataAlteracao = DateTime.UtcNow;
+                    await _firestoreDb.Collection(CollectionName).Document(id).SetAsync(rede, SetOptions.MergeAll);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error updating network asset in the database.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados. Por favor, tente novamente.");
+                    _logger.LogError(ex, $"Error updating network asset {id} in Firestore.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao salvar os dados.");
                 }
             }
-            else
-            {
-                _logger.LogWarning("ModelState is invalid. Validation errors:");
-                foreach (var state in ModelState)
-                {
-                    if (state.Value.Errors.Any())
-                    {
-                        var errors = string.Join(", ", state.Value.Errors.Select(e => e.ErrorMessage));
-                        _logger.LogWarning($"- {state.Key}: {errors}");
-                    }
-                }
-            }
-            _logger.LogInformation("Returning view with model due to validation errors or exception.");
             return View(rede);
         }
 
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(string id)
         {
-            var rede = FindRedeById(id);
-            if (rede == null)
-            {
-                return NotFound();
-            }
+            if (string.IsNullOrEmpty(id)) return NotFound();
+
+            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
+            if (!doc.Exists) return NotFound();
+
+            var rede = doc.ConvertTo<Rede>();
+            rede.Id = doc.Id;
             return View(rede);
         }
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-                    var command = new SqlCommand("DELETE FROM Rede WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@Id", id);
-                    command.ExecuteNonQuery();
-                }
+                await _firestoreDb.Collection(CollectionName).Document(id).DeleteAsync();
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting network asset.");
-                // Handle error
+                _logger.LogError(ex, $"Error deleting network asset {id} from Firestore.");
+                return RedirectToAction(nameof(Index));
             }
-            return RedirectToAction(nameof(Index));
-        }
-
-        private Rede FindRedeById(int id)
-        {
-            Rede rede = null;
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-                    var command = new SqlCommand("SELECT * FROM Rede WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@Id", id);
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            rede = new Rede
-                            {
-                                Id = (int)reader["Id"],
-                                Tipo = reader["Tipo"].ToString(),
-                                IP = reader["IP"].ToString(),
-                                MAC = reader["MAC"].ToString(),
-                                Nome = reader["Nome"].ToString(),
-                                DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
-                            };
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error finding network asset by id.");
-                // Handle error
-            }
-            return rede;
         }
     }
 }
