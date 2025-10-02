@@ -121,6 +121,7 @@
                 <th class="col-hostname">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["HostnameSortParm"]" asp-route-searchString="@Model.SearchString">Hostname</a>
                 </th>
+                <th class="col-partnumber">Part Number</th>
                 <th class="col-fabricante">Fabricante</th>
                 <th class="col-processador">Processador</th>
                 <th class="col-processadorfabricante">Fab. Processador</th>
@@ -159,6 +160,7 @@
                     <td class="col-mac">@Html.DisplayFor(modelItem => item.MAC)</td>
                     <td class="col-usuario">@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
                     <td class="col-hostname">@Html.DisplayFor(modelItem => item.Hostname)</td>
+                    <td class="col-partnumber">@Html.DisplayFor(modelItem => item.PartNumber)</td>
                     <td class="col-fabricante">@Html.DisplayFor(modelItem => item.Fabricante)</td>
                     <td class="col-processador">@Html.DisplayFor(modelItem => item.Processador)</td>
                     <td class="col-processadorfabricante">@Html.DisplayFor(modelItem => item.ProcessadorFabricante)</td>

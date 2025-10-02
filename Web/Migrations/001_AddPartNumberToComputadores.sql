@@ -1,0 +1,2 @@
+ALTER TABLE Computadores
+ADD PartNumber NVARCHAR(100) NULL;

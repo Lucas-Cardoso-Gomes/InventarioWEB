@@ -35,5 +35,6 @@ namespace Web.Models
         public string? ConsumoCPU { get; set; }
         public string? SO { get; set; }
         public DateTime? DataColeta { get; set; }
+        public string? PartNumber { get; set; }
     }
 }

@@ -101,5 +101,9 @@ namespace Web.Models
         [Display(Name = "Sistema Operacional")]
         [ValidateNever]
         public string? SO { get; set; }
+
+        [Display(Name = "Part Number")]
+        [ValidateNever]
+        public string? PartNumber { get; set; }
     }
 }

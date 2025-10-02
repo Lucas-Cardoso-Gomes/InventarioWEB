@@ -10,6 +10,7 @@ namespace Web.Models
         public string SO { get; set; }
         public string ConsumoCPU { get; set; }
         public StorageInfo Armazenamento { get; set; }
+        public string PartNumber { get; set; }
     }
 
     public class ProcessorInfo

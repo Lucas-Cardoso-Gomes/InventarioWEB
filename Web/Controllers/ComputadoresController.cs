@@ -154,7 +154,7 @@ namespace Web.Controllers
                             comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ArmazenamentoC,
                             comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre, comp.ArmazenamentoD,
                             comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
-                            comp.DataColeta
+                            comp.DataColeta, comp.PartNumber
                     ";
                     string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
                     // --- FIM DA CORREÇÃO ---
@@ -195,7 +195,8 @@ namespace Web.Controllers
                                     ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
-                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                    PartNumber = reader["PartNumber"].ToString()
                                 });
                             }
                         }
@@ -265,6 +266,7 @@ namespace Web.Controllers
                                 ArmazenamentoDLivre = worksheet.Cells[row, 21].Value?.ToString().Trim(),
                                 ConsumoCPU = worksheet.Cells[row, 22].Value?.ToString().Trim(),
                                 SO = worksheet.Cells[row, 23].Value?.ToString().Trim(),
+                                PartNumber = worksheet.Cells[row, 24].Value?.ToString().Trim()
                             };
 
                             if (!string.IsNullOrWhiteSpace(computador.MAC))
@@ -315,7 +317,7 @@ namespace Web.Controllers
                                                        RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem,
                                                        RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal,
                                                        ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
-                                                       ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta
+                                                       ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber
                                                        WHERE MAC = @MAC";
                                     using (var cmd = new SqlCommand(updateSql, connection, transaction))
                                     {
@@ -327,8 +329,8 @@ namespace Web.Controllers
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta)
-                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber)
+                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
                                     using (var cmd = new SqlCommand(insertSql, connection, transaction))
                                     {
                                         AddComputadorParameters(cmd, computador);
@@ -388,6 +390,7 @@ namespace Web.Controllers
             cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)computador.ArmazenamentoDLivre ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ConsumoCPU", (object)computador.ConsumoCPU ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@SO", (object)computador.SO ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@PartNumber", (object)computador.PartNumber ?? DBNull.Value);
         }
 
         private Computador FindComputadorById(string id, SqlConnection connection, SqlTransaction transaction)
@@ -429,7 +432,8 @@ namespace Web.Controllers
                                 ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                 ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                 SO = reader["SO"].ToString(),
-                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                PartNumber = reader["PartNumber"].ToString()
                             };
                         }
                     }
@@ -480,7 +484,7 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -508,6 +512,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -555,7 +560,8 @@ namespace Web.Controllers
                 ArmazenamentoDTotal = computador.ArmazenamentoDTotal,
                 ArmazenamentoDLivre = computador.ArmazenamentoDLivre,
                 ConsumoCPU = computador.ConsumoCPU,
-                SO = computador.SO
+                SO = computador.SO,
+                PartNumber = computador.PartNumber
             };
             ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
@@ -575,7 +581,7 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber WHERE MAC = @MAC";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -602,6 +608,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -701,7 +708,8 @@ namespace Web.Controllers
                                     ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
-                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null
+                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                PartNumber = reader["PartNumber"].ToString()
                                 };
                             }
                         }
