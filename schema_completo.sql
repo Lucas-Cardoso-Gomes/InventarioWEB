@@ -37,7 +37,7 @@ CREATE TABLE Colaboradores (
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
-    Nome NVARCHAR(100) NOT NULL,
+    Nome NVARCHAR(100) NOT NULL UNIQUE,
     Login NVARCHAR(50) NOT NULL UNIQUE,
     PasswordHash NVARCHAR(255) NOT NULL,
     Role NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Colaborador', 'Diretoria/RH')),
