@@ -1,0 +1,8 @@
+CREATE TABLE ChamadoConversas (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    ChamadoID INT NOT NULL,
+    UsuarioCPF VARCHAR(11) NOT NULL,
+    Mensagem NVARCHAR(MAX) NOT NULL,
+    DataCriacao DATETIME NOT NULL,
+    FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID)
+);

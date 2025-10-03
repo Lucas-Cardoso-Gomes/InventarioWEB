@@ -1,0 +1,70 @@
+@model Web.Models.Chamado
+
+@{
+    ViewData["Title"] = "Detalhes do Chamado";
+}
+
+<h1>Detalhes do Chamado</h1>
+
+<div>
+    <h4>Chamado</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ID)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.ID)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.AdminNome)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.AdminNome)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ColaboradorNome)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.ColaboradorNome)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Servico)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Servico)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Descricao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Descricao)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Status)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Status)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataCriacao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataCriacao)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataAlteracao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataAlteracao)</dd>
+    </dl>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h3>Conversa</h3>
+        <iframe src="@Url.Action("Chat", "Chamados", new { id = Model.ID })" style="width:100%; height:500px; border:1px solid #ccc;"></iframe>
+    </div>
+    <div class="col-md-4">
+        <h3>Anexos</h3>
+        <div id="anexos-list">
+            @foreach (var anexo in Model.Anexos)
+            {
+                <div>
+                    <a href="@Url.Content(anexo.CaminhoArquivo)" target="_blank">@anexo.NomeArquivo</a>
+                </div>
+            }
+        </div>
+        <hr />
+        <h4>Adicionar Anexo</h4>
+        <form asp-action="UploadAnexo" asp-controller="Chamados" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="ChamadoID" value="@Model.ID" />
+            <div class="form-group">
+                <input type="file" name="file" class="form-control" />
+            </div>
+            <br>
+            <button type="submit" class="btn btn-primary">Adicionar</button>
+        </form>
+    </div>
+</div>
+
+<br>
+<div>
+    <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
+</div>

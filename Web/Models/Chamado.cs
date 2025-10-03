@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -49,5 +50,8 @@ namespace Web.Models
 
         [NotMapped]
         public string? ColaboradorNome { get; set; }
+
+        public ICollection<ChamadoConversa> Conversas { get; set; } = new List<ChamadoConversa>();
+        public ICollection<ChamadoAnexo> Anexos { get; set; } = new List<ChamadoAnexo>();
     }
 }

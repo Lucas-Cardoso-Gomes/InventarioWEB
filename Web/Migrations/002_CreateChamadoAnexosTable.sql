@@ -1,0 +1,8 @@
+CREATE TABLE ChamadoAnexos (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    ChamadoID INT NOT NULL,
+    NomeArquivo NVARCHAR(255) NOT NULL,
+    CaminhoArquivo NVARCHAR(1024) NOT NULL,
+    DataUpload DATETIME NOT NULL,
+    FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID)
+);

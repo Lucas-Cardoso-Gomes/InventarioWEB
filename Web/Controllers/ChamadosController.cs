@@ -11,6 +11,10 @@ using Web.Models;
 using Web.Services;
 using Microsoft.AspNetCore.SignalR;
 using Web.Hubs;
+using System.IO;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Web.Controllers
 {
@@ -22,14 +26,16 @@ namespace Web.Controllers
         private readonly IEmailService _emailService;
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly IConfiguration _configuration;
+        private readonly IWebHostEnvironment _hostingEnvironment;
 
-        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> hubContext)
+        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> hubContext, IWebHostEnvironment hostingEnvironment)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _emailService = emailService;
             _hubContext = hubContext;
+            _hostingEnvironment = hostingEnvironment;
         }
 
         public IActionResult Index(List<string> statuses, List<string> selectedAdmins)
@@ -384,6 +390,34 @@ namespace Web.Controllers
             return admins;
         }
 
+        // GET: Chamados/Chat/5
+        public IActionResult Chat(int id)
+        {
+            var conversas = GetConversasByChamadoId(id);
+            ViewBag.ChamadoID = id;
+            return PartialView("_Chat", conversas);
+        }
+
+        // GET: Chamados/Details/5
+        public IActionResult Details(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var chamado = FindChamadoById(id.Value);
+            if (chamado == null)
+            {
+                return NotFound();
+            }
+
+            chamado.Conversas = GetConversasByChamadoId(id.Value);
+            chamado.Anexos = GetAnexosByChamadoId(id.Value);
+
+            return View(chamado);
+        }
+
         // GET: Chamados/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(int? id)
@@ -603,6 +637,165 @@ namespace Web.Controllers
                 TempData["ErrorMessage"] = "Erro ao fechar o chamado.";
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        // GET: Chamados/GetServicos
+        [HttpGet]
+        public IActionResult GetServicos()
+        {
+            var servicos = new List<string>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT DISTINCT Servico FROM Chamados ORDER BY Servico";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                servicos.Add(reader["Servico"].ToString());
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de serviços.");
+                return StatusCode(500, "Erro interno do servidor");
+            }
+            return Json(servicos);
+        }
+
+        private List<ChamadoConversa> GetConversasByChamadoId(int chamadoId)
+        {
+            var conversas = new List<ChamadoConversa>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = @"SELECT cc.*, c.Nome as UsuarioNome
+                                   FROM ChamadoConversas cc
+                                   JOIN Colaboradores c ON cc.UsuarioCPF = c.CPF
+                                   WHERE cc.ChamadoID = @ChamadoID
+                                   ORDER BY cc.DataCriacao";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                conversas.Add(new ChamadoConversa
+                                {
+                                    ID = Convert.ToInt32(reader["ID"]),
+                                    ChamadoID = Convert.ToInt32(reader["ChamadoID"]),
+                                    UsuarioCPF = reader["UsuarioCPF"].ToString(),
+                                    Mensagem = reader["Mensagem"].ToString(),
+                                    DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    UsuarioNome = reader["UsuarioNome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter as conversas do chamado.");
+            }
+            return conversas;
+        }
+
+        private List<ChamadoAnexo> GetAnexosByChamadoId(int chamadoId)
+        {
+            var anexos = new List<ChamadoAnexo>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT * FROM ChamadoAnexos WHERE ChamadoID = @ChamadoID ORDER BY DataUpload";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                anexos.Add(new ChamadoAnexo
+                                {
+                                    ID = Convert.ToInt32(reader["ID"]),
+                                    ChamadoID = Convert.ToInt32(reader["ChamadoID"]),
+                                    NomeArquivo = reader["NomeArquivo"].ToString(),
+                                    CaminhoArquivo = reader["CaminhoArquivo"].ToString(),
+                                    DataUpload = Convert.ToDateTime(reader["DataUpload"])
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter os anexos do chamado.");
+            }
+            return anexos;
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadAnexo(int ChamadoID, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction("Details", new { id = ChamadoID });
+            }
+
+            var uploadsFolderPath = Path.Combine(_hostingEnvironment.WebRootPath, "attachments", ChamadoID.ToString());
+            if (!Directory.Exists(uploadsFolderPath))
+            {
+                Directory.CreateDirectory(uploadsFolderPath);
+            }
+
+            var uniqueFileName = Guid.NewGuid().ToString() + "_" + Path.GetFileName(file.FileName);
+            var filePath = Path.Combine(uploadsFolderPath, uniqueFileName);
+            var dbPath = $"/attachments/{ChamadoID}/{uniqueFileName}";
+
+            try
+            {
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    var sql = @"INSERT INTO ChamadoAnexos (ChamadoID, NomeArquivo, CaminhoArquivo, DataUpload)
+                                VALUES (@ChamadoID, @NomeArquivo, @CaminhoArquivo, @DataUpload)";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ChamadoID", ChamadoID);
+                        cmd.Parameters.AddWithValue("@NomeArquivo", file.FileName);
+                        cmd.Parameters.AddWithValue("@CaminhoArquivo", dbPath);
+                        cmd.Parameters.AddWithValue("@DataUpload", DateTime.Now);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao fazer upload do anexo.");
+                TempData["ErrorMessage"] = "Erro ao fazer upload do anexo.";
+            }
+
+            return RedirectToAction("Details", new { id = ChamadoID });
         }
     }
 }
