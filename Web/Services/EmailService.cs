@@ -33,7 +33,8 @@ namespace Web.Services
             var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
             {
                 Credentials = new NetworkCredential(_emailSettings.SmtpUser, _emailSettings.SmtpPass),
-                EnableSsl = true
+                EnableSsl = true,
+                Timeout = 10000 // Adiciona um timeout de 10 segundos
             };
 
             var mailMessage = new MailMessage

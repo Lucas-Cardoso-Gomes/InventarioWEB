@@ -300,34 +300,32 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    // Notificações em background após o sucesso da criação do chamado
+                    var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
+                    var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _emailService.SendEmailAsync(toEmail, "Novo Chamado Criado", message);
+                            await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Loga a falha na notificação sem quebrar a aplicação
+                            _logger.LogError(ex, "Falha ao enviar notificações em segundo plano para o novo chamado.");
+                        }
+                    });
+
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erro ao criar chamado.");
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o chamado.");
-                    if (User.IsInRole("Admin"))
-                    {
-                        ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
-                    }
-                    return View(chamado);
                 }
-
-                // Tenta enviar notificações, mas não impede o fluxo em caso de falha.
-                try
-                {
-                    var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
-                    var user = User.Identity.Name ?? "Sistema";
-                    var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
-
-                    await _emailService.SendEmailAsync(toEmail, "Novo Chamado Criado", message);
-                    await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Falha ao enviar notificações para o novo chamado. O chamado foi criado com sucesso.");
-                }
-
-                return RedirectToAction(nameof(Index));
             }
 
             if (User.IsInRole("Admin"))
