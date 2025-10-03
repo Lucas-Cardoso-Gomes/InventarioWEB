@@ -629,6 +629,33 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+                [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public IActionResult WorkingTicket(int id)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "UPDATE Chamados SET Status = 'Em Andamento', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao atualizar chamado.");
+                TempData["ErrorMessage"] = "Erro ao atualizar o chamado.";
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]

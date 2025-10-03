@@ -138,16 +138,22 @@
                     {
                         <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
                         <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
-                        @if (item.Status == "Aberto" || item.Status == "Em Andamento")
+                        @if (item.Status == "Aberto")
+                        {
+                            <form asp-action="WorkingTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-success btn-sm">Iniciar Atendimento</button>
+                            </form>
+                        }
+                        else@if (item.Status == "Em Andamento")
                         {
                             <form asp-action="CloseTicket" asp-route-id="@item.ID" method="post" class="d-inline">
-                                <button type="submit" class="btn btn-info btn-sm">Fechar Chamado</button>
+                                <button type="submit" class="btn btn-success btn-sm">Fechar Chamado</button>
                             </form>
                         }
                         else
                         {
                             <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
-                                <button type="submit" class="btn btn-success btn-sm">Reabrir Chamado</button>
+                                <button type="submit" class="btn btn-info btn-sm">Reabrir Chamado</button>
                             </form>
                         }
                     }
