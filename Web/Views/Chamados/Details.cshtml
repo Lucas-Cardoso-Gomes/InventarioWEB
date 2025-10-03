@@ -82,14 +82,11 @@
         const requestToken = uploadForm.dataset.requestToken;
         const chamadoId = document.querySelector('input[name="ChamadoID"]').value;
 
-        // Separate connection for attachment updates
         const attachmentConnection = new signalR.HubConnectionBuilder()
             .withUrl("/chatHub")
             .build();
 
         attachmentConnection.on("NewAttachment", function (fileName, filePath) {
-            // Avoid adding the attachment if it was uploaded by the current user
-            // as it's already added optimistically by the fetch success handler.
             if (document.querySelector(`a[href="${filePath}"]`)) {
                 return;
             }
@@ -127,10 +124,9 @@
             .then(data => {
                 if (data.success) {
                     uploadStatus.innerHTML = `<div class="alert alert-success">Upload do arquivo '${data.fileName}' concluído com sucesso.</div>`;
-                    // Optimistically add the new attachment to the list
-                    const newAnexo = `<div><a href="${data.filePath}" target="_blank">${data.fileName}</a></div>`;
-                    anexosList.insertAdjacentHTML('beforeend', newAnexo);
-                    fileInput.value = ''; // Limpa o input
+                    //const newAnexo = `<div><a href="${data.filePath}" target="_blank">${data.fileName}</a></div>`;
+                    //anexosList.insertAdjacentHTML('beforeend', newAnexo);
+                    fileInput.value = '';
                 } else {
                     uploadStatus.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
                 }
