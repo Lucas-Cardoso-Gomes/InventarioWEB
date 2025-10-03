@@ -17,7 +17,7 @@ namespace Web.Models
         public string PasswordHash { get; set; }
 
         [Required]
-        public string Role { get; set; } // "Admin", "Normal", "Coordenador" or "Diretoria"
+        public string Role { get; set; }
 
         public bool IsCoordinator { get; set; }
 
