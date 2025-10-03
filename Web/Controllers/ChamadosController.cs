@@ -715,6 +715,34 @@ namespace Web.Controllers
             return Json(servicos);
         }
 
+        private List<string> GetAllServicos()
+{
+    var servicos = new List<string>();
+    try
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            connection.Open();
+            string sql = "SELECT DISTINCT Servico FROM Chamados ORDER BY Servico";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        servicos.Add(reader["Servico"].ToString());
+                    }
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Erro ao obter a lista de serviços.");
+    }
+    return servicos;
+}
+
         private List<ChamadoConversa> GetConversasByChamadoId(int chamadoId)
         {
             var conversas = new List<ChamadoConversa>();
