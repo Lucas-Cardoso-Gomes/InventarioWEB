@@ -1,4 +1,11 @@
 @model IEnumerable<Web.Models.ChamadoConversa>
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@functions {
+    public string GetAntiXsrfRequestToken()
+    {
+        return Xsrf.GetAndStoreTokens(Context).RequestToken;
+    }
+}
 
 <div id="messages-list" style="height: 400px; overflow-y: scroll; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
     @foreach (var conversa in Model)
@@ -7,51 +14,9 @@
     }
 </div>
 
-<form id="send-message-form">
-    <input type="hidden" id="chamado-id" value="@ViewBag.ChamadoID" />
+<form id="send-message-form" data-chamado-id="@ViewBag.ChamadoID" data-request-token="@GetAntiXsrfRequestToken()">
     <div class="input-group">
         <input type="text" id="message-input" class="form-control" placeholder="Digite sua mensagem..." />
         <button type="submit" class="btn btn-primary">Enviar</button>
     </div>
 </form>
-
-<script src="~/js/signalr/dist/browser/signalr.js"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/chatHub")
-            .build();
-
-        const chamadoId = document.getElementById("chamado-id").value;
-
-        connection.on("ReceiveMessage", function (user, message, timestamp) {
-            const msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const encodedMsg = `<div><strong>${user}:</strong> ${msg} <span class="text-muted" style="font-size: 0.8em;">(${new Date(timestamp).toLocaleString()})</span></div>`;
-
-            const list = document.getElementById("messages-list");
-            list.innerHTML += encodedMsg;
-            list.scrollTop = list.scrollHeight;
-        });
-
-        connection.start().then(function () {
-            connection.invoke("JoinGroup", chamadoId).catch(function (err) {
-                return console.error(err.toString());
-            });
-        }).catch(function (err) {
-            return console.error(err.toString());
-        });
-
-        document.getElementById("send-message-form").addEventListener("submit", function (event) {
-            event.preventDefault();
-            const messageInput = document.getElementById("message-input");
-            const message = messageInput.value;
-
-            if (message) {
-                connection.invoke("SendMessage", parseInt(chamadoId), message).catch(function (err) {
-                    return console.error(err.toString());
-                });
-                messageInput.value = "";
-            }
-        });
-    });
-</script>

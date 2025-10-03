@@ -129,6 +129,25 @@ CREATE TABLE Chamados (
     Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado'))
 );
 
+CREATE TABLE ChamadoConversas (
+    ID INT PRIMARY KEY IDENTITY,
+    ChamadoID INT NOT NULL,
+    UsuarioCPF NVARCHAR(14) NOT NULL,
+    Mensagem NVARCHAR(MAX) NOT NULL,
+    DataCriacao DATETIME NOT NULL,
+    CONSTRAINT FK_ChamadoConversas_Chamado FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID) ON DELETE CASCADE,
+    CONSTRAINT FK_ChamadoConversas_Usuario FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
+);
+
+CREATE TABLE ChamadoAnexos (
+    ID INT PRIMARY KEY IDENTITY,
+    ChamadoID INT NOT NULL,
+    NomeArquivo NVARCHAR(255) NOT NULL,
+    CaminhoArquivo NVARCHAR(1024) NOT NULL,
+    DataUpload DATETIME NOT NULL,
+    CONSTRAINT FK_ChamadoAnexos_Chamado FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID) ON DELETE CASCADE
+);
+
 CREATE TABLE Rede (
     Id INT PRIMARY KEY IDENTITY,
     Tipo NVARCHAR(50) NOT NULL,

@@ -415,6 +415,8 @@ namespace Web.Controllers
             chamado.Conversas = GetConversasByChamadoId(id.Value);
             chamado.Anexos = GetAnexosByChamadoId(id.Value);
 
+            ViewBag.ChamadoID = id.Value;
+
             return View(chamado);
         }
 
@@ -753,8 +755,7 @@ namespace Web.Controllers
         {
             if (file == null || file.Length == 0)
             {
-                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
-                return RedirectToAction("Details", new { id = ChamadoID });
+                return Json(new { success = false, message = "Nenhum arquivo selecionado." });
             }
 
             var uploadsFolderPath = Path.Combine(_hostingEnvironment.WebRootPath, "attachments", ChamadoID.ToString());
@@ -788,14 +789,64 @@ namespace Web.Controllers
                         await cmd.ExecuteNonQueryAsync();
                     }
                 }
+
+                return Json(new { success = true, fileName = file.FileName, filePath = Url.Content(dbPath) });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao fazer upload do anexo.");
-                TempData["ErrorMessage"] = "Erro ao fazer upload do anexo.";
+                return Json(new { success = false, message = "Erro ao fazer upload do anexo." });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendChatMessage(int chamadoId, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return BadRequest("A mensagem não pode estar vazia.");
             }
 
-            return RedirectToAction("Details", new { id = ChamadoID });
+            var userCpf = User.FindFirstValue("ColaboradorCPF");
+            var userName = User.Identity.Name;
+            var timestamp = DateTime.Now;
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao)
+                                OUTPUT INSERTED.ID, INSERTED.DataCriacao
+                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao)";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
+                        cmd.Parameters.AddWithValue("@UsuarioCPF", userCpf);
+                        cmd.Parameters.AddWithValue("@Mensagem", message);
+                        cmd.Parameters.AddWithValue("@DataCriacao", timestamp);
+
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                var newId = reader.GetInt32(0);
+                                var newTimestamp = reader.GetDateTime(1);
+
+                                await _hubContext.Clients.Group(chamadoId.ToString()).SendAsync("ReceiveMessage", userName, message, newTimestamp.ToString("o"));
+                                return Ok(new { id = newId, timestamp = newTimestamp });
+                            }
+                        }
+                    }
+                }
+                return StatusCode(500, "Falha ao salvar a mensagem.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao enviar mensagem do chat.");
+                return StatusCode(500, "Erro interno do servidor.");
+            }
         }
     }
 }
