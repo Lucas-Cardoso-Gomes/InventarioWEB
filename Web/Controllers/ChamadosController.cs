@@ -24,17 +24,19 @@ namespace Web.Controllers
         private readonly string _connectionString;
         private readonly ILogger<ChamadosController> _logger;
         private readonly IEmailService _emailService;
-        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly IHubContext<NotificationHub> _notificationHubContext;
+        private readonly IHubContext<ChatHub> _chatHubContext;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _hostingEnvironment;
 
-        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> hubContext, IWebHostEnvironment hostingEnvironment)
+        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> notificationHubContext, IHubContext<ChatHub> chatHubContext, IWebHostEnvironment hostingEnvironment)
         {
             _configuration = configuration;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _emailService = emailService;
-            _hubContext = hubContext;
+            _notificationHubContext = notificationHubContext;
+            _chatHubContext = chatHubContext;
             _hostingEnvironment = hostingEnvironment;
         }
 
@@ -834,7 +836,7 @@ namespace Web.Controllers
                                 var newId = reader.GetInt32(0);
                                 var newTimestamp = reader.GetDateTime(1);
 
-                                await _hubContext.Clients.Group(chamadoId.ToString()).SendAsync("ReceiveMessage", userName, message, newTimestamp.ToString("o"));
+                                await _chatHubContext.Clients.Group(chamadoId.ToString()).SendAsync("ReceiveMessage", userName, message, newTimestamp.ToString("o"));
                                 return Ok(new { id = newId, timestamp = newTimestamp });
                             }
                         }
