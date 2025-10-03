@@ -1,91 +1,116 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using Google.Cloud.Firestore;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace Web.Models
 {
-    [FirestoreData]
     public class Colaborador
     {
-        [FirestoreDocumentId]
+        [Key]
+        [Required(ErrorMessage = "O CPF é obrigatório.")]
+        [StringLength(14)]
         public string CPF { get; set; }
 
-        [FirestoreProperty]
         [Required(ErrorMessage = "O Nome é obrigatório.")]
+        [StringLength(100)]
         public string Nome { get; set; }
 
-        [FirestoreProperty]
         [EmailAddress(ErrorMessage = "E-mail inválido.")]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Email { get; set; }
         
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaEmail { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Teams { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaTeams { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? EDespacho { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaEDespacho { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Genius { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaGenius { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Ibrooker { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaIbrooker { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Adicional { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? SenhaAdicional { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Filial { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Setor { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Smartphone { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? TelefoneFixo { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Ramal { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Alarme { get; set; }
 
-        [FirestoreProperty]
+        [StringLength(100)]
+        [ValidateNever]
         public string? Videoporteiro { get; set; }
         
-        [FirestoreProperty]
+        [ValidateNever]
         public string? Obs { get; set; }
 
-        [FirestoreProperty]
+        [ValidateNever]
         public DateTime? DataInclusao { get; set; }
 
-        [FirestoreProperty]
+        [ValidateNever]
         public DateTime? DataAlteracao { get; set; }
 
-        [FirestoreProperty]
+        [ValidateNever]
         [Display(Name = "Coordenador")]
         public string? CoordenadorCPF { get; set; }
+
+        [ForeignKey("CoordenadorCPF")]
+        [ValidateNever]
+        public virtual Colaborador? Coordenador { get; set; }
         
-        [FirestoreDocumentIgnore]
+        [NotMapped]
         public string? CoordenadorNome { get; set; }
     }
 }

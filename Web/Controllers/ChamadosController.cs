@@ -1,278 +1,572 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
-using Google.Cloud.Firestore;
-using System.Linq;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class ChamadosController : Controller
     {
-        private readonly FirestoreDb _firestoreDb;
+        private readonly string _connectionString;
         private readonly ILogger<ChamadosController> _logger;
-        private const string CollectionName = "chamados";
-        private const string ColaboradoresCollection = "colaboradores";
 
-        public ChamadosController(FirestoreDb firestoreDb, ILogger<ChamadosController> logger)
+        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger)
         {
-            _firestoreDb = firestoreDb;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
         }
 
-        public async Task<IActionResult> Index(List<string> statuses, List<string> selectedAdmins)
+        public IActionResult Index(List<string> statuses, List<string> selectedAdmins)
         {
             if (statuses == null || !statuses.Any())
             {
                 statuses = new List<string> { "Aberto", "Em Andamento" };
             }
             ViewBag.SelectedStatuses = statuses;
-            ViewBag.Admins = await GetAdminsFromChamadosAsync();
+            ViewBag.Admins = GetAdminsFromChamados();
             ViewBag.SelectedAdmins = selectedAdmins;
+
 
             var chamados = new List<Chamado>();
             var userCpf = User.FindFirstValue("ColaboradorCPF");
 
             try
             {
-                Query query = _firestoreDb.Collection(CollectionName);
-                var snapshot = await query.GetSnapshotAsync();
-                var allChamados = new List<Chamado>();
-
-                foreach (var document in snapshot.Documents)
+                using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
-                    var chamado = document.ConvertTo<Chamado>();
-                    chamado.ID = document.Id;
-                    allChamados.Add(chamado);
-                }
+                    connection.Open();
+                    var sqlBuilder = new System.Text.StringBuilder(@"SELECT c.*,
+                                          a.Nome as AdminNome,
+                                          co.Nome as ColaboradorNome
+                                   FROM Chamados c
+                                   LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
+                                   INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF");
 
-                // Role-based filtering
-                if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                {
-                    allChamados = allChamados.Where(c => c.ColaboradorCPF == userCpf).ToList();
-                }
-                // (Add more complex role logic for Coordenador if needed)
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
 
-                // Status and Admin filtering
-                if (statuses.Any())
-                {
-                    allChamados = allChamados.Where(c => statuses.Contains(c.Status)).ToList();
-                }
-                if (selectedAdmins != null && selectedAdmins.Any())
-                {
-                    allChamados = allChamados.Where(c => c.AdminCPF != null && selectedAdmins.Contains(c.AdminCPF)).ToList();
-                }
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("c.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("(co.CoordenadorCPF = @UserCpf OR c.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
 
-                // Enrich with names
-                foreach (var chamado in allChamados)
-                {
-                    if (!string.IsNullOrEmpty(chamado.ColaboradorCPF))
-                        chamado.ColaboradorNome = await GetColaboradorName(chamado.ColaboradorCPF);
-                    if (!string.IsNullOrEmpty(chamado.AdminCPF))
-                        chamado.AdminNome = await GetColaboradorName(chamado.AdminCPF);
-                }
+                    if (statuses.Any())
+                    {
+                        var statusClauses = new List<string>();
+                        for(int i = 0; i < statuses.Count; i++)
+                        {
+                            var paramName = $"@Status{i}";
+                            statusClauses.Add(paramName);
+                            parameters.Add(paramName, statuses[i]);
+                        }
+                        whereClauses.Add($"c.Status IN ({string.Join(", ", statusClauses)})");
+                    }
 
-                chamados = allChamados;
+                    if (selectedAdmins != null && selectedAdmins.Any())
+                    {
+                        var adminClauses = new List<string>();
+                        for (int i = 0; i < selectedAdmins.Count; i++)
+                        {
+                            var paramName = $"@AdminCPF{i}";
+                            adminClauses.Add(paramName);
+                            parameters.Add(paramName, selectedAdmins[i]);
+                        }
+                        whereClauses.Add($"c.AdminCPF IN ({string.Join(", ", adminClauses)})");
+                    }
+
+                    if (whereClauses.Any())
+                    {
+                        sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
+                    }
+
+                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
+                    {
+                        foreach(var p in parameters)
+                        {
+                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        }
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                chamados.Add(new Chamado
+                                {
+                                    ID = Convert.ToInt32(reader["ID"]),
+                                    AdminCPF = reader["AdminCPF"] != DBNull.Value ? reader["AdminCPF"].ToString() : null,
+                                    ColaboradorCPF = reader["ColaboradorCPF"].ToString(),
+                                    Servico = reader["Servico"].ToString(),
+                                    Descricao = reader["Descricao"].ToString(),
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    Status = reader["Status"].ToString(),
+                                    AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de chamados do Firestore.");
+                _logger.LogError(ex, "Erro ao obter a lista de chamados.");
             }
 
             return View(chamados);
         }
 
         [Authorize(Roles = "Admin,Coordenador")]
-        public async Task<IActionResult> Dashboard(DateTime? startDate, DateTime? endDate)
+        public IActionResult Dashboard(DateTime? startDate, DateTime? endDate, int? year, int? month, int? day)
         {
             var viewModel = new ChamadoDashboardViewModel();
-            try
+            var whereClauses = new List<string>();
+            var parameters = new Dictionary<string, object>();
+
+            if (startDate.HasValue)
             {
-                Query query = _firestoreDb.Collection(CollectionName);
-                if (startDate.HasValue) query = query.WhereGreaterThanOrEqualTo("DataCriacao", startDate.Value);
-                if (endDate.HasValue) query = query.WhereLessThanOrEqualTo("DataCriacao", endDate.Value.AddDays(1));
-
-                var snapshot = await query.GetSnapshotAsync();
-                var chamados = snapshot.Documents.Select(doc => doc.ConvertTo<Chamado>()).ToList();
-
-                viewModel.TotalChamados = chamados.Count;
-                viewModel.Top10Servicos = chamados.GroupBy(c => c.Servico)
-                                                  .Select(g => new ChartData { Label = g.Key, Value = g.Count() })
-                                                  .OrderByDescending(x => x.Value).Take(10).ToList();
-
-                // These require fetching collaborator names, which can be slow.
-                // For a real app, denormalization would be better.
-                var adminCpfCounts = chamados.Where(c => c.AdminCPF != null).GroupBy(c => c.AdminCPF)
-                                             .ToDictionary(g => g.Key, g => g.Count());
-                viewModel.TotalChamadosPorAdmin = new List<ChartData>();
-                foreach(var item in adminCpfCounts)
-                {
-                    viewModel.TotalChamadosPorAdmin.Add(new ChartData { Label = await GetColaboradorName(item.Key) ?? item.Key, Value = item.Value });
-                }
-
-                var colabCpfCounts = chamados.GroupBy(c => c.ColaboradorCPF)
-                                             .ToDictionary(g => g.Key, g => g.Count());
-                viewModel.Top10Colaboradores = new List<ChartData>();
-                foreach(var item in colabCpfCounts.OrderByDescending(x => x.Value).Take(10))
-                {
-                     viewModel.Top10Colaboradores.Add(new ChartData { Label = await GetColaboradorName(item.Key) ?? item.Key, Value = item.Value });
-                }
+                whereClauses.Add("c.DataCriacao >= @StartDate");
+                parameters.Add("@StartDate", startDate.Value);
             }
-            catch (Exception ex)
+            if (endDate.HasValue)
             {
-                 _logger.LogError(ex, "Erro ao gerar dashboard de chamados do Firestore.");
+                whereClauses.Add("c.DataCriacao <= @EndDate");
+                parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1));
+            }
+            if (year.HasValue)
+            {
+                whereClauses.Add("YEAR(c.DataCriacao) = @Year");
+                parameters.Add("@Year", year.Value);
+            }
+            if (month.HasValue)
+            {
+                whereClauses.Add("MONTH(c.DataCriacao) = @Month");
+                parameters.Add("@Month", month.Value);
+            }
+            if (day.HasValue)
+            {
+                whereClauses.Add("DAY(c.DataCriacao) = @Day");
+                parameters.Add("@Day", day.Value);
+            }
+
+            string whereSql = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Total de Chamados
+                string totalSql = $"SELECT COUNT(*) FROM Chamados c {whereSql}";
+                using (var cmd = new SqlCommand(totalSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    viewModel.TotalChamados = (int)cmd.ExecuteScalar();
+                }
+
+                // Top 10 Serviços
+                string topServicosSql = $@"SELECT TOP 10 Servico, COUNT(*) as Count
+                                           FROM Chamados c {whereSql}
+                                           GROUP BY Servico
+                                           ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(topServicosSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.Top10Servicos.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
+
+                // Total de Chamados por Admin
+                string porAdminSql = $@"SELECT a.Nome, COUNT(c.ID) as Count
+                                        FROM Chamados c
+                                        JOIN Colaboradores a ON c.AdminCPF = a.CPF
+                                        {whereSql}
+                                        GROUP BY a.Nome
+                                        ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(porAdminSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.TotalChamadosPorAdmin.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
+
+                // Top 10 Colaboradores
+                string topColaboradoresSql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
+                                                FROM Chamados c
+                                                JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                                                {whereSql}
+                                                GROUP BY co.Nome
+                                                ORDER BY Count DESC";
+                using (var cmd = new SqlCommand(topColaboradoresSql, connection))
+                {
+                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            viewModel.Top10Colaboradores.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                        }
+                    }
+                }
             }
 
             return View(viewModel);
         }
 
+        // GET: Chamados/Create
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewBag.Colaboradores = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome");
+            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome");
             return View();
         }
 
+        // POST: Chamados/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create(Chamado chamado)
+        public IActionResult Create(Chamado chamado)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    chamado.AdminCPF = User.FindFirstValue("ColaboradorCPF");
-                    chamado.DataCriacao = DateTime.UtcNow;
-                    await _firestoreDb.Collection(CollectionName).AddAsync(chamado);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status)
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
+                            cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
+                            cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao criar chamado no Firestore.");
+                    _logger.LogError(ex, "Erro ao criar chamado.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o chamado.");
                 }
             }
-            ViewBag.Colaboradores = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", chamado.ColaboradorCPF);
+            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
             return View(chamado);
         }
 
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id)
+        private List<Colaborador> GetColaboradores()
         {
-            if (string.IsNullOrEmpty(id)) return NotFound();
-            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
-            if (!doc.Exists) return NotFound();
+            var colaboradores = new List<Colaborador>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                colaboradores.Add(new Colaborador
+                                {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de colaboradores.");
+            }
+            return colaboradores;
+        }
 
-            var chamado = doc.ConvertTo<Chamado>();
-            chamado.ID = doc.Id;
-            ViewBag.Colaboradores = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", chamado.ColaboradorCPF);
+        private List<Colaborador> GetAdminsFromChamados()
+        {
+            var admins = new List<Colaborador>();
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = @"SELECT DISTINCT a.CPF, a.Nome
+                                   FROM Colaboradores a
+                                   INNER JOIN Chamados c ON a.CPF = c.AdminCPF
+                                   ORDER BY a.Nome";
+                    using (var cmd = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                admins.Add(new Colaborador
+                                {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter a lista de admins de chamados.");
+            }
+            return admins;
+        }
+
+        // GET: Chamados/Edit/5
+        [Authorize(Roles = "Admin")]
+        public IActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var chamado = FindChamadoById(id.Value);
+            if (chamado == null)
+            {
+                return NotFound();
+            }
+            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
             return View(chamado);
         }
 
+        // POST: Chamados/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id, Chamado chamado)
+        public IActionResult Edit(int id, Chamado chamado)
         {
-            if (id != chamado.ID) return NotFound();
+            if (id != chamado.ID)
+            {
+                return NotFound();
+            }
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    var docRef = _firestoreDb.Collection(CollectionName).Document(id);
-                    chamado.DataAlteracao = DateTime.UtcNow;
-                    chamado.AdminCPF = User.FindFirstValue("ColaboradorCPF");
-                    await docRef.SetAsync(chamado, SetOptions.MergeAll);
-                    return RedirectToAction(nameof(Index));
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+
+                        string sql = @"UPDATE Chamados SET
+                                       AdminCPF = @AdminCPF,
+                                       ColaboradorCPF = @ColaboradorCPF,
+                                       Servico = @Servico,
+                                       Descricao = @Descricao,
+                                       DataAlteracao = @DataAlteracao,
+                                       Status = @Status
+                                       WHERE ID = @ID";
+
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
+                            cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
+                            cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
+                            cmd.Parameters.AddWithValue("@ID", id);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao editar chamado no Firestore.");
+                    _logger.LogError(ex, "Erro ao editar chamado.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o chamado.");
+                    ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
+                    return View(chamado);
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
+            return View(chamado);
+        }
+
+        private Chamado FindChamadoById(int id)
+        {
+            Chamado chamado = null;
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = @"SELECT c.*,
+                                          a.Nome as AdminNome,
+                                          co.Nome as ColaboradorNome
+                                   FROM Chamados c
+                                   LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
+                                   INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                                   WHERE c.ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                chamado = new Chamado
+                                {
+                                    ID = Convert.ToInt32(reader["ID"]),
+                                    AdminCPF = reader["AdminCPF"] != DBNull.Value ? reader["AdminCPF"].ToString() : null,
+                                    ColaboradorCPF = reader["ColaboradorCPF"].ToString(),
+                                    Servico = reader["Servico"].ToString(),
+                                    Descricao = reader["Descricao"].ToString(),
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    Status = reader["Status"].ToString(),
+                                    AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"].ToString()
+                                };
+                            }
+                        }
+                    }
                 }
             }
-            ViewBag.Colaboradores = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", chamado.ColaboradorCPF);
-            return View(chamado);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar chamado por ID.");
+            }
+            return chamado;
         }
 
+        // GET: Chamados/Delete/5
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete(string id)
+        public IActionResult Delete(int? id)
         {
-             if (string.IsNullOrEmpty(id)) return NotFound();
-            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
-            if (!doc.Exists) return NotFound();
+            if (id == null)
+            {
+                return NotFound();
+            }
 
-            var chamado = doc.ConvertTo<Chamado>();
-            chamado.ID = doc.Id;
+            var chamado = FindChamadoById(id.Value);
+            if (chamado == null)
+            {
+                return NotFound();
+            }
+
             return View(chamado);
         }
 
+        // POST: Chamados/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteConfirmed(string id)
+        public IActionResult DeleteConfirmed(int id)
         {
             try
             {
-                await _firestoreDb.Collection(CollectionName).Document(id).DeleteAsync();
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "DELETE FROM Chamados WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao excluir chamado do Firestore.");
+                _logger.LogError(ex, "Erro ao excluir chamado.");
+                ViewBag.ErrorMessage = "Erro ao excluir o chamado.";
+                var chamado = FindChamadoById(id);
+                return View(chamado);
             }
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<List<Colaborador>> GetColaboradoresAsync()
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public IActionResult ReopenTicket(int id)
         {
-            var colaboradores = new List<Colaborador>();
-            var snapshot = await _firestoreDb.Collection(ColaboradoresCollection).OrderBy("Nome").GetSnapshotAsync();
-            foreach (var document in snapshot.Documents)
+            try
             {
-                var colab = document.ConvertTo<Colaborador>();
-                colab.CPF = document.Id;
-                colaboradores.Add(colab);
-            }
-            return colaboradores;
-        }
-
-        private async Task<List<Colaborador>> GetAdminsFromChamadosAsync()
-        {
-            var adminCpfs = new HashSet<string>();
-            var snapshot = await _firestoreDb.Collection(CollectionName).Select("AdminCPF").GetSnapshotAsync();
-            foreach(var doc in snapshot.Documents)
-            {
-                if(doc.TryGetValue("AdminCPF", out string cpf) && !string.IsNullOrEmpty(cpf))
+                using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
-                    adminCpfs.Add(cpf);
+                    connection.Open();
+                    string sql = "UPDATE Chamados SET Status = 'Aberto', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
             }
-
-            var admins = new List<Colaborador>();
-            foreach(var cpf in adminCpfs)
+            catch (Exception ex)
             {
-                var adminDoc = await _firestoreDb.Collection(ColaboradoresCollection).Document(cpf).GetSnapshotAsync();
-                if(adminDoc.Exists)
-                {
-                    var admin = adminDoc.ConvertTo<Colaborador>();
-                    admin.CPF = adminDoc.Id;
-                    admins.Add(admin);
-                }
+                _logger.LogError(ex, "Erro ao reabrir chamado.");
+                TempData["ErrorMessage"] = "Erro ao reabrir o chamado.";
             }
-            return admins.OrderBy(a => a.Nome).ToList();
+            return RedirectToAction(nameof(Index));
         }
 
-        private async Task<string> GetColaboradorName(string cpf)
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        [ValidateAntiForgeryToken]
+        public IActionResult CloseTicket(int id)
         {
-            if (string.IsNullOrEmpty(cpf)) return null;
-            var doc = await _firestoreDb.Collection(ColaboradoresCollection).Document(cpf).GetSnapshotAsync();
-            return doc.Exists ? doc.GetValue<string>("Nome") : null;
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "UPDATE Chamados SET Status = 'Fechado', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao fechar chamado.");
+                // Optionally, add a message to the user that something went wrong
+                TempData["ErrorMessage"] = "Erro ao fechar o chamado.";
+            }
+            return RedirectToAction(nameof(Index));
         }
     }
 }

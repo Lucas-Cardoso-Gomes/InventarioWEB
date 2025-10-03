@@ -1,30 +1,30 @@
 using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Web.Models;
+using Web.Services;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.Extensions.Logging;
-using Web.Models;
-using Google.Cloud.Firestore;
-using OfficeOpenXml;
-using FirebaseAdmin.Auth;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador")]
     public class ColaboradoresController : Controller
     {
-        private readonly FirestoreDb _firestoreDb;
+        private readonly string _connectionString;
         private readonly ILogger<ColaboradoresController> _logger;
-        private const string CollectionName = "colaboradores";
 
-        public ColaboradoresController(FirestoreDb firestoreDb, ILogger<ColaboradoresController> logger)
+        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
         {
-            _firestoreDb = firestoreDb;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
         }
 
@@ -34,63 +34,86 @@ namespace Web.Controllers
             return new string(cpf.Where(char.IsDigit).ToArray());
         }
 
-        public async Task<IActionResult> Index(string searchString)
+        // GET: Colaboradores
+        public IActionResult Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
             var colaboradores = new List<Colaborador>();
             try
             {
-                Query query = _firestoreDb.Collection(CollectionName);
-                // Firestore does not support case-insensitive "LIKE" queries directly.
-                // A more robust solution would involve using a third-party search service like Algolia or Elasticsearch,
-                // or storing a normalized, lowercase version of the fields for searching.
-                // For this migration, we will fetch all and filter in memory.
-                var snapshot = await query.GetSnapshotAsync();
-
-                foreach (var document in snapshot.Documents)
+                using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
-                    var colab = document.ConvertTo<Colaborador>();
-                    colab.CPF = document.Id;
-
-                    if (!string.IsNullOrEmpty(colab.CoordenadorCPF))
+                    connection.Open();
+                    string sql = "SELECT c.*, co.Nome as CoordenadorNome FROM Colaboradores c LEFT JOIN Colaboradores co ON c.CoordenadorCPF = co.CPF";
+                    if (!string.IsNullOrEmpty(searchString))
                     {
-                        var coordenadorDoc = await _firestoreDb.Collection(CollectionName).Document(colab.CoordenadorCPF).GetSnapshotAsync();
-                        if(coordenadorDoc.Exists)
+                        sql += " WHERE c.Nome LIKE @search OR c.CPF LIKE @search OR c.Email LIKE @search";
+                    }
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        if (!string.IsNullOrEmpty(searchString))
                         {
-                            colab.CoordenadorNome = coordenadorDoc.GetValue<string>("Nome");
+                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
+                        }
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                colaboradores.Add(new Colaborador
+                                {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString(),
+                                    Email = reader["Email"].ToString(),
+                                    SenhaEmail = reader["SenhaEmail"].ToString(),
+                                    Teams = reader["Teams"].ToString(),
+                                    SenhaTeams = reader["SenhaTeams"].ToString(),
+                                    EDespacho = reader["EDespacho"].ToString(),
+                                    SenhaEDespacho = reader["SenhaEDespacho"].ToString(),
+                                    Genius = reader["Genius"].ToString(),
+                                    SenhaGenius = reader["SenhaGenius"].ToString(),
+                                    Ibrooker = reader["Ibrooker"].ToString(),
+                                    SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
+                                    Adicional = reader["Adicional"].ToString(),
+                                    SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                    Filial = reader["Filial"].ToString(),
+                                    Setor = reader["Setor"].ToString(),
+                                    Smartphone = reader["Smartphone"].ToString(),
+                                    TelefoneFixo = reader["TelefoneFixo"].ToString(),
+                                    Ramal = reader["Ramal"].ToString(),
+                                    Alarme = reader["Alarme"].ToString(),
+                                    Videoporteiro = reader["Videoporteiro"].ToString(),
+                                    Obs = reader["Obs"].ToString(),
+                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    CoordenadorCPF = reader["CoordenadorCPF"] != DBNull.Value ? reader["CoordenadorCPF"].ToString() : null,
+                                    CoordenadorNome = reader["CoordenadorNome"] != DBNull.Value ? reader["CoordenadorNome"].ToString() : null
+                                });
+                            }
                         }
                     }
-                    colaboradores.Add(colab);
-                }
-
-                if (!string.IsNullOrEmpty(searchString))
-                {
-                    var lowerSearch = searchString.ToLower();
-                    colaboradores = colaboradores.Where(c =>
-                        c.Nome.ToLower().Contains(lowerSearch) ||
-                        c.CPF.Contains(lowerSearch) ||
-                        (c.Email != null && c.Email.ToLower().Contains(lowerSearch))
-                    ).ToList();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de colaboradores do Firestore.");
+                _logger.LogError(ex, "Erro ao obter a lista de colaboradores.");
             }
             return View(colaboradores);
         }
 
+        // GET: Colaboradores/Create
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewBag.Coordenadores = new SelectList(await GetCoordenadoresAsync(), "CPF", "Nome");
+            ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome");
             return View();
         }
 
+        // POST: Colaboradores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create(Colaborador colaborador)
+        public IActionResult Create(Colaborador colaborador)
         {
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
             colaborador.CoordenadorCPF = SanitizeCpf(colaborador.CoordenadorCPF);
@@ -99,38 +122,46 @@ namespace Web.Controllers
             {
                 try
                 {
-                    var docRef = _firestoreDb.Collection(CollectionName).Document(colaborador.CPF);
-                    colaborador.DataInclusao = DateTime.UtcNow;
-                    await docRef.SetAsync(colaborador, SetOptions.MergeAll);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorCPF) 
+                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorCPF)";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            AddColaboradorParameters(cmd, colaborador);
+                            cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao criar colaborador no Firestore.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o colaborador.");
+                    _logger.LogError(ex, "Erro ao criar colaborador.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o colaborador. Verifique se o CPF já existe.");
                 }
             }
-            ViewBag.Coordenadores = new SelectList(await GetCoordenadoresAsync(), "CPF", "Nome", colaborador.CoordenadorCPF);
+            ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome", colaborador.CoordenadorCPF);
             return View(colaborador);
         }
 
+        // GET: Colaboradores/Edit/5
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id)
+        public IActionResult Edit(string id)
         {
             if (id == null) return NotFound();
-            var doc = await _firestoreDb.Collection(CollectionName).Document(SanitizeCpf(id)).GetSnapshotAsync();
-            if (!doc.Exists) return NotFound();
-
-            var colaborador = doc.ConvertTo<Colaborador>();
-            colaborador.CPF = doc.Id;
-            ViewBag.Coordenadores = new SelectList(await GetCoordenadoresAsync(), "CPF", "Nome", colaborador.CoordenadorCPF);
+            Colaborador colaborador = FindColaboradorById(SanitizeCpf(id));
+            if (colaborador == null) return NotFound();
+            ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome", colaborador.CoordenadorCPF);
             return View(colaborador);
         }
 
+        // POST: Colaboradores/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id, Colaborador colaborador)
+        public IActionResult Edit(string id, Colaborador colaborador)
         {
             var sanitizedId = SanitizeCpf(id);
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
@@ -142,79 +173,171 @@ namespace Web.Controllers
             {
                 try
                 {
-                    var docRef = _firestoreDb.Collection(CollectionName).Document(sanitizedId);
-                    colaborador.DataAlteracao = DateTime.UtcNow;
-                    await docRef.SetAsync(colaborador, SetOptions.MergeAll);
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = @"UPDATE Colaboradores SET 
+                                       Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
+                                       EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
+                                       Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
+                                       Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
+                                       Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF
+                                       WHERE CPF = @CPF";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            AddColaboradorParameters(cmd, colaborador);
+                            cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao editar colaborador no Firestore.");
+                    _logger.LogError(ex, "Erro ao editar colaborador.");
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o colaborador.");
                 }
             }
-            ViewBag.Coordenadores = new SelectList(await GetCoordenadoresAsync(), "CPF", "Nome", colaborador.CoordenadorCPF);
+            ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome", colaborador.CoordenadorCPF);
             return View(colaborador);
         }
 
+        // GET: Colaboradores/Delete/5
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete(string id)
+        public IActionResult Delete(string id)
         {
             if (id == null) return NotFound();
-            var doc = await _firestoreDb.Collection(CollectionName).Document(SanitizeCpf(id)).GetSnapshotAsync();
-            if (!doc.Exists) return NotFound();
-
-            var colaborador = doc.ConvertTo<Colaborador>();
-            colaborador.CPF = doc.Id;
+            Colaborador colaborador = FindColaboradorById(SanitizeCpf(id));
+            if (colaborador == null) return NotFound();
             return View(colaborador);
         }
 
+        // POST: Colaboradores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteConfirmed(string id)
+        public IActionResult DeleteConfirmed(string id)
         {
             var sanitizedId = SanitizeCpf(id);
             try
             {
-                // Note: Deleting a colaborador might leave dangling references in other collections (Computadores, etc.)
-                // A more robust solution would use Cloud Functions to clean up related data.
-                await _firestoreDb.Collection(CollectionName).Document(sanitizedId).DeleteAsync();
+                var colaborador = FindColaboradorById(sanitizedId);
+                if (colaborador != null)
+                {
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF";
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@CPF", sanitizedId);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                }
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao excluir colaborador do Firestore.");
-                var doc = await _firestoreDb.Collection(CollectionName).Document(sanitizedId).GetSnapshotAsync();
-                var colaborador = doc.ConvertTo<Colaborador>();
-                colaborador.CPF = doc.Id;
-                ViewBag.ErrorMessage = "Erro ao excluir. Verifique as dependências.";
+                _logger.LogError(ex, "Erro ao excluir colaborador.");
+                Colaborador colaborador = FindColaboradorById(sanitizedId);
+                ViewBag.ErrorMessage = "Erro ao excluir. Verifique se o colaborador está associado a computadores, monitores ou periféricos.";
                 return View(colaborador);
             }
         }
 
-        private async Task<List<Colaborador>> GetCoordenadoresAsync()
+        private Colaborador FindColaboradorById(string id, SqlConnection connection = null, SqlTransaction transaction = null)
+        {
+            Colaborador colaborador = null;
+            bool ownConnection = false;
+            if (connection == null)
+            {
+                connection = new SqlConnection(_connectionString);
+                ownConnection = true;
+            }
+
+            try
+            {
+                if (ownConnection)
+                {
+                    connection.Open();
+                }
+
+                string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF";
+                using (var cmd = new SqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@CPF", id);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            colaborador = new Colaborador
+                            {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString(),
+                                Email = reader["Email"].ToString(),
+                                SenhaEmail = reader["SenhaEmail"].ToString(),
+                                Teams = reader["Teams"].ToString(),
+                                SenhaTeams = reader["SenhaTeams"].ToString(),
+                                EDespacho = reader["EDespacho"].ToString(),
+                                SenhaEDespacho = reader["SenhaEDespacho"].ToString(),
+                                Genius = reader["Genius"].ToString(),
+                                SenhaGenius = reader["SenhaGenius"].ToString(),
+                                Ibrooker = reader["Ibrooker"].ToString(),
+                                SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
+                                Adicional = reader["Adicional"].ToString(),
+                                SenhaAdicional = reader["SenhaAdicional"].ToString(),
+                                Filial = reader["Filial"].ToString(),
+                                Setor = reader["Setor"].ToString(),
+                                Smartphone = reader["Smartphone"].ToString(),
+                                TelefoneFixo = reader["TelefoneFixo"].ToString(),
+                                Ramal = reader["Ramal"].ToString(),
+                                Alarme = reader["Alarme"].ToString(),
+                                Videoporteiro = reader["Videoporteiro"].ToString(),
+                                Obs = reader["Obs"].ToString(),
+                                DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
+                                DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                CoordenadorCPF = reader["CoordenadorCPF"] != DBNull.Value ? reader["CoordenadorCPF"].ToString() : null
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar colaborador por ID.");
+                if (transaction != null) throw;
+            }
+            finally
+            {
+                if (ownConnection)
+                {
+                    connection.Close();
+                }
+            }
+            return colaborador;
+        }
+
+        private List<Colaborador> GetCoordenadores()
         {
             var coordenadores = new List<Colaborador>();
             try
             {
-                // This is inefficient. In a real-world scenario, you'd denormalize the "isCoordinator" role
-                // into the "colaboradores" collection, updated by a Cloud Function when claims change.
-                var pagedEnumerable = FirebaseAuth.DefaultInstance.ListUsersAsync(null);
-                var enumerator = pagedEnumerable.GetEnumerator();
-                while (await enumerator.MoveNext())
+                using (var connection = new SqlConnection(_connectionString))
                 {
-                    var user = enumerator.Current;
-                    if (user.CustomClaims.TryGetValue("role", out var role) && role.ToString() == "Coordenador")
+                    connection.Open();
+                    string sql = "SELECT c.CPF, c.Nome FROM Colaboradores c INNER JOIN Usuarios u ON c.CPF = u.ColaboradorCPF WHERE u.Role = 'Coordenador' OR u.IsCoordinator = 1 ORDER BY c.Nome";
+                    using (var cmd = new SqlCommand(sql, connection))
                     {
-                        if (user.CustomClaims.TryGetValue("ColaboradorCPF", out var cpf) && !string.IsNullOrEmpty(cpf.ToString()))
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            var doc = await _firestoreDb.Collection(CollectionName).Document(cpf.ToString()).GetSnapshotAsync();
-                            if(doc.Exists)
+                            while (reader.Read())
                             {
-                                var colab = doc.ConvertTo<Colaborador>();
-                                colab.CPF = doc.Id;
-                                coordenadores.Add(colab);
+                                coordenadores.Add(new Colaborador
+                                {
+                                    CPF = reader["CPF"].ToString(),
+                                    Nome = reader["Nome"].ToString()
+                                });
                             }
                         }
                     }
@@ -222,9 +345,9 @@ namespace Web.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de coordenadores do Firestore/Auth.");
+                _logger.LogError(ex, "Erro ao obter a lista de coordenadores.");
             }
-            return coordenadores.OrderBy(c => c.Nome).ToList();
+            return coordenadores;
         }
 
         [HttpPost]
@@ -238,43 +361,148 @@ namespace Web.Controllers
             }
 
             var colaboradores = new List<Colaborador>();
-            // ... (Excel parsing logic remains the same)
-
-            int adicionados = 0;
-            int atualizados = 0;
-
-            var writeBatch = _firestoreDb.StartBatch();
-
             try
             {
-                foreach (var colaborador in colaboradores)
+                using (var stream = new MemoryStream())
                 {
-                    var docRef = _firestoreDb.Collection(CollectionName).Document(colaborador.CPF);
-                    var snapshot = await docRef.GetSnapshotAsync();
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
 
-                    if (snapshot.Exists)
-                    {
-                        colaborador.DataAlteracao = DateTime.UtcNow;
-                        writeBatch.Set(docRef, colaborador, SetOptions.MergeAll);
-                        atualizados++;
-                    }
-                    else
-                    {
-                        colaborador.DataInclusao = DateTime.UtcNow;
-                        writeBatch.Set(docRef, colaborador);
-                        adicionados++;
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var colaborador = new Colaborador
+                            {
+                                CPF = SanitizeCpf(worksheet.Cells[row, 1].Value?.ToString().Trim()),
+                                Nome = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                Email = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                SenhaEmail = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Teams = worksheet.Cells[row, 5].Value?.ToString().Trim(),
+                                SenhaTeams = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                EDespacho = worksheet.Cells[row, 7].Value?.ToString().Trim(),
+                                SenhaEDespacho = worksheet.Cells[row, 8].Value?.ToString().Trim(),
+                                Genius = worksheet.Cells[row, 9].Value?.ToString().Trim(),
+                                SenhaGenius = worksheet.Cells[row, 10].Value?.ToString().Trim(),
+                                Ibrooker = worksheet.Cells[row, 11].Value?.ToString().Trim(),
+                                SenhaIbrooker = worksheet.Cells[row, 12].Value?.ToString().Trim(),
+                                Adicional = worksheet.Cells[row, 13].Value?.ToString().Trim(),
+                                SenhaAdicional = worksheet.Cells[row, 14].Value?.ToString().Trim(),
+                                Filial = worksheet.Cells[row, 15].Value?.ToString().Trim(),
+                                Setor = worksheet.Cells[row, 16].Value?.ToString().Trim(),
+                                Smartphone = worksheet.Cells[row, 17].Value?.ToString().Trim(),
+                                TelefoneFixo = worksheet.Cells[row, 18].Value?.ToString().Trim(),
+                                Ramal = worksheet.Cells[row, 19].Value?.ToString().Trim(),
+                                Alarme = worksheet.Cells[row, 20].Value?.ToString().Trim(),
+                                Videoporteiro = worksheet.Cells[row, 21].Value?.ToString().Trim(),
+                                Obs = worksheet.Cells[row, 22].Value?.ToString().Trim(),
+                                CoordenadorCPF = SanitizeCpf(worksheet.Cells[row, 23].Value?.ToString().Trim())
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(colaborador.CPF) && !string.IsNullOrWhiteSpace(colaborador.Nome))
+                            {
+                                colaboradores.Add(colaborador);
+                            }
+                        }
                     }
                 }
-                await writeBatch.CommitAsync();
-                TempData["SuccessMessage"] = $"{adicionados} colaboradores adicionados e {atualizados} atualizados com sucesso.";
+
+                int adicionados = 0;
+                int atualizados = 0;
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var colaborador in colaboradores)
+                            {
+                                var existente = FindColaboradorById(colaborador.CPF, connection, transaction);
+
+                                if (existente != null)
+                                {
+                                    string updateSql = @"UPDATE Colaboradores SET 
+                                                       Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
+                                                       EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
+                                                       Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
+                                                       Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
+                                                       Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF
+                                                       WHERE CPF = @CPF";
+                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        AddColaboradorParameters(cmd, colaborador);
+                                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    atualizados++;
+                                }
+                                else
+                                {
+                                    string insertSql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorCPF) 
+                                                       VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorCPF)";
+                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    {
+                                        AddColaboradorParameters(cmd, colaborador);
+                                        cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    adicionados++;
+                                }
+                            }
+                            transaction.Commit();
+                            TempData["SuccessMessage"] = $"{adicionados} colaboradores adicionados e {atualizados} atualizados com sucesso.";
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
+                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao salvar os dados do Excel no Firestore.");
-                TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        private void AddColaboradorParameters(SqlCommand cmd, Colaborador colaborador)
+        {
+            cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
+            cmd.Parameters.AddWithValue("@Nome", colaborador.Nome);
+            cmd.Parameters.AddWithValue("@Email", (object)colaborador.Email ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaEmail", (object)colaborador.SenhaEmail ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Teams", (object)colaborador.Teams ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaTeams", (object)colaborador.SenhaTeams ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@EDespacho", (object)colaborador.EDespacho ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaEDespacho", (object)colaborador.SenhaEDespacho ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Genius", (object)colaborador.Genius ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaGenius", (object)colaborador.SenhaGenius ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Ibrooker", (object)colaborador.Ibrooker ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Filial", (object)colaborador.Filial ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Smartphone", (object)colaborador.Smartphone ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@TelefoneFixo", (object)colaborador.TelefoneFixo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Ramal", (object)colaborador.Ramal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Alarme", (object)colaborador.Alarme ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@CoordenadorCPF", (object)colaborador.CoordenadorCPF ?? DBNull.Value);
         }
     }
 }

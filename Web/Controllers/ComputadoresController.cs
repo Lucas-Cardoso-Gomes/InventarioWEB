@@ -2,47 +2,49 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Linq;
+using Microsoft.Extensions.Configuration;
+using Web.Services;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using OfficeOpenXml;
 using System.IO;
 using System.Threading.Tasks;
-using Google.Cloud.Firestore;
-using System.Security.Claims;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class ComputadoresController : Controller
     {
-        private readonly FirestoreDb _firestoreDb;
+        private readonly string _connectionString;
         private readonly ILogger<ComputadoresController> _logger;
-        private const string CollectionName = "computadores";
-        private const string ColaboradoresCollection = "colaboradores";
 
-        public ComputadoresController(FirestoreDb firestoreDb, ILogger<ComputadoresController> logger)
+        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
         {
-            _firestoreDb = firestoreDb;
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
         }
 
-        public async Task<IActionResult> Index(string sortOrder, string searchString,
+        public IActionResult Index(string sortOrder, string searchString,
             List<string> currentFabricantes, List<string> currentSOs, List<string> currentProcessadorFabricantes, List<string> currentRamTipos, List<string> currentProcessadores, List<string> currentRams,
             int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
-            ViewData["IpSortParm"] = string.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
+            ViewData["IpSortParm"] = String.IsNullOrEmpty(sortOrder) ? "ip_desc" : "";
             ViewData["MacSortParm"] = sortOrder == "mac" ? "mac_desc" : "mac";
             ViewData["UserSortParm"] = sortOrder == "user" ? "user_desc" : "user";
             ViewData["HostnameSortParm"] = sortOrder == "hostname" ? "hostname_desc" : "hostname";
             ViewData["OsSortParm"] = sortOrder == "os" ? "os_desc" : "os";
             ViewData["DateSortParm"] = sortOrder == "date" ? "date_desc" : "date";
+            ViewData["CurrentFilter"] = searchString;
 
             var viewModel = new ComputadorIndexViewModel
             {
+                Computadores = new List<Computador>(),
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 SearchString = searchString,
@@ -57,135 +59,156 @@ namespace Web.Controllers
 
             try
             {
-                Query query = _firestoreDb.Collection(CollectionName);
-                var snapshot = await query.GetSnapshotAsync();
-                var allComputadores = new List<Computador>();
-
-                foreach (var document in snapshot.Documents)
+                using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
-                    var comp = document.ConvertTo<Computador>();
-                    comp.MAC = document.Id;
-                    if (!string.IsNullOrEmpty(comp.ColaboradorCPF))
+                    connection.Open();
+
+                    viewModel.Fabricantes = GetDistinctComputerValues(connection, "Fabricante");
+                    viewModel.SOs = GetDistinctComputerValues(connection, "SO");
+                    viewModel.ProcessadorFabricantes = GetDistinctComputerValues(connection, "ProcessadorFabricante");
+                    viewModel.RamTipos = GetDistinctComputerValues(connection, "RamTipo");
+                    viewModel.Processadores = GetDistinctComputerValues(connection, "Processador");
+                    viewModel.Rams = GetDistinctComputerValues(connection, "Ram");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+                    var userCpf = User.FindFirstValue("ColaboradorCPF");
+
+                    string baseSql = @"
+                        FROM Computadores comp
+                        LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF
+                    ";
+
+                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
                     {
-                        var colabDoc = await _firestoreDb.Collection(ColaboradoresCollection).Document(comp.ColaboradorCPF).GetSnapshotAsync();
-                        if (colabDoc.Exists) comp.ColaboradorNome = colabDoc.GetValue<string>("Nome");
+                        whereClauses.Add("comp.ColaboradorCPF = @UserCpf");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
-                    allComputadores.Add(comp);
+                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("(col.CoordenadorCPF = @UserCpf OR comp.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+
+
+                    if (!string.IsNullOrEmpty(searchString))
+                    {
+                        whereClauses.Add("(comp.IP LIKE @search OR comp.MAC LIKE @search OR col.Nome LIKE @search OR comp.Hostname LIKE @search)");
+                        parameters.Add("@search", $"%{searchString}%");
+                    }
+
+                    Action<string, List<string>> addInClause = (columnName, values) =>
+                    {
+                        if (values != null && values.Any())
+                        {
+                            var paramNames = new List<string>();
+                            for (int i = 0; i < values.Count; i++)
+                            {
+                                var paramName = $"@{columnName.ToLower().Replace(".", "")}{i}";
+                                paramNames.Add(paramName);
+                                parameters.Add(paramName, values[i]);
+                            }
+                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                        }
+                    };
+
+                    addInClause("comp.Fabricante", currentFabricantes);
+                    addInClause("comp.SO", currentSOs);
+                    addInClause("comp.ProcessadorFabricante", currentProcessadorFabricantes);
+                    addInClause("comp.RamTipo", currentRamTipos);
+                    addInClause("comp.Processador", currentProcessadores);
+                    addInClause("comp.Ram", currentRams);
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    string countSql = $"SELECT COUNT(comp.MAC) {baseSql} {whereSql}";
+                    using (var countCommand = new SqlCommand(countSql, connection))
+                    {
+                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                    }
+
+                    string orderBySql;
+                    switch (sortOrder)
+                    {
+                        case "ip_desc": orderBySql = "ORDER BY comp.IP DESC"; break;
+                        case "mac": orderBySql = "ORDER BY comp.MAC"; break;
+                        case "mac_desc": orderBySql = "ORDER BY comp.MAC DESC"; break;
+                        case "user": orderBySql = "ORDER BY col.Nome"; break;
+                        case "user_desc": orderBySql = "ORDER BY col.Nome DESC"; break;
+                        case "hostname": orderBySql = "ORDER BY comp.Hostname"; break;
+                        case "hostname_desc": orderBySql = "ORDER BY comp.Hostname DESC"; break;
+                        case "os": orderBySql = "ORDER BY comp.SO"; break;
+                        case "os_desc": orderBySql = "ORDER BY comp.SO DESC"; break;
+                        case "date": orderBySql = "ORDER BY comp.DataColeta"; break;
+                        case "date_desc": orderBySql = "ORDER BY comp.DataColeta DESC"; break;
+                        default: orderBySql = "ORDER BY comp.IP"; break;
+                    }
+
+                    // --- CORREÇÃO APLICADA AQUI ---
+                    string sqlFields = @"
+                        SELECT
+                            comp.MAC, comp.IP, comp.ColaboradorCPF, col.Nome as ColaboradorNome, comp.Hostname,
+                            comp.Fabricante, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore,
+                            comp.ProcessadorThread, comp.ProcessadorClock, comp.Ram, comp.RamTipo,
+                            comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ArmazenamentoC,
+                            comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre, comp.ArmazenamentoD,
+                            comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
+                            comp.DataColeta, comp.PartNumber
+                    ";
+                    string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    // --- FIM DA CORREÇÃO ---
+
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                viewModel.Computadores.Add(new Computador
+                                {
+                                    MAC = reader["MAC"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
+                                    Hostname = reader["Hostname"].ToString(),
+                                    Fabricante = reader["Fabricante"].ToString(),
+                                    Processador = reader["Processador"].ToString(),
+                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
+                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
+                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
+                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
+                                    Ram = reader["Ram"].ToString(),
+                                    RamTipo = reader["RamTipo"].ToString(),
+                                    RamVelocidade = reader["RamVelocidade"].ToString(),
+                                    RamVoltagem = reader["RamVoltagem"].ToString(),
+                                    RamPorModule = reader["RamPorModule"].ToString(),
+                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
+                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
+                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
+                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
+                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
+                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
+                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
+                                    SO = reader["SO"].ToString(),
+                                    DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                    PartNumber = reader["PartNumber"].ToString()
+                                });
+                            }
+                        }
+                    }
                 }
-
-                // Populate filter dropdowns from the full dataset
-                viewModel.Fabricantes = allComputadores.Where(c => !string.IsNullOrEmpty(c.Fabricante)).Select(c => c.Fabricante).Distinct().OrderBy(f => f).ToList();
-                viewModel.SOs = allComputadores.Where(c => !string.IsNullOrEmpty(c.SO)).Select(c => c.SO).Distinct().OrderBy(s => s).ToList();
-                viewModel.ProcessadorFabricantes = allComputadores.Where(c => !string.IsNullOrEmpty(c.ProcessadorFabricante)).Select(c => c.ProcessadorFabricante).Distinct().OrderBy(p => p).ToList();
-                viewModel.RamTipos = allComputadores.Where(c => !string.IsNullOrEmpty(c.RamTipo)).Select(c => c.RamTipo).Distinct().OrderBy(r => r).ToList();
-                viewModel.Processadores = allComputadores.Where(c => !string.IsNullOrEmpty(c.Processador)).Select(c => c.Processador).Distinct().OrderBy(p => p).ToList();
-                viewModel.Rams = allComputadores.Where(c => !string.IsNullOrEmpty(c.Ram)).Select(c => c.Ram).Distinct().OrderBy(r => r).ToList();
-
-                // Apply role-based filtering
-                var userCpf = User.FindFirstValue("ColaboradorCPF");
-                if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                {
-                    allComputadores = allComputadores.Where(c => c.ColaboradorCPF == userCpf).ToList();
-                }
-
-                // Apply search and filters
-                if (!string.IsNullOrEmpty(searchString))
-                {
-                    allComputadores = allComputadores.Where(c =>
-                        (c.IP != null && c.IP.Contains(searchString, StringComparison.OrdinalIgnoreCase)) ||
-                        (c.MAC != null && c.MAC.Contains(searchString, StringComparison.OrdinalIgnoreCase)) ||
-                        (c.Hostname != null && c.Hostname.Contains(searchString, StringComparison.OrdinalIgnoreCase)) ||
-                        (c.ColaboradorNome != null && c.ColaboradorNome.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-                    ).ToList();
-                }
-
-                if (currentFabricantes.Any()) allComputadores = allComputadores.Where(c => c.Fabricante != null && currentFabricantes.Contains(c.Fabricante)).ToList();
-                if (currentSOs.Any()) allComputadores = allComputadores.Where(c => c.SO != null && currentSOs.Contains(c.SO)).ToList();
-                if (currentProcessadorFabricantes.Any()) allComputadores = allComputadores.Where(c => c.ProcessadorFabricante != null && currentProcessadorFabricantes.Contains(c.ProcessadorFabricante)).ToList();
-                if (currentRamTipos.Any()) allComputadores = allComputadores.Where(c => c.RamTipo != null && currentRamTipos.Contains(c.RamTipo)).ToList();
-                if (currentProcessadores.Any()) allComputadores = allComputadores.Where(c => c.Processador != null && currentProcessadores.Contains(c.Processador)).ToList();
-                if (currentRams.Any()) allComputadores = allComputadores.Where(c => c.Ram != null && currentRams.Contains(c.Ram)).ToList();
-
-                allComputadores = SortComputadores(allComputadores, sortOrder);
-
-                viewModel.TotalCount = allComputadores.Count;
-                viewModel.Computadores = allComputadores.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter a lista de computadores do Firestore.");
+                _logger.LogError(ex, "Erro ao obter a lista de computadores.");
+                ViewBag.Message = "Ocorreu um erro ao obter a lista de computadores. Por favor, tente novamente mais tarde.";
             }
 
-            return View(viewModel);
-        }
-
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create()
-        {
-            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome");
-            return View(new ComputadorViewModel());
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create(ComputadorViewModel viewModel)
-        {
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    var computador = MapViewModelToModel(viewModel);
-                    computador.DataColeta = DateTime.UtcNow;
-                    await _firestoreDb.Collection(CollectionName).Document(computador.MAC).SetAsync(computador);
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erro ao criar novo computador no Firestore.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o computador. Verifique se o MAC já existe.");
-                }
-            }
-            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", viewModel.ColaboradorCPF);
-            return View(viewModel);
-        }
-
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return NotFound();
-            var doc = await _firestoreDb.Collection(CollectionName).Document(id).GetSnapshotAsync();
-            if (!doc.Exists) return NotFound();
-
-            var computador = doc.ConvertTo<Computador>();
-            var viewModel = MapModelToViewModel(computador);
-
-            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", viewModel.ColaboradorCPF);
-            return View(viewModel);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(string id, ComputadorViewModel viewModel)
-        {
-            if (id != viewModel.MAC) return NotFound();
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    var computador = MapViewModelToModel(viewModel);
-                    await _firestoreDb.Collection(CollectionName).Document(id).SetAsync(computador, SetOptions.MergeAll);
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (Exception ex)
-                {
-                     _logger.LogError(ex, "Erro ao editar o computador no Firestore.");
-                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o computador.");
-                }
-            }
-            ViewData["Colaboradores"] = new SelectList(await GetColaboradoresAsync(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
         }
 
@@ -200,60 +223,321 @@ namespace Web.Controllers
             }
 
             var computadores = new List<Computador>();
-            using (var stream = new MemoryStream())
+            try
             {
-                await file.CopyToAsync(stream);
-                using (var package = new ExcelPackage(stream))
+                using (var stream = new MemoryStream())
                 {
-                    //... Excel parsing logic as before, creating a list of Computador objects
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var sanitizedCpf = SanitizeCpf(worksheet.Cells[row, 3].Value?.ToString().Trim());
+                            var computador = new Computador
+                            {
+                                MAC = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                IP = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                ColaboradorCPF = string.IsNullOrEmpty(sanitizedCpf) ? null : sanitizedCpf,
+                                Hostname = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Fabricante = worksheet.Cells[row, 5].Value?.ToString().Trim(),
+                                Processador = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                ProcessadorFabricante = worksheet.Cells[row, 7].Value?.ToString().Trim(),
+                                ProcessadorCore = worksheet.Cells[row, 8].Value?.ToString().Trim(),
+                                ProcessadorThread = worksheet.Cells[row, 9].Value?.ToString().Trim(),
+                                ProcessadorClock = worksheet.Cells[row, 10].Value?.ToString().Trim(),
+                                Ram = worksheet.Cells[row, 11].Value?.ToString().Trim(),
+                                RamTipo = worksheet.Cells[row, 12].Value?.ToString().Trim(),
+                                RamVelocidade = worksheet.Cells[row, 13].Value?.ToString().Trim(),
+                                RamVoltagem = worksheet.Cells[row, 14].Value?.ToString().Trim(),
+                                RamPorModule = worksheet.Cells[row, 15].Value?.ToString().Trim(),
+                                ArmazenamentoC = worksheet.Cells[row, 16].Value?.ToString().Trim(),
+                                ArmazenamentoCTotal = worksheet.Cells[row, 17].Value?.ToString().Trim(),
+                                ArmazenamentoCLivre = worksheet.Cells[row, 18].Value?.ToString().Trim(),
+                                ArmazenamentoD = worksheet.Cells[row, 19].Value?.ToString().Trim(),
+                                ArmazenamentoDTotal = worksheet.Cells[row, 20].Value?.ToString().Trim(),
+                                ArmazenamentoDLivre = worksheet.Cells[row, 21].Value?.ToString().Trim(),
+                                ConsumoCPU = worksheet.Cells[row, 22].Value?.ToString().Trim(),
+                                SO = worksheet.Cells[row, 23].Value?.ToString().Trim(),
+                                PartNumber = worksheet.Cells[row, 24].Value?.ToString().Trim()
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(computador.MAC))
+                            {
+                                computadores.Add(computador);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+                var invalidCpfs = new List<string>();
+
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    var colaboradoresCpf = new HashSet<string>();
+                    using (var cmd = new SqlCommand("SELECT CPF FROM Colaboradores", connection))
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            colaboradoresCpf.Add(reader.GetString(0));
+                        }
+                    }
+
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var computador in computadores)
+                            {
+                                if (!string.IsNullOrEmpty(computador.ColaboradorCPF) && !colaboradoresCpf.Contains(computador.ColaboradorCPF))
+                                {
+                                    invalidCpfs.Add(computador.MAC);
+                                    computador.ColaboradorCPF = null;
+                                }
+
+                                var existente = FindComputadorById(computador.MAC, connection, transaction);
+                                if (existente != null)
+                                {
+                                    string updateSql = @"UPDATE Computadores SET
+                                                       IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante,
+                                                       Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore,
+                                                       ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram,
+                                                       RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem,
+                                                       RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal,
+                                                       ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
+                                                       ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber
+                                                       WHERE MAC = @MAC";
+                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    {
+                                        AddComputadorParameters(cmd, computador);
+                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    atualizados++;
+                                }
+                                else
+                                {
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber)
+                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
+                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    {
+                                        AddComputadorParameters(cmd, computador);
+                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                    adicionados++;
+                                }
+                            }
+                            transaction.Commit();
+                            TempData["SuccessMessage"] = $"{adicionados} computadores adicionados e {atualizados} atualizados com sucesso.";
+                            if (invalidCpfs.Any())
+                            {
+                                TempData["WarningMessage"] = $"Os seguintes computadores (MAC) foram importados, mas o CPF do colaborador não foi encontrado: {string.Join(", ", invalidCpfs)}";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
+                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                        }
+                    }
                 }
             }
-
-            var writeBatch = _firestoreDb.StartBatch();
-            foreach(var comp in computadores)
+            catch (Exception ex)
             {
-                var docRef = _firestoreDb.Collection(CollectionName).Document(comp.MAC);
-                writeBatch.Set(docRef, comp, SetOptions.MergeAll);
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
             }
-            await writeBatch.CommitAsync();
 
-            TempData["SuccessMessage"] = $"{computadores.Count} computadores importados/atualizados com sucesso.";
             return RedirectToAction(nameof(Index));
         }
 
-        private Computador MapViewModelToModel(ComputadorViewModel viewModel)
+        private void AddComputadorParameters(SqlCommand cmd, Computador computador)
         {
-            return new Computador { /* Manual mapping of all properties */
-                MAC = viewModel.MAC,
-                IP = viewModel.IP,
-                ColaboradorCPF = viewModel.ColaboradorCPF,
-                Hostname = viewModel.Hostname,
-                Fabricante = viewModel.Fabricante,
-                Processador = viewModel.Processador,
-                ProcessadorFabricante = viewModel.ProcessadorFabricante,
-                ProcessadorCore = viewModel.ProcessadorCore,
-                ProcessadorThread = viewModel.ProcessadorThread,
-                ProcessadorClock = viewModel.ProcessadorClock,
-                Ram = viewModel.Ram,
-                RamTipo = viewModel.RamTipo,
-                RamVelocidade = viewModel.RamVelocidade,
-                RamVoltagem = viewModel.RamVoltagem,
-                RamPorModule = viewModel.RamPorModule,
-                ArmazenamentoC = viewModel.ArmazenamentoC,
-                ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
-                ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
-                ArmazenamentoD = viewModel.ArmazenamentoD,
-                ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
-                ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
-                ConsumoCPU = viewModel.ConsumoCPU,
-                SO = viewModel.SO,
-                PartNumber = viewModel.PartNumber
-            };
+            cmd.Parameters.AddWithValue("@MAC", computador.MAC);
+            cmd.Parameters.AddWithValue("@IP", (object)computador.IP ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)computador.ColaboradorCPF ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Hostname", (object)computador.Hostname ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Fabricante", (object)computador.Fabricante ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Processador", (object)computador.Processador ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)computador.ProcessadorFabricante ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)computador.ProcessadorCore ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)computador.ProcessadorThread ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)computador.ProcessadorClock ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Ram", (object)computador.Ram ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamTipo", (object)computador.RamTipo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamVelocidade", (object)computador.RamVelocidade ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamVoltagem", (object)computador.RamVoltagem ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@RamPorModule", (object)computador.RamPorModule ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)computador.ArmazenamentoC ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)computador.ArmazenamentoCTotal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)computador.ArmazenamentoCLivre ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)computador.ArmazenamentoD ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)computador.ArmazenamentoDTotal ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)computador.ArmazenamentoDLivre ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)computador.ConsumoCPU ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@SO", (object)computador.SO ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@PartNumber", (object)computador.PartNumber ?? DBNull.Value);
         }
 
-        private ComputadorViewModel MapModelToViewModel(Computador computador)
+        private Computador FindComputadorById(string id, SqlConnection connection, SqlTransaction transaction)
         {
-            return new ComputadorViewModel { /* Manual mapping */
+            Computador computador = null;
+
+            try
+            {
+                string sql = "SELECT * FROM Computadores WHERE MAC = @MAC";
+                using (var cmd = new SqlCommand(sql, connection, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@MAC", id);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            computador = new Computador
+                            {
+                                MAC = reader["MAC"].ToString(),
+                                IP = reader["IP"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                Hostname = reader["Hostname"].ToString(),
+                                Fabricante = reader["Fabricante"].ToString(),
+                                Processador = reader["Processador"].ToString(),
+                                ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
+                                ProcessadorCore = reader["ProcessadorCore"].ToString(),
+                                ProcessadorThread = reader["ProcessadorThread"].ToString(),
+                                ProcessadorClock = reader["ProcessadorClock"].ToString(),
+                                Ram = reader["Ram"].ToString(),
+                                RamTipo = reader["RamTipo"].ToString(),
+                                RamVelocidade = reader["RamVelocidade"].ToString(),
+                                RamVoltagem = reader["RamVoltagem"].ToString(),
+                                RamPorModule = reader["RamPorModule"].ToString(),
+                                ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
+                                ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
+                                ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
+                                ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
+                                ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
+                                ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
+                                ConsumoCPU = reader["ConsumoCPU"].ToString(),
+                                SO = reader["SO"].ToString(),
+                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                PartNumber = reader["PartNumber"].ToString()
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar computador por ID.");
+                if (transaction != null) throw;
+            }
+
+            return computador;
+        }
+
+        private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
+        }
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult Create()
+        {
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
+            return View(new ComputadorViewModel());
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public IActionResult Create(ComputadorViewModel viewModel)
+        {
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
+
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
+                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
+
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao criar um novo computador.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o computador. Verifique se o MAC já existe.");
+                }
+            }
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
+            return View(viewModel);
+        }
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult Edit(string id)
+        {
+            if (id == null) return NotFound();
+            Computador computador = FindComputadorById(id);
+            if (computador == null) return NotFound();
+
+            var viewModel = new ComputadorViewModel
+            {
                 MAC = computador.MAC,
                 IP = computador.IP,
                 ColaboradorCPF = computador.ColaboradorCPF,
@@ -279,38 +563,195 @@ namespace Web.Controllers
                 SO = computador.SO,
                 PartNumber = computador.PartNumber
             };
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
+            return View(viewModel);
         }
 
-        private async Task<List<Colaborador>> GetColaboradoresAsync()
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public IActionResult Edit(string id, ComputadorViewModel viewModel)
+        {
+            if (id != viewModel.MAC) return NotFound();
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    {
+                        connection.Open();
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber WHERE MAC = @MAC";
+
+                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
+                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
+
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao editar o computador.");
+                    ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o computador.");
+                }
+            }
+            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
+            return View(viewModel);
+        }
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult Delete(string id)
+        {
+            if (id == null) return NotFound();
+            Computador computador = FindComputadorById(id);
+            if (computador == null) return NotFound();
+            return View(computador);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public IActionResult DeleteConfirmed(string id)
+        {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@MAC", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao excluir o computador.");
+                ViewBag.Message = "Ocorreu um erro ao excluir o computador. Por favor, tente novamente mais tarde.";
+                Computador computador = FindComputadorById(id);
+                if (computador == null)
+                {
+                    return NotFound();
+                }
+                return View(computador);
+            }
+        }
+
+        private Computador FindComputadorById(string id)
+        {
+            Computador computador = null;
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = "SELECT comp.*, col.Nome AS ColaboradorNome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF WHERE comp.MAC = @MAC";
+                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@MAC", id);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                computador = new Computador
+                                {
+                                    MAC = reader["MAC"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
+                                    Hostname = reader["Hostname"].ToString(),
+                                    Fabricante = reader["Fabricante"].ToString(),
+                                    Processador = reader["Processador"].ToString(),
+                                    ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
+                                    ProcessadorCore = reader["ProcessadorCore"].ToString(),
+                                    ProcessadorThread = reader["ProcessadorThread"].ToString(),
+                                    ProcessadorClock = reader["ProcessadorClock"].ToString(),
+                                    Ram = reader["Ram"].ToString(),
+                                    RamTipo = reader["RamTipo"].ToString(),
+                                    RamVelocidade = reader["RamVelocidade"].ToString(),
+                                    RamVoltagem = reader["RamVoltagem"].ToString(),
+                                    RamPorModule = reader["RamPorModule"].ToString(),
+                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
+                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
+                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
+                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
+                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
+                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
+                                    ConsumoCPU = reader["ConsumoCPU"].ToString(),
+                                    SO = reader["SO"].ToString(),
+                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
+                                PartNumber = reader["PartNumber"].ToString()
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter os detalhes do computador.");
+                ViewBag.Message = "Ocorreu um erro ao obter os detalhes do computador. Por favor, tente novamente mais tarde.";
+            }
+            return computador;
+        }
+
+        private List<Colaborador> GetColaboradores()
         {
             var colaboradores = new List<Colaborador>();
-            var snapshot = await _firestoreDb.Collection(ColaboradoresCollection).OrderBy("Nome").GetSnapshotAsync();
-            foreach (var document in snapshot.Documents)
+            using (SqlConnection connection = new SqlConnection(_connectionString))
             {
-                var colab = document.ConvertTo<Colaborador>();
-                colab.CPF = document.Id;
-                colaboradores.Add(colab);
+                connection.Open();
+                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            colaboradores.Add(new Colaborador {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString()
+                            });
+                        }
+                    }
+                }
             }
             return colaboradores;
         }
 
-        private List<Computador> SortComputadores(List<Computador> computadores, string sortOrder)
+        private string SanitizeCpf(string cpf)
         {
-            switch (sortOrder)
-            {
-                case "ip_desc": return computadores.OrderByDescending(c => c.IP).ToList();
-                case "mac": return computadores.OrderBy(c => c.MAC).ToList();
-                case "mac_desc": return computadores.OrderByDescending(c => c.MAC).ToList();
-                case "user": return computadores.OrderBy(c => c.ColaboradorNome).ToList();
-                case "user_desc": return computadores.OrderByDescending(c => c.ColaboradorNome).ToList();
-                case "hostname": return computadores.OrderBy(c => c.Hostname).ToList();
-                case "hostname_desc": return computadores.OrderByDescending(c => c.Hostname).ToList();
-                case "os": return computadores.OrderBy(c => c.SO).ToList();
-                case "os_desc": return computadores.OrderByDescending(c => c.SO).ToList();
-                case "date": return computadores.OrderBy(c => c.DataColeta).ToList();
-                case "date_desc": return computadores.OrderByDescending(c => c.DataColeta).ToList();
-                default: return computadores.OrderBy(c => c.IP).ToList();
-            }
+            if (string.IsNullOrEmpty(cpf)) return cpf;
+            return new string(cpf.Where(char.IsDigit).ToArray());
         }
     }
 }
