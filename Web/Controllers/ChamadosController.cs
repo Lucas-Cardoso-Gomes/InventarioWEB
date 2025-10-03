@@ -256,6 +256,7 @@ namespace Web.Controllers
             if (!User.IsInRole("Admin"))
             {
                 chamado.ColaboradorCPF = userCpf;
+                ModelState.Remove(nameof(Chamado.ColaboradorCPF));
             }
             else
             {
