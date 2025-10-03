@@ -27,7 +27,7 @@ namespace Web.Services
             if (_env.IsDevelopment())
             {
                 ServicePointManager.ServerCertificateValidationCallback =
-                    (object s, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => true;
+                    (object s, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) => true;
             }
 
             var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
