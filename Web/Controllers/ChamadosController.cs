@@ -250,6 +250,18 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Create(Chamado chamado)
         {
+            var userCpf = User.FindFirstValue("ColaboradorCPF");
+            object adminCpfValue = DBNull.Value;
+
+            if (!User.IsInRole("Admin"))
+            {
+                chamado.ColaboradorCPF = userCpf;
+            }
+            else
+            {
+                adminCpfValue = userCpf;
+            }
+
             if (ModelState.IsValid)
             {
                 try
@@ -261,18 +273,8 @@ namespace Web.Controllers
                                        VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            var userCpf = User.FindFirstValue("ColaboradorCPF");
-                            if (User.IsInRole("Admin"))
-                            {
-                                cmd.Parameters.AddWithValue("@AdminCPF", userCpf);
-                                cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
-                            }
-                            else
-                            {
-                                cmd.Parameters.AddWithValue("@AdminCPF", DBNull.Value);
-                                cmd.Parameters.AddWithValue("@ColaboradorCPF", userCpf);
-                            }
-
+                            cmd.Parameters.AddWithValue("@AdminCPF", adminCpfValue);
+                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
                             cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
@@ -288,6 +290,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o chamado.");
                 }
             }
+
             if (User.IsInRole("Admin"))
             {
                 ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);

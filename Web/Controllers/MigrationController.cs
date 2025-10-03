@@ -55,7 +55,7 @@ namespace Web.Controllers
             }
 
             TempData["MigrationResult"] = $"{usersCreated} usuários de colaboradores criados. {usersAlreadyExist} já existiam. {usersWithNoEmail} colaboradores ignorados por falta de e-mail/senha.";
-            return RedirectToAction("Index", "Users");
+            return RedirectToAction("Index", "User");
         }
     }
 }
