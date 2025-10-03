@@ -304,6 +304,7 @@ namespace Web.Controllers
                     // Notificações em background após o sucesso da criação do chamado
                     var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
                     var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
+                    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
                     _ = Task.Run(async () =>
                     {
@@ -314,8 +315,11 @@ namespace Web.Controllers
                         }
                         catch (Exception ex)
                         {
-                            // Loga a falha na notificação sem quebrar a aplicação
                             _logger.LogError(ex, "Falha ao enviar notificações em segundo plano para o novo chamado.");
+                            if (!string.IsNullOrEmpty(userId))
+                            {
+                                await _notificationHubContext.Clients.User(userId).SendAsync("ReceiveError", "Falha ao enviar notificação", "Ocorreu um erro ao tentar enviar a notificação por e-mail ou navegador. Verifique as configurações do sistema.");
+                            }
                         }
                     });
 

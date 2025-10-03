@@ -121,6 +121,15 @@
                         icon: "/favicon.ico"
                     });
                 }
+                // Se o usuário estiver na página de chamados, recarrega a página.
+                if (window.location.pathname.toLowerCase().includes("/chamados")) {
+                    location.reload();
+                }
+            });
+
+            connection.on("ReceiveError", function (error, details) {
+                console.error("Erro de notificação:", details);
+                alert(error); // Mostra apenas a mensagem de erro genérica.
             });
 
             connection.start().catch(function (err) {

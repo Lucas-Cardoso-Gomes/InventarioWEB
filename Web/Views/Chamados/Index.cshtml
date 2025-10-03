@@ -160,20 +160,4 @@
 
 @section Scripts {
     <script src="~/js/chamado-filter-persistence.js" asp-append-version="true"></script>
-    <script src="~/lib/signalr/signalr.js"></script>
-    <script>
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/notificationHub")
-            .build();
-
-        connection.on("ReceiveNotification", function (user, message) {
-            console.log("Notificação recebida:", user, message);
-            // Recarrega a página para exibir o novo chamado
-            location.reload();
-        });
-
-        connection.start().catch(function (err) {
-            return console.error(err.toString());
-        });
-    </script>
 }
