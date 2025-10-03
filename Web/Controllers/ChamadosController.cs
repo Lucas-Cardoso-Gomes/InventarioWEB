@@ -307,7 +307,7 @@ namespace Web.Controllers
                     var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
 
                     await _emailService.SendEmailAsync(toEmail, "Novo Chamado Criado", message);
-                    await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
+                    await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
 
                     return RedirectToAction(nameof(Index));
                 }
