@@ -103,6 +103,31 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/select2-initializer.js" asp-append-version="true"></script>
+    <script src="~/lib/signalr/signalr.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/notificationHub")
+                .build();
+
+            connection.on("ReceiveNotification", function (user, message) {
+                if (Notification.permission === "granted") {
+                    new Notification(user, {
+                        body: message,
+                        icon: "/favicon.ico"
+                    });
+                }
+            });
+
+            connection.start().catch(function (err) {
+                return console.error(err.toString());
+            });
+        });
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 

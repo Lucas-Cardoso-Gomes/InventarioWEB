@@ -1,8 +1,14 @@
 using Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Web.Models;
+using Web.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddTransient<IEmailService, EmailService>();
+
+builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -53,5 +59,7 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Dashboard}/{action=Index}/{id?}");
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

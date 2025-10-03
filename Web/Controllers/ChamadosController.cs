@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
+using Web.Services;
+using Microsoft.AspNetCore.SignalR;
+using Web.Hubs;
 
 namespace Web.Controllers
 {
@@ -16,11 +19,17 @@ namespace Web.Controllers
     {
         private readonly string _connectionString;
         private readonly ILogger<ChamadosController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly IConfiguration _configuration;
 
-        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger)
+        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> hubContext)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _configuration = configuration;
+            _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
+            _emailService = emailService;
+            _hubContext = hubContext;
         }
 
         public IActionResult Index(List<string> statuses, List<string> selectedAdmins)
@@ -248,7 +257,7 @@ namespace Web.Controllers
         // POST: Chamados/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Chamado chamado)
+        public async Task<IActionResult> Create(Chamado chamado)
         {
             var userCpf = User.FindFirstValue("ColaboradorCPF");
             object adminCpfValue = DBNull.Value;
@@ -283,6 +292,15 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    // Enviar notificação por e-mail e SignalR
+                    var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
+                    var user = User.Identity.Name ?? "Sistema";
+                    var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
+
+                    await _emailService.SendEmailAsync(toEmail, "Novo Chamado Criado", message);
+                    await _hubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
