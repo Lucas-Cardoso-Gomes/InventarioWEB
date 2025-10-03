@@ -20,3 +20,57 @@
         <button type="submit" class="btn btn-primary">Enviar</button>
     </div>
 </form>
+
+@* The signalr.js script is included in the main Details.cshtml view *@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const sendMessageForm = document.getElementById("send-message-form");
+    const messageInput = document.getElementById("message-input");
+    const messagesList = document.getElementById("messages-list");
+
+    const chamadoId = sendMessageForm.dataset.chamadoId;
+    const requestToken = sendMessageForm.dataset.requestToken;
+
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/chatHub")
+        .build();
+
+    connection.on("ReceiveMessage", function (user, message, timestamp) {
+        const msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const encodedMsg = `<div><strong>${user}:</strong> ${msg} <span class="text-muted" style="font-size: 0.8em;">(${new Date(timestamp).toLocaleString()})</span></div>`;
+        messagesList.innerHTML += encodedMsg;
+        messagesList.scrollTop = messagesList.scrollHeight;
+    });
+
+    connection.start().then(function () {
+        connection.invoke("JoinGroup", chamadoId).catch(function (err) {
+            return console.error(err.toString());
+        });
+    }).catch(function (err) {
+        return console.error(err.toString());
+    });
+
+    sendMessageForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        const message = messageInput.value;
+
+        if (message && message.trim()) {
+            fetch('/Chamados/SendChatMessage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': requestToken
+                },
+                body: `chamadoId=${chamadoId}&message=${encodeURIComponent(message)}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Falha ao enviar mensagem.');
+                }
+                messageInput.value = "";
+            })
+            .catch(error => console.error('Erro ao enviar mensagem:', error));
+        }
+    });
+});
+</script>

@@ -792,6 +792,7 @@ namespace Web.Controllers
                     }
                 }
 
+                await _chatHubContext.Clients.Group(ChamadoID.ToString()).SendAsync("NewAttachment", file.FileName, Url.Content(dbPath));
                 return Json(new { success = true, fileName = file.FileName, filePath = Url.Content(dbPath) });
             }
             catch (Exception ex)

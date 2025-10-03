@@ -1,4 +1,5 @@
 @model Web.Models.Chamado
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
 
 @{
     ViewData["Title"] = "Detalhes do Chamado";
@@ -53,7 +54,7 @@
         </div>
         <hr />
         <h4>Adicionar Anexo</h4>
-        <form id="upload-anexo-form" method="post" enctype="multipart/form-data">
+        <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
             <input type="hidden" name="ChamadoID" value="@Model.ID" />
             <div class="form-group">
                 <input type="file" name="file" id="file-input" class="form-control" />
@@ -74,59 +75,35 @@
     <script src="~/js/signalr/dist/browser/signalr.js"></script>
     <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const sendMessageForm = document.getElementById("send-message-form");
-        const messageInput = document.getElementById("message-input");
-        const messagesList = document.getElementById("messages-list");
+        const uploadForm = document.getElementById('upload-anexo-form');
+        const fileInput = document.getElementById('file-input');
+        const uploadStatus = document.getElementById('upload-status');
+        const anexosList = document.getElementById('anexos-list');
+        const requestToken = uploadForm.dataset.requestToken;
+        const chamadoId = document.querySelector('input[name="ChamadoID"]').value;
 
-        const chamadoId = sendMessageForm.dataset.chamadoId;
-        const requestToken = sendMessageForm.dataset.requestToken;
-
-        const connection = new signalR.HubConnectionBuilder()
+        // Separate connection for attachment updates
+        const attachmentConnection = new signalR.HubConnectionBuilder()
             .withUrl("/chatHub")
             .build();
 
-        connection.on("ReceiveMessage", function (user, message, timestamp) {
-            const msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const encodedMsg = `<div><strong>${user}:</strong> ${msg} <span class="text-muted" style="font-size: 0.8em;">(${new Date(timestamp).toLocaleString()})</span></div>`;
-            messagesList.innerHTML += encodedMsg;
-            messagesList.scrollTop = messagesList.scrollHeight;
+        attachmentConnection.on("NewAttachment", function (fileName, filePath) {
+            // Avoid adding the attachment if it was uploaded by the current user
+            // as it's already added optimistically by the fetch success handler.
+            if (document.querySelector(`a[href="${filePath}"]`)) {
+                return;
+            }
+            const newAnexo = `<div><a href="${filePath}" target="_blank">${fileName}</a></div>`;
+            anexosList.insertAdjacentHTML('beforeend', newAnexo);
         });
 
-        connection.start().then(function () {
-            connection.invoke("JoinGroup", chamadoId).catch(function (err) {
+        attachmentConnection.start().then(function () {
+            attachmentConnection.invoke("JoinGroup", chamadoId).catch(function (err) {
                 return console.error(err.toString());
             });
         }).catch(function (err) {
             return console.error(err.toString());
         });
-
-        sendMessageForm.addEventListener("submit", function (event) {
-            event.preventDefault();
-            const message = messageInput.value;
-
-            if (message && message.trim()) {
-                fetch('/Chamados/SendChatMessage', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'RequestVerificationToken': requestToken
-                    },
-                    body: `chamadoId=${chamadoId}&message=${encodeURIComponent(message)}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        console.error('Falha ao enviar mensagem.');
-                    }
-                    messageInput.value = "";
-                })
-                .catch(error => console.error('Erro ao enviar mensagem:', error));
-            }
-        });
-
-        const uploadForm = document.getElementById('upload-anexo-form');
-        const fileInput = document.getElementById('file-input');
-        const uploadStatus = document.getElementById('upload-status');
-        const anexosList = document.getElementById('anexos-list');
 
         uploadForm.addEventListener('submit', function(event) {
             event.preventDefault();
@@ -150,6 +127,7 @@
             .then(data => {
                 if (data.success) {
                     uploadStatus.innerHTML = `<div class="alert alert-success">Upload do arquivo '${data.fileName}' concluído com sucesso.</div>`;
+                    // Optimistically add the new attachment to the list
                     const newAnexo = `<div><a href="${data.filePath}" target="_blank">${data.fileName}</a></div>`;
                     anexosList.insertAdjacentHTML('beforeend', newAnexo);
                     fileInput.value = ''; // Limpa o input
