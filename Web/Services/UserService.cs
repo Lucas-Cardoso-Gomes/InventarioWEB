@@ -158,5 +158,30 @@ namespace Web.Services
                 await command.ExecuteNonQueryAsync();
             }
         }
+
+        public async Task<IEnumerable<Colaborador>> GetAllColaboradoresAsync()
+        {
+            var colaboradores = new List<Colaborador>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                var command = new SqlCommand("SELECT * FROM Colaboradores", connection);
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var colaborador = new Colaborador
+                        {
+                            CPF = reader.GetString(reader.GetOrdinal("CPF")),
+                            Nome = reader.GetString(reader.GetOrdinal("Nome")),
+                            Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? null : reader.GetString(reader.GetOrdinal("Email")),
+                            SenhaEmail = reader.IsDBNull(reader.GetOrdinal("SenhaEmail")) ? null : reader.GetString(reader.GetOrdinal("SenhaEmail"))
+                        };
+                        colaboradores.Add(colaborador);
+                    }
+                }
+            }
+            return colaboradores;
+        }
     }
 }

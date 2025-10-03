@@ -13,9 +13,22 @@
     </div>
 }
 
-<p>
+@if (TempData["MigrationResult"] != null)
+{
+    <div class="alert alert-info">
+        @TempData["MigrationResult"]
+    </div>
+}
+
+<div class="mb-3">
     <a asp-action="Create" class="btn btn-primary">Criar Novo Usuário</a>
-</p>
+    @if (User.IsInRole("Admin"))
+    {
+        <form asp-controller="Migration" asp-action="CreateColaboradorUsers" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-secondary">Criar Usuários de Colaboradores</button>
+        </form>
+    }
+</div>
 <table class="table">
     <thead>
         <tr>
