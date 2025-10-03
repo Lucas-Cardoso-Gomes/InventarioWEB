@@ -7,10 +7,7 @@
 <h1>Chamados</h1>
 
 <p>
-    @if (User.IsInRole("Admin"))
-    {
-        <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
-    }
+    <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
     @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
     {
         <a asp-action="Dashboard" class="btn btn-info">Ver Dashboard</a>
