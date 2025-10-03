@@ -52,14 +52,14 @@ namespace Web.Controllers
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
 
-                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                    {
-                        whereClauses.Add("c.ColaboradorCPF = @UserCpf");
-                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
-                    }
-                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
                     {
                         whereClauses.Add("(co.CoordenadorCPF = @UserCpf OR c.ColaboradorCPF = @UserCpf)");
+                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
+                    }
+                    else if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    {
+                        whereClauses.Add("c.ColaboradorCPF = @UserCpf");
                         parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
 
@@ -236,17 +236,18 @@ namespace Web.Controllers
         }
 
         // GET: Chamados/Create
-        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
-            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome");
+            if (User.IsInRole("Admin"))
+            {
+                ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome");
+            }
             return View();
         }
 
         // POST: Chamados/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
         public IActionResult Create(Chamado chamado)
         {
             if (ModelState.IsValid)
@@ -260,8 +261,18 @@ namespace Web.Controllers
                                        VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
-                            cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            var userCpf = User.FindFirstValue("ColaboradorCPF");
+                            if (User.IsInRole("Admin"))
+                            {
+                                cmd.Parameters.AddWithValue("@AdminCPF", userCpf);
+                                cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                            }
+                            else
+                            {
+                                cmd.Parameters.AddWithValue("@AdminCPF", DBNull.Value);
+                                cmd.Parameters.AddWithValue("@ColaboradorCPF", userCpf);
+                            }
+
                             cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
@@ -277,7 +288,10 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o chamado.");
                 }
             }
-            ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
+            if (User.IsInRole("Admin"))
+            {
+                ViewBag.Colaboradores = new SelectList(GetColaboradores(), "CPF", "Nome", chamado.ColaboradorCPF);
+            }
             return View(chamado);
         }
 

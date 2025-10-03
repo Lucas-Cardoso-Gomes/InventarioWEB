@@ -12,13 +12,16 @@
     <div class="col-md-4">
         <form asp-action="Create">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="ColaboradorCPF" class="control-label"></label>
-                <select asp-for="ColaboradorCPF" class="form-control" asp-items="ViewBag.Colaboradores">
-                    <option value="">Selecione um colaborador</option>
-                </select>
-                <span asp-validation-for="ColaboradorCPF" class="text-danger"></span>
-            </div>
+            @if (User.IsInRole("Admin"))
+            {
+                <div class="form-group">
+                    <label asp-for="ColaboradorCPF" class="control-label"></label>
+                    <select asp-for="ColaboradorCPF" class="form-control" asp-items="ViewBag.Colaboradores">
+                        <option value="">Selecione um colaborador</option>
+                    </select>
+                    <span asp-validation-for="ColaboradorCPF" class="text-danger"></span>
+                </div>
+            }
             <div class="form-group">
                 <label asp-for="Servico" class="control-label"></label>
                 <textarea asp-for="Servico" class="form-control"></textarea>
@@ -29,15 +32,22 @@
                 <textarea asp-for="Descricao" class="form-control"></textarea>
                 <span asp-validation-for="Descricao" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="Status" class="control-label"></label>
-                <select asp-for="Status" class="form-control">
-                    <option value="Aberto">Aberto</option>
-                    <option value="Em Andamento">Em Andamento</option>
-                    <option value="Fechado">Fechado</option>
-                </select>
-                <span asp-validation-for="Status" class="text-danger"></span>
-            </div>
+            @if (User.IsInRole("Admin"))
+            {
+                <div class="form-group">
+                    <label asp-for="Status" class="control-label"></label>
+                    <select asp-for="Status" class="form-control">
+                        <option value="Aberto">Aberto</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Fechado">Fechado</option>
+                    </select>
+                    <span asp-validation-for="Status" class="text-danger"></span>
+                </div>
+            }
+            else
+            {
+                <input type="hidden" asp-for="Status" value="Aberto" />
+            }
             <br>
             <div class="form-group">
                 <input type="submit" value="Criar" class="btn btn-primary" />
