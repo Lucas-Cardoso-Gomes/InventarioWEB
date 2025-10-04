@@ -8,7 +8,7 @@
 
 <p>
     <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
-    @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+    @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH"))
     {
         <a asp-action="Dashboard" class="btn btn-info">Ver Dashboard</a>
     }
@@ -29,30 +29,35 @@
                     <h5>Status</h5>
                     <div class="d-flex flex-wrap">
                         <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Aberto" id="statusAberto" @(selectedStatuses.Contains("Aberto") ? "checked" : "")>
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Aberto"
+                                id="statusAberto" @(selectedStatuses.Contains("Aberto") ? "checked" : "")>
                             <label class="form-check-label" for="statusAberto">Aberto</label>
                         </div>
                         <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Em Andamento" id="statusEmAndamento" @(selectedStatuses.Contains("Em Andamento") ? "checked" : "")>
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Em Andamento"
+                                id="statusEmAndamento" @(selectedStatuses.Contains("Em Andamento") ? "checked" : "")>
                             <label class="form-check-label" for="statusEmAndamento">Em Andamento</label>
                         </div>
                         <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Fechado" id="statusFechado" @(selectedStatuses.Contains("Fechado") ? "checked" : "")>
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Fechado"
+                                id="statusFechado" @(selectedStatuses.Contains("Fechado") ? "checked" : "")>
                             <label class="form-check-label" for="statusFechado">Fechado</label>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <h5>Admins</h5>
+                    <h5>TIC</h5>
                     @{
-                        var allAdmins = ViewBag.Admins as List<Web.Models.Colaborador> ?? new List<Web.Models.Colaborador>();
+                        var allAdmins = ViewBag.Admins as List<Web.Models.Colaborador> ?? new
+                        List<Web.Models.Colaborador>();
                         var selectedAdmins = ViewBag.SelectedAdmins as List<string> ?? new List<string>();
                     }
                     <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
                         @foreach (var admin in allAdmins)
                         {
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="selectedAdmins" value="@admin.CPF" id="admin-@admin.CPF" @(selectedAdmins.Contains(admin.CPF) ? "checked" : "")>
+                                <input class="form-check-input" type="checkbox" name="selectedAdmins" value="@admin.CPF"
+                                    id="admin-@admin.CPF" @(selectedAdmins.Contains(admin.CPF) ? "checked" : "")>
                                 <label class="form-check-label" for="admin-@admin.CPF">@admin.Nome</label>
                             </div>
                         }
@@ -92,60 +97,64 @@
                 <th>
                     @Html.DisplayNameFor(model => model.Status)
                 </th>
-                @if (User.IsInRole("Admin"))
-                {
-                    <th>Ações</th>
-                }
+                <th>
+                    Ações
+                </th>
             </tr>
         </thead>
         <tbody>
-    @foreach (var item in Model) {
-            <tr>
-                <td>
-                    <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.ID)</a>
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.AdminNome)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.ColaboradorNome)
-                </td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.Servico)</a>
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.DataAlteracao)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.DataCriacao)
-                </td>
-                <td>
-                    @if (item.Status == "Aberto")
-                    {
-                        <span class="badge bg-success">@item.Status</span>
-                    }
-                    else if (item.Status == "Em Andamento")
-                    {
-                        <span class="badge bg-warning text-dark">@item.Status</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary">@item.Status</span>
-                    }
-                </td>
-                <td>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.ID)</a>
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.AdminNome)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.ColaboradorNome)
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.Servico)</a>
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.DataAlteracao)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.DataCriacao)
+                    </td>
+                    <td>
+                        @if (item.Status == "Aberto")
+                        {
+                            <span class="badge bg-success">@item.Status</span>
+                        }
+                        else if (item.Status == "Em Andamento")
+                        {
+                            <span class="badge bg-warning text-dark">@item.Status</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">@item.Status</span>
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-info btn-sm">Chat</a>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
+                        }
+                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
                     @if (User.IsInRole("Admin"))
                     {
-                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-info btn-sm">Chat</a>
-                        <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
-                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
                         @if (item.Status == "Aberto")
                         {
                             <form asp-action="WorkingTicket" asp-route-id="@item.ID" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-info btn-sm">Iniciar Atendimento</button>
                             </form>
                         }
-                        else@if (item.Status == "Em Andamento")
+                        else
+                        @if (item.Status == "Em Andamento")
                         {
                             <form asp-action="CloseTicket" asp-route-id="@item.ID" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-success btn-sm">Fechar Chamado</button>
@@ -158,9 +167,9 @@
                             </form>
                         }
                     }
-                </td>
-            </tr>
-    }
+                    </td>
+                </tr>
+            }
         </tbody>
     </table>
 </div>

@@ -18,7 +18,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
+    [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
     public class ChamadosController : Controller
     {
         private readonly string _connectionString;
@@ -69,12 +69,12 @@ namespace Web.Controllers
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
 
-                    if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
                     {
                         whereClauses.Add("(co.CoordenadorCPF = @UserCpf OR c.ColaboradorCPF = @UserCpf)");
                         parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
                     }
-                    else if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+                    else if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
                     {
                         whereClauses.Add("c.ColaboradorCPF = @UserCpf");
                         parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
@@ -146,7 +146,7 @@ namespace Web.Controllers
             return View(chamados);
         }
 
-        [Authorize(Roles = "Admin,Coordenador")]
+        [Authorize(Roles = "Admin,Diretoria/RH")]
         public IActionResult Dashboard(DateTime? startDate, DateTime? endDate, int? year, int? month, int? day)
         {
             var viewModel = new ChamadoDashboardViewModel();
@@ -437,7 +437,7 @@ namespace Web.Controllers
         }
 
         // GET: Chamados/Edit/5
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult Edit(int? id)
         {
             if (id == null)
@@ -457,7 +457,7 @@ namespace Web.Controllers
         // POST: Chamados/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult Edit(int id, Chamado chamado)
         {
             if (id != chamado.ID)
@@ -556,7 +556,7 @@ namespace Web.Controllers
         }
 
         // GET: Chamados/Delete/5
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult Delete(int? id)
         {
             if (id == null)
@@ -576,7 +576,7 @@ namespace Web.Controllers
         // POST: Chamados/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult DeleteConfirmed(int id)
         {
             try

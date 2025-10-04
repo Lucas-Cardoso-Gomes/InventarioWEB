@@ -25,10 +25,12 @@
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
-                        </li>
-                        <!-- Inventário Dropdown -->
+                        @if (User.IsInRole("Admin") || User.IsInRole("Coordenador") || User.IsInRole("Diretoria/RH"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
+                            </li>
+                        }
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdownInventario" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Inventário
@@ -62,7 +64,6 @@
                             </ul>
                         </li>
 
-                        <!-- Gerenciamento Dropdown -->
                         @if (User.IsInRole("Admin"))
                         {
                             <li class="nav-item dropdown">
