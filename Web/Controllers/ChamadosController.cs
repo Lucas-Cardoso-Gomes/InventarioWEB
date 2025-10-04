@@ -611,10 +611,12 @@ namespace Web.Controllers
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
+                    var adminCpf = User.FindFirstValue("ColaboradorCPF");
                     connection.Open();
-                    string sql = "UPDATE Chamados SET Status = 'Aberto', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    string sql = "UPDATE Chamados SET Status = 'Aberto', AdminCPF = @AdminCPF, DataAlteracao = @DataAlteracao WHERE ID = @ID";
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
+                        cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         cmd.Parameters.AddWithValue("@ID", id);
                         cmd.ExecuteNonQuery();
@@ -638,10 +640,12 @@ namespace Web.Controllers
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
+                    var adminCpf = User.FindFirstValue("ColaboradorCPF");
                     connection.Open();
-                    string sql = "UPDATE Chamados SET Status = 'Em Andamento', DataAlteracao = @DataAlteracao WHERE ID = @ID";
+                    string sql = "UPDATE Chamados SET Status = 'Em Andamento', AdminCPF = @AdminCPF, DataAlteracao = @DataAlteracao WHERE ID = @ID";
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
+                        cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         cmd.Parameters.AddWithValue("@ID", id);
                         cmd.ExecuteNonQuery();
