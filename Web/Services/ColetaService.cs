@@ -40,7 +40,7 @@ namespace Web.Services
                 using (var client = new TcpClient())
                 {
                     var connectTask = client.ConnectAsync(computadorIp, serverPort);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask) // Timeout aumentado para 5s
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
                     {
                         string message = $"Timeout ao conectar com: {computadorIp}";
                         _logService.AddLog("Warning", message, "Coleta");
@@ -48,7 +48,7 @@ namespace Web.Services
                         return;
                     }
 
-                    await connectTask; // Propagate exceptions
+                    await connectTask;
                     _logService.AddLog("Info", $"Conexão bem-sucedida com o IP: {computadorIp}", "Coleta");
 
                     using (NetworkStream stream = client.GetStream())
