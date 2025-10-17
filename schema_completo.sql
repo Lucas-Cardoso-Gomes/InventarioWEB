@@ -34,6 +34,7 @@ CREATE TABLE Colaboradores (
     CoordenadorCPF NVARCHAR(14),
     CONSTRAINT FK_Colaboradores_Coordenador FOREIGN KEY (CoordenadorCPF) REFERENCES Colaboradores(CPF)
 );
+GO
 
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY,
@@ -45,6 +46,7 @@ CREATE TABLE Usuarios (
     IsCoordinator BIT NOT NULL DEFAULT 0,
     CONSTRAINT FK_Usuarios_Colaboradores FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
+GO
 
 CREATE TABLE Computadores (
     MAC NVARCHAR(17) PRIMARY KEY,
@@ -73,6 +75,7 @@ CREATE TABLE Computadores (
     DataColeta DATETIME,
     PartNumber VARCHAR(255)
 );
+GO
 
 CREATE TABLE Monitores (
     PartNumber NVARCHAR(50) PRIMARY KEY,
@@ -81,6 +84,7 @@ CREATE TABLE Monitores (
     Modelo NVARCHAR(50) NOT NULL,
     Tamanho NVARCHAR(20) NOT NULL
 );
+GO
 
 CREATE TABLE Perifericos (
     PartNumber NVARCHAR(50) PRIMARY KEY,
@@ -88,6 +92,7 @@ CREATE TABLE Perifericos (
     Tipo NVARCHAR(50) NOT NULL,
     DataEntrega DATETIME
 );
+GO
 
 CREATE TABLE Manutencoes (
     Id INT PRIMARY KEY IDENTITY,
@@ -100,6 +105,7 @@ CREATE TABLE Manutencoes (
     Data DATETIME,
     Historico NVARCHAR(MAX)
 );
+GO
 
 CREATE TABLE PersistentLogs (
     Id INT PRIMARY KEY IDENTITY,
@@ -109,6 +115,7 @@ CREATE TABLE PersistentLogs (
     PerformedBy NVARCHAR(255) NOT NULL,
     Details NVARCHAR(MAX)
 );
+GO
 
 CREATE TABLE Logs (
     Id INT PRIMARY KEY IDENTITY,
@@ -117,6 +124,7 @@ CREATE TABLE Logs (
     Message NVARCHAR(MAX) NOT NULL,
     Source NVARCHAR(50)
 );
+GO
 
 CREATE TABLE Chamados (
     ID INT PRIMARY KEY IDENTITY,
@@ -128,6 +136,7 @@ CREATE TABLE Chamados (
     DataCriacao DATETIME NOT NULL,
     Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado'))
 );
+GO
 
 CREATE TABLE ChamadoConversas (
     ID INT PRIMARY KEY IDENTITY,
@@ -138,6 +147,7 @@ CREATE TABLE ChamadoConversas (
     CONSTRAINT FK_ChamadoConversas_Chamado FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID) ON DELETE CASCADE,
     CONSTRAINT FK_ChamadoConversas_Usuario FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
 );
+GO
 
 CREATE TABLE ChamadoAnexos (
     ID INT PRIMARY KEY IDENTITY,
@@ -147,6 +157,7 @@ CREATE TABLE ChamadoAnexos (
     DataUpload DATETIME NOT NULL,
     CONSTRAINT FK_ChamadoAnexos_Chamado FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID) ON DELETE CASCADE
 );
+GO
 
 CREATE TABLE Rede (
     Id INT PRIMARY KEY IDENTITY,
@@ -156,12 +167,15 @@ CREATE TABLE Rede (
     Nome NVARCHAR(100) NOT NULL,
     DataInclusao DATETIME NOT NULL,
     DataAlteracao DATETIME,
-    Observacao NVARCHAR(MAX),
+    Observacao NVARCHAR(MAX)
 );
+GO
 
 select * from rede;
+GO
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator) VALUES ('Admin', 'Admin', 'Admin', 'Admin', 0);
+GO
 
 -- Trigger for Colaboradores table
 ALTER TRIGGER trg_Colaboradores_Log
@@ -398,5 +412,53 @@ BEGIN
 
     INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
     VALUES (GETDATE(), 'Rede', @ActionType, SUSER_SNAME(), @Details);
+END;
+GO
+
+CREATE TABLE Smartphones (
+    Id INT PRIMARY KEY IDENTITY,
+    Modelo NVARCHAR(100) NOT NULL,
+    IMEI1 NVARCHAR(15) NOT NULL,
+    IMEI2 NVARCHAR(15),
+    Usuario NVARCHAR(100),
+    Filial NVARCHAR(100),
+    DataCriacao DATETIME NOT NULL,
+    DataAlteracao DATETIME,
+    ContaGoogle NVARCHAR(100),
+    SenhaGoogle NVARCHAR(100)
+);
+GO
+
+-- Trigger for Smartphones table
+CREATE TRIGGER trg_Smartphones_Log
+ON Smartphones
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    DECLARE @ActionType NVARCHAR(50);
+    DECLARE @Details NVARCHAR(MAX);
+
+    IF EXISTS (SELECT * FROM inserted) AND EXISTS (SELECT * FROM deleted)
+    BEGIN
+        SET @ActionType = 'Update';
+        SELECT @Details = 
+            (SELECT 
+                (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS OldValues,
+                (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS NewValues
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
+    ELSE IF EXISTS (SELECT * FROM inserted)
+    BEGIN
+        SET @ActionType = 'Create';
+        SELECT @Details = (SELECT * FROM inserted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
+    ELSE
+    BEGIN
+        SET @ActionType = 'Delete';
+        SELECT @Details = (SELECT * FROM deleted FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    END
+
+    INSERT INTO dbo.PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+    VALUES (GETDATE(), 'Smartphone', @ActionType, SUSER_SNAME(), @Details);
 END;
 GO

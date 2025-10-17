@@ -1,0 +1,63 @@
+@model Web.Models.Smartphone
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+<h4>Smartphone</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Modelo" class="control-label"></label>
+                <input asp-for="Modelo" class="form-control" />
+                <span asp-validation-for="Modelo" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="IMEI1" class="control-label"></label>
+                <input asp-for="IMEI1" class="form-control" />
+                <span asp-validation-for="IMEI1" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="IMEI2" class="control-label"></label>
+                <input asp-for="IMEI2" class="form-control" />
+                <span asp-validation-for="IMEI2" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Usuario" class="control-label"></label>
+                <input asp-for="Usuario" class="form-control" />
+                <span asp-validation-for="Usuario" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Filial" class="control-label"></label>
+                <input asp-for="Filial" class="form-control" />
+                <span asp-validation-for="Filial" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ContaGoogle" class="control-label"></label>
+                <input asp-for="ContaGoogle" class="form-control" />
+                <span asp-validation-for="ContaGoogle" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="SenhaGoogle" class="control-label"></label>
+                <input asp-for="SenhaGoogle" class="form-control" />
+                <span asp-validation-for="SenhaGoogle" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
