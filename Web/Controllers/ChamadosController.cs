@@ -40,16 +40,23 @@ namespace Web.Controllers
             _hostingEnvironment = hostingEnvironment;
         }
 
-        public IActionResult Index(List<string> statuses, List<string> selectedAdmins)
+        public IActionResult Index(List<string> statuses, List<string> selectedAdmins, List<string> selectedColaboradores, List<string> selectedServicos, string searchText, DateTime? startDate, DateTime? endDate)
         {
             if (statuses == null || !statuses.Any())
             {
                 statuses = new List<string> { "Aberto", "Em Andamento" };
             }
+
             ViewBag.SelectedStatuses = statuses;
             ViewBag.Admins = GetAdminsFromChamados();
             ViewBag.SelectedAdmins = selectedAdmins;
-
+            ViewBag.Colaboradores = GetColaboradores();
+            ViewBag.SelectedColaboradores = selectedColaboradores;
+            ViewBag.Servicos = GetAllServicos();
+            ViewBag.SelectedServicos = selectedServicos;
+            ViewBag.SearchText = searchText;
+            ViewBag.StartDate = startDate;
+            ViewBag.EndDate = endDate;
 
             var chamados = new List<Chamado>();
             var userCpf = User.FindFirstValue("ColaboradorCPF");
@@ -83,7 +90,7 @@ namespace Web.Controllers
                     if (statuses.Any())
                     {
                         var statusClauses = new List<string>();
-                        for(int i = 0; i < statuses.Count; i++)
+                        for (int i = 0; i < statuses.Count; i++)
                         {
                             var paramName = $"@Status{i}";
                             statusClauses.Add(paramName);
@@ -102,6 +109,48 @@ namespace Web.Controllers
                             parameters.Add(paramName, selectedAdmins[i]);
                         }
                         whereClauses.Add($"c.AdminCPF IN ({string.Join(", ", adminClauses)})");
+                    }
+
+                    if (selectedColaboradores != null && selectedColaboradores.Any())
+                    {
+                        var colabClauses = new List<string>();
+                        for (int i = 0; i < selectedColaboradores.Count; i++)
+                        {
+                            var paramName = $"@ColabCPF{i}";
+                            colabClauses.Add(paramName);
+                            parameters.Add(paramName, selectedColaboradores[i]);
+                        }
+                        whereClauses.Add($"c.ColaboradorCPF IN ({string.Join(", ", colabClauses)})");
+                    }
+
+                    if (selectedServicos != null && selectedServicos.Any())
+                    {
+                        var servicoClauses = new List<string>();
+                        for (int i = 0; i < selectedServicos.Count; i++)
+                        {
+                            var paramName = $"@Servico{i}";
+                            servicoClauses.Add(paramName);
+                            parameters.Add(paramName, selectedServicos[i]);
+                        }
+                        whereClauses.Add($"c.Servico IN ({string.Join(", ", servicoClauses)})");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(searchText))
+                    {
+                        whereClauses.Add("(c.Descricao LIKE @SearchText OR c.Servico LIKE @SearchText)");
+                        parameters.Add("@SearchText", $"%{searchText}%");
+                    }
+
+                    if (startDate.HasValue)
+                    {
+                        whereClauses.Add("c.DataCriacao >= @StartDate");
+                        parameters.Add("@StartDate", startDate.Value.Date);
+                    }
+
+                    if (endDate.HasValue)
+                    {
+                        whereClauses.Add("c.DataCriacao < @EndDate");
+                        parameters.Add("@EndDate", endDate.Value.Date.AddDays(1));
                     }
 
                     if (whereClauses.Any())

@@ -25,43 +25,84 @@
     <div class="card-body">
         <form asp-action="Index" method="get" id="chamados-filter-form">
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <h5>Status</h5>
-                    <div class="d-flex flex-wrap">
-                        <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Aberto"
-                                id="statusAberto" @(selectedStatuses.Contains("Aberto") ? "checked" : "")>
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Aberto" id="statusAberto" @(selectedStatuses.Contains("Aberto") ? "checked" : "")>
                             <label class="form-check-label" for="statusAberto">Aberto</label>
                         </div>
-                        <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Em Andamento"
-                                id="statusEmAndamento" @(selectedStatuses.Contains("Em Andamento") ? "checked" : "")>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Em Andamento" id="statusEmAndamento" @(selectedStatuses.Contains("Em Andamento") ? "checked" : "")>
                             <label class="form-check-label" for="statusEmAndamento">Em Andamento</label>
                         </div>
-                        <div class="form-check me-3">
-                            <input class="form-check-input" type="checkbox" name="statuses" value="Fechado"
-                                id="statusFechado" @(selectedStatuses.Contains("Fechado") ? "checked" : "")>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Fechado" id="statusFechado" @(selectedStatuses.Contains("Fechado") ? "checked" : "")>
                             <label class="form-check-label" for="statusFechado">Fechado</label>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <h5>TIC</h5>
                     @{
-                        var allAdmins = ViewBag.Admins as List<Web.Models.Colaborador> ?? new
-                        List<Web.Models.Colaborador>();
+                        var allAdmins = ViewBag.Admins as List<Web.Models.Colaborador> ?? new List<Web.Models.Colaborador>();
                         var selectedAdmins = ViewBag.SelectedAdmins as List<string> ?? new List<string>();
                     }
-                    <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
                         @foreach (var admin in allAdmins)
                         {
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="selectedAdmins" value="@admin.CPF"
-                                    id="admin-@admin.CPF" @(selectedAdmins.Contains(admin.CPF) ? "checked" : "")>
+                                <input class="form-check-input" type="checkbox" name="selectedAdmins" value="@admin.CPF" id="admin-@admin.CPF" @(selectedAdmins.Contains(admin.CPF) ? "checked" : "")>
                                 <label class="form-check-label" for="admin-@admin.CPF">@admin.Nome</label>
                             </div>
                         }
                     </div>
+                </div>
+                <div class="col-md-3">
+                    <h5>Colaborador</h5>
+                    @{
+                        var allColaboradores = ViewBag.Colaboradores as List<Web.Models.Colaborador> ?? new List<Web.Models.Colaborador>();
+                        var selectedColaboradores = ViewBag.SelectedColaboradores as List<string> ?? new List<string>();
+                    }
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        @foreach (var colab in allColaboradores)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedColaboradores" value="@colab.CPF" id="colab-@colab.CPF" @(selectedColaboradores.Contains(colab.CPF) ? "checked" : "")>
+                                <label class="form-check-label" for="colab-@colab.CPF">@colab.Nome</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <h5>Serviço</h5>
+                    @{
+                        var allServicos = ViewBag.Servicos as List<string> ?? new List<string>();
+                        var selectedServicos = ViewBag.SelectedServicos as List<string> ?? new List<string>();
+                    }
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        @foreach (var servico in allServicos)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedServicos" value="@servico" id="serv-@servico.Replace(" ", "")" @(selectedServicos.Contains(servico) ? "checked" : "")>
+                                <label class="form-check-label" for="serv-@servico.Replace(" ", "")">@servico</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-5">
+                    <h5>Pesquisa</h5>
+                    <input type="text" name="searchText" class="form-control" value="@ViewBag.SearchText" placeholder="Buscar por descrição ou serviço...">
+                </div>
+                <div class="col-md-3">
+                    <h5>Data Início</h5>
+                    <input type="date" name="startDate" class="form-control" value="@(ViewBag.StartDate?.ToString("yyyy-MM-dd"))">
+                </div>
+                <div class="col-md-3">
+                    <h5>Data Fim</h5>
+                    <input type="date" name="endDate" class="form-control" value="@(ViewBag.EndDate?.ToString("yyyy-MM-dd"))">
                 </div>
             </div>
             <div class="mt-3">
