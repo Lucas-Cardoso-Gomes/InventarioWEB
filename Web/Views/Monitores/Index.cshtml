@@ -92,7 +92,11 @@
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Marca)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Modelo)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Tamanho)</th>
-                <th>Ações</th>
+                @if (User.IsInRole("Admin")){
+                    <th>
+                        Ações
+                    </th>
+                }
             </tr>
         </thead>
         <tbody>
@@ -104,13 +108,14 @@
                     <td>@Html.DisplayFor(modelItem => item.Marca)</td>
                     <td>@Html.DisplayFor(modelItem => item.Modelo)</td>
                     <td>@Html.DisplayFor(modelItem => item.Tamanho)</td>
-                    <td>
-                        @if (User.IsInRole("Admin"))
-                        {
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <td>
                             <a asp-action="Edit" asp-route-id="@item.PartNumber" class="btn btn-warning btn-sm">Editar</a>
                             <a asp-action="Delete" asp-route-id="@item.PartNumber" class="btn btn-danger btn-sm">Excluir</a>
-                        }
-                    </td>
+                        </td>
+                    }
+                    
                 </tr>
             }
         </tbody>
