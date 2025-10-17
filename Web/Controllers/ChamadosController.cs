@@ -234,7 +234,6 @@ namespace Web.Controllers
             {
                 connection.Open();
 
-                // Total de Chamados
                 string totalSql = $"SELECT COUNT(*) FROM Chamados c {whereSql}";
                 using (var cmd = new SqlCommand(totalSql, connection))
                 {
@@ -242,7 +241,6 @@ namespace Web.Controllers
                     viewModel.TotalChamados = (int)cmd.ExecuteScalar();
                 }
 
-                // Top 10 Serviços
                 string topServicosSql = $@"SELECT TOP 10 Servico, COUNT(*) as Count
                                            FROM Chamados c {whereSql}
                                            GROUP BY Servico
@@ -259,7 +257,6 @@ namespace Web.Controllers
                     }
                 }
 
-                // Total de Chamados por Admin
                 string porAdminSql = $@"SELECT a.Nome, COUNT(c.ID) as Count
                                         FROM Chamados c
                                         JOIN Colaboradores a ON c.AdminCPF = a.CPF
@@ -278,7 +275,6 @@ namespace Web.Controllers
                     }
                 }
 
-                // Top 10 Colaboradores
                 string topColaboradoresSql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
                                                 FROM Chamados c
                                                 JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
@@ -317,6 +313,7 @@ namespace Web.Controllers
         public async Task<IActionResult> Create(Chamado chamado)
         {
             var userCpf = User.FindFirstValue("ColaboradorCPF");
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             object adminCpfValue = DBNull.Value;
 
             if (!User.IsInRole("Admin"))
@@ -337,6 +334,7 @@ namespace Web.Controllers
                     {
                         connection.Open();
                         string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status)
+                                       OUTPUT INSERTED.ID
                                        VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
@@ -346,31 +344,11 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
-                            cmd.ExecuteNonQuery();
+                            chamado.ID = (int)await cmd.ExecuteScalarAsync();
                         }
                     }
 
-                    // Notificações em background após o sucesso da criação do chamado
-                    var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
-                    var message = $"Novo chamado criado por {chamado.ColaboradorCPF}: {chamado.Servico}";
-                    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await _emailService.SendEmailAsync(toEmail, "Novo Chamado Criado", message);
-                            await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Novo Chamado", message);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Falha ao enviar notificações em segundo plano para o novo chamado.");
-                            if (!string.IsNullOrEmpty(userId))
-                            {
-                                await _notificationHubContext.Clients.User(userId).SendAsync("ReceiveError", "Falha ao enviar notificação", "Ocorreu um erro ao tentar enviar a notificação por e-mail ou navegador. Verifique as configurações do sistema.");
-                            }
-                        }
-                    });
+                    _ = Task.Run(() => SendNotificationAsync(chamado, "Criado", userId));
 
                     return RedirectToAction(nameof(Index));
                 }
@@ -507,12 +485,14 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
-        public IActionResult Edit(int id, Chamado chamado)
+        public async Task<IActionResult> Edit(int id, Chamado chamado)
         {
             if (id != chamado.ID)
             {
                 return NotFound();
             }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (ModelState.IsValid)
             {
@@ -540,9 +520,11 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
                             cmd.Parameters.AddWithValue("@ID", id);
-                            cmd.ExecuteNonQuery();
+                            await cmd.ExecuteNonQueryAsync();
                         }
                     }
+
+                    _ = Task.Run(() => SendNotificationAsync(chamado, "Editado", userId));
                 }
                 catch (Exception ex)
                 {
@@ -654,8 +636,9 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public IActionResult ReopenTicket(int id)
+        public async Task<IActionResult> ReopenTicket(int id)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
@@ -668,8 +651,14 @@ namespace Web.Controllers
                         cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         cmd.Parameters.AddWithValue("@ID", id);
-                        cmd.ExecuteNonQuery();
+                        await cmd.ExecuteNonQueryAsync();
                     }
+                }
+
+                var chamado = FindChamadoById(id);
+                if (chamado != null)
+                {
+                    _ = Task.Run(() => SendNotificationAsync(chamado, "Reaberto", userId));
                 }
             }
             catch (Exception ex)
@@ -683,8 +672,9 @@ namespace Web.Controllers
                 [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public IActionResult WorkingTicket(int id)
+        public async Task<IActionResult> WorkingTicket(int id)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
@@ -697,8 +687,14 @@ namespace Web.Controllers
                         cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         cmd.Parameters.AddWithValue("@ID", id);
-                        cmd.ExecuteNonQuery();
+                        await cmd.ExecuteNonQueryAsync();
                     }
+                }
+
+                var chamado = FindChamadoById(id);
+                if (chamado != null)
+                {
+                    _ = Task.Run(() => SendNotificationAsync(chamado, "Em Andamento", userId));
                 }
             }
             catch (Exception ex)
@@ -712,8 +708,9 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public IActionResult CloseTicket(int id)
+        public async Task<IActionResult> CloseTicket(int id)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
@@ -724,8 +721,14 @@ namespace Web.Controllers
                     {
                         cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                         cmd.Parameters.AddWithValue("@ID", id);
-                        cmd.ExecuteNonQuery();
+                        await cmd.ExecuteNonQueryAsync();
                     }
+                }
+
+                var chamado = FindChamadoById(id);
+                if (chamado != null)
+                {
+                    _ = Task.Run(() => SendNotificationAsync(chamado, "Fechado", userId));
                 }
             }
             catch (Exception ex)
@@ -971,6 +974,54 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao enviar mensagem do chat.");
                 return StatusCode(500, "Erro interno do servidor.");
+            }
+        }
+
+        private async Task SendNotificationAsync(Chamado chamado, string status, string userId)
+        {
+            try
+            {
+                // Busca o nome do colaborador, se não estiver disponível
+                if (string.IsNullOrEmpty(chamado.ColaboradorNome))
+                {
+                    var colaborador = GetColaboradores().Find(c => c.CPF == chamado.ColaboradorCPF);
+                    if (colaborador != null)
+                    {
+                        chamado.ColaboradorNome = colaborador.Nome;
+                        _logger.LogInformation("Nome do colaborador encontrado: {ColaboradorNome}", chamado.ColaboradorNome);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Não foi possível encontrar o nome do colaborador para o CPF {ColaboradorCPF}", chamado.ColaboradorCPF);
+                    }
+                }
+
+                var subject = $"PM Logística: Chamado {status} \"{chamado.Servico}\" por \"{chamado.ColaboradorNome}\" às \"{DateTime.Now:dd/MM/yyyy HH:mm}\"";
+                var message = $"Um chamado foi {status.ToLower()}: <br/>" +
+                              $"<b>Serviço:</b> {chamado.Servico}<br/>" +
+                              $"<b>Colaborador:</b> {chamado.ColaboradorNome}<br/>" +
+                              $"<b>Descrição:</b> {chamado.Descricao}<br/>" +
+                              $"<b>Status:</b> {status}";
+
+                var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
+                if (!string.IsNullOrEmpty(toEmail))
+                {
+                    await _emailService.SendEmailAsync(toEmail, subject, message);
+                }
+                else
+                {
+                    _logger.LogWarning("Nenhum e-mail de destino configurado em EmailSettings:ToEmail. O e-mail não será enviado.");
+                }
+
+                await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Atualização de Chamado", subject);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao enviar notificação para o chamado ID {ChamadoID}", chamado.ID);
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    await _notificationHubContext.Clients.User(userId).SendAsync("ReceiveError", "Falha ao enviar notificação", "Ocorreu um erro ao tentar enviar a notificação. O chamado foi salvo, mas a notificação falhou.");
+                }
             }
         }
     }
