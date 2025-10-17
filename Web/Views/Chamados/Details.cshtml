@@ -40,7 +40,11 @@
 <div class="row">
     <div class="col-md-8">
         <h3>Conversa</h3>
-        @await Html.PartialAsync("_Chat", Model.Conversas)
+        @if (Model.Status == "Fechado")
+        {
+            <div class="alert alert-info">O chat foi desativado pois este chamado está fechado.</div>
+        }
+        @await Html.PartialAsync("_Chat", Model.Conversas, new ViewDataDictionary(ViewData) { { "Status", Model.Status } })
     </div>
     <div class="col-md-4">
         <h3>Anexos</h3>
@@ -53,16 +57,23 @@
             }
         </div>
         <hr />
-        <h4>Adicionar Anexo</h4>
-        <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
-            <input type="hidden" name="ChamadoID" value="@Model.ID" />
-            <div class="form-group">
-                <input type="file" name="file" id="file-input" class="form-control" />
-            </div>
-            <br>
-            <button type="submit" class="btn btn-primary">Adicionar</button>
-        </form>
-        <div id="upload-status" class="mt-2"></div>
+        @if (Model.Status != "Fechado")
+        {
+            <h4>Adicionar Anexo</h4>
+            <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+                <input type="hidden" name="ChamadoID" value="@Model.ID" />
+                <div class="form-group">
+                    <input type="file" name="file" id="file-input" class="form-control" />
+                </div>
+                <br>
+                <button type="submit" class="btn btn-primary">Adicionar</button>
+            </form>
+            <div id="upload-status" class="mt-2"></div>
+        }
+        else
+        {
+            <div class="alert alert-info">O upload de anexos foi desativado pois este chamado está fechado.</div>
+        }
     </div>
 </div>
 

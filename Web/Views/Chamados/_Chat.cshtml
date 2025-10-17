@@ -14,12 +14,15 @@
     }
 </div>
 
-<form id="send-message-form" data-chamado-id="@ViewBag.ChamadoID" data-request-token="@GetAntiXsrfRequestToken()">
-    <div class="input-group">
-        <input type="text" id="message-input" class="form-control" placeholder="Digite sua mensagem..." />
-        <button type="submit" class="btn btn-primary">Enviar</button>
-    </div>
-</form>
+@if ((string)ViewData["Status"] != "Fechado")
+{
+    <form id="send-message-form" data-chamado-id="@ViewBag.ChamadoID" data-request-token="@GetAntiXsrfRequestToken()">
+        <div class="input-group">
+            <input type="text" id="message-input" class="form-control" placeholder="Digite sua mensagem..." />
+            <button type="submit" class="btn btn-primary">Enviar</button>
+        </div>
+    </form>
+}
 
 @* The signalr.js script is included in the main Details.cshtml view *@
 <script>

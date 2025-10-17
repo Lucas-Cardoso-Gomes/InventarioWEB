@@ -979,48 +979,135 @@ namespace Web.Controllers
 
         private async Task SendNotificationAsync(Chamado chamado, string status, string userId)
         {
+            _logger.LogInformation("Iniciando o processo de notificação para o chamado ID {ChamadoID} com status {Status}", chamado.ID, status);
+
             try
             {
-                // Busca o nome do colaborador, se não estiver disponível
+                string colaboradorEmail = null;
+                try
+                {
+                    using (var connection = new SqlConnection(_connectionString))
+                    {
+                        await connection.OpenAsync();
+                        string sql = "SELECT Email, Nome FROM Colaboradores WHERE CPF = @CPF";
+                        using (var cmd = new SqlCommand(sql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@CPF", chamado.ColaboradorCPF);
+                            using (var reader = await cmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    colaboradorEmail = reader["Email"]?.ToString();
+                                    if (string.IsNullOrEmpty(chamado.ColaboradorNome))
+                                    {
+                                        chamado.ColaboradorNome = reader["Nome"]?.ToString();
+                                    }
+                                    _logger.LogInformation("E-mail do colaborador encontrado: {Email}", colaboradorEmail);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Nenhum colaborador encontrado para o CPF {CPF}", chamado.ColaboradorCPF);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro ao buscar e-mail do colaborador para o CPF {CPF}", chamado.ColaboradorCPF);
+                }
+
                 if (string.IsNullOrEmpty(chamado.ColaboradorNome))
                 {
-                    var colaborador = GetColaboradores().Find(c => c.CPF == chamado.ColaboradorCPF);
-                    if (colaborador != null)
-                    {
-                        chamado.ColaboradorNome = colaborador.Nome;
-                        _logger.LogInformation("Nome do colaborador encontrado: {ColaboradorNome}", chamado.ColaboradorNome);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Não foi possível encontrar o nome do colaborador para o CPF {ColaboradorCPF}", chamado.ColaboradorCPF);
-                    }
+                    _logger.LogWarning("Não foi possível encontrar o nome do colaborador para o CPF {ColaboradorCPF}, usando o CPF como fallback.", chamado.ColaboradorCPF);
+                    chamado.ColaboradorNome = chamado.ColaboradorCPF;
                 }
 
                 var subject = $"PM Logística: Chamado {status} \"{chamado.Servico}\" por \"{chamado.ColaboradorNome}\" às \"{DateTime.Now:dd/MM/yyyy HH:mm}\"";
-                var message = $"Um chamado foi {status.ToLower()}: <br/>" +
-                              $"<b>Serviço:</b> {chamado.Servico}<br/>" +
-                              $"<b>Colaborador:</b> {chamado.ColaboradorNome}<br/>" +
-                              $"<b>Descrição:</b> {chamado.Descricao}<br/>" +
-                              $"<b>Status:</b> {status}";
+                var messageBuilder = new System.Text.StringBuilder();
+                messageBuilder.AppendLine($"Um chamado foi {status.ToLower()}: <br/>");
+                messageBuilder.AppendLine($"<b>Serviço:</b> {chamado.Servico}<br/>");
+                messageBuilder.AppendLine($"<b>Colaborador:</b> {chamado.ColaboradorNome}<br/>");
+                messageBuilder.AppendLine($"<b>Descrição:</b> {chamado.Descricao}<br/>");
+                messageBuilder.AppendLine($"<b>Status:</b> {status}<br/>");
 
-                var toEmail = _configuration.GetValue<string>("EmailSettings:ToEmail");
-                if (!string.IsNullOrEmpty(toEmail))
+                if (status == "Fechado")
                 {
-                    await _emailService.SendEmailAsync(toEmail, subject, message);
+                    _logger.LogInformation("Anexando histórico de chat e lista de anexos para o chamado fechado ID {ChamadoID}", chamado.ID);
+                    var conversas = GetConversasByChamadoId(chamado.ID);
+                    if (conversas.Any())
+                    {
+                        messageBuilder.AppendLine("<br/><b>Histórico do Chat:</b><br/>");
+                        messageBuilder.AppendLine("<ul>");
+                        foreach (var conversa in conversas)
+                        {
+                            messageBuilder.AppendLine($"<li><b>{conversa.UsuarioNome}</b> ({conversa.DataCriacao:dd/MM/yyyy HH:mm}): {conversa.Mensagem}</li>");
+                        }
+                        messageBuilder.AppendLine("</ul>");
+                    }
+
+                    var anexos = GetAnexosByChamadoId(chamado.ID);
+                    if (anexos.Any())
+                    {
+                        messageBuilder.AppendLine("<br/><b>Arquivos Anexados:</b><br/>");
+                        messageBuilder.AppendLine("<ul>");
+                        foreach (var anexo in anexos)
+                        {
+                            messageBuilder.AppendLine($"<li>{anexo.NomeArquivo}</li>");
+                        }
+                        messageBuilder.AppendLine("</ul>");
+                    }
+                }
+
+                var message = messageBuilder.ToString();
+                var toEmailGroup = _configuration.GetValue<string>("EmailSettings:ToEmail");
+                var recipients = new List<string>();
+                if (!string.IsNullOrEmpty(toEmailGroup))
+                {
+                    recipients.AddRange(toEmailGroup.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries));
+                }
+                if (!string.IsNullOrEmpty(colaboradorEmail))
+                {
+                    recipients.Add(colaboradorEmail);
+                }
+
+                if (recipients.Any())
+                {
+                    foreach (var email in recipients.Distinct())
+                    {
+                        try
+                        {
+                            await _emailService.SendEmailAsync(email, subject, message);
+                            _logger.LogInformation("E-mail de notificação enviado com sucesso para {Email}", email);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Falha ao enviar e-mail de notificação para {Email}", email);
+                        }
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning("Nenhum e-mail de destino configurado em EmailSettings:ToEmail. O e-mail não será enviado.");
+                    _logger.LogWarning("Nenhum destinatário de e-mail encontrado. O e-mail de notificação não será enviado.");
                 }
 
                 await _notificationHubContext.Clients.All.SendAsync("ReceiveNotification", "Atualização de Chamado", subject);
+                _logger.LogInformation("Notificação via SignalR enviada para todos os clientes.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Falha ao enviar notificação para o chamado ID {ChamadoID}", chamado.ID);
+                _logger.LogError(ex, "Falha geral ao enviar notificação para o chamado ID {ChamadoID}", chamado.ID);
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    await _notificationHubContext.Clients.User(userId).SendAsync("ReceiveError", "Falha ao enviar notificação", "Ocorreu um erro ao tentar enviar a notificação. O chamado foi salvo, mas a notificação falhou.");
+                    try
+                    {
+                        await _notificationHubContext.Clients.User(userId).SendAsync("ReceiveError", "Falha ao enviar notificação", "Ocorreu um erro ao tentar enviar a notificação. O chamado foi salvo, mas a notificação falhou.");
+                        _logger.LogInformation("Notificação de erro via SignalR enviada para o usuário {UserID}", userId);
+                    }
+                    catch (Exception signalREx)
+                    {
+                        _logger.LogError(signalREx, "Falha ao enviar a notificação de erro via SignalR para o usuário {UserID}", userId);
+                    }
                 }
             }
         }
