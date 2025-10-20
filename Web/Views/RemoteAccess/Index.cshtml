@@ -11,14 +11,37 @@
     <script>
         const ip = "@ViewBag.Ip";
         const screen = document.getElementById("screen");
+        let currentBlobUrl = null;
 
         function getScreen() {
             fetch(`/RemoteAccess/GetScreenStream?ip=${ip}`)
-                .then(response => response.blob())
+                .then(response => {
+                    if (!response.ok) {
+                        console.error("Erro ao buscar imagem:", response.status, response.statusText);
+                        // Tenta novamente após um tempo maior em caso de erro
+                        setTimeout(getScreen, 1000);
+                        return;
+                    }
+                    return response.blob();
+                })
                 .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    screen.src = url;
-                    setTimeout(getScreen, 100);
+                    if (blob && blob.size > 0) {
+                        // Limpa o blob anterior para evitar vazamento de memória
+                        if (currentBlobUrl) {
+                            URL.revokeObjectURL(currentBlobUrl);
+                        }
+                        currentBlobUrl = URL.createObjectURL(blob);
+                        screen.src = currentBlobUrl;
+                    } else {
+                        console.warn("Recebido um blob vazio ou inválido.");
+                    }
+                    // Chama a função novamente após um intervalo
+                    setTimeout(getScreen, 250);
+                })
+                .catch(error => {
+                    console.error("Falha na requisição de fetch:", error);
+                    // Tenta novamente após um tempo maior em caso de falha de rede
+                    setTimeout(getScreen, 1000);
                 });
         }
 
