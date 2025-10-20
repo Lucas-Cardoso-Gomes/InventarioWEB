@@ -1,0 +1,38 @@
+@{
+    ViewData["Title"] = "Acesso Remoto";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Acesso Remoto a @ViewBag.Ip</h1>
+    <img id="screen" src="" class="img-fluid" />
+</div>
+
+@section Scripts {
+    <script>
+        const ip = "@ViewBag.Ip";
+        const screen = document.getElementById("screen");
+
+        function getScreen() {
+            fetch(`/RemoteAccess/GetScreenStream?ip=${ip}`)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    screen.src = url;
+                    setTimeout(getScreen, 100);
+                });
+        }
+
+        screen.addEventListener("click", function (e) {
+            const rect = screen.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${x}&y=${y}&type=click`, { method: "POST" });
+        });
+
+        document.addEventListener("keydown", function (e) {
+            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.key}`, { method: "POST" });
+        });
+
+        getScreen();
+    </script>
+}
