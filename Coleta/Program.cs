@@ -104,34 +104,6 @@ namespace coleta
                                         writer.WriteLine($"Error: {ex.Message}");
                                     }
                                 }
-                                else if (comandoRemoto == "start_remote_access")
-                                {
-                                    Console.WriteLine("[INFO] Starting remote access stream.");
-                                    try
-                                    {
-                                        while (client.Connected)
-                                        {
-                                            byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
-                                            byte[] lengthPrefix = BitConverter.GetBytes(screenshotBytes.Length);
-                                            stream.Write(lengthPrefix, 0, lengthPrefix.Length);
-                                            stream.Write(screenshotBytes, 0, screenshotBytes.Length);
-                                            stream.Flush();
-                                            await Task.Delay(100);
-                                        }
-                                    }
-                                    catch (IOException ex)
-                                    {
-                                        Console.WriteLine($"[INFO] Client disconnected: {ex.Message}");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"[ERROR] Error during remote access stream: {ex.Message}");
-                                    }
-                                    finally
-                                    {
-                                        Console.WriteLine("[INFO] Remote access stream stopped.");
-                                    }
-                                }
                                 else if (comandoRemoto.StartsWith("mouse_event"))
                                 {
                                     var parts = comandoRemoto.Split(' ');
