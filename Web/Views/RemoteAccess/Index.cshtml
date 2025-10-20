@@ -1,5 +1,6 @@
 @{
     ViewData["Title"] = "Acesso Remoto";
+    Layout = "~/Views/Shared/_RemoteAccessLayout.cshtml";
 }
 
 <div class="text-center">
@@ -16,12 +17,17 @@
         let originalWidth = 0;
         let originalHeight = 0;
 
-        function getScreen() {
+        let latestBlob = null;
+        let isFetching = false;
+
+        function fetchScreen() {
+            if (isFetching) return;
+            isFetching = true;
+
             fetch(`/RemoteAccess/GetScreenStream?ip=${ip}`)
                 .then(response => {
                     if (!response.ok) {
                         console.error("Erro ao buscar imagem:", response.status, response.statusText);
-                        setTimeout(getScreen, 1000);
                         return Promise.reject(new Error('Resposta do servidor não foi OK'));
                     }
                     originalWidth = parseInt(response.headers.get("X-Original-Width"));
@@ -30,20 +36,29 @@
                 })
                 .then(blob => {
                     if (blob && blob.size > 0) {
-                        if (currentBlobUrl) {
-                            URL.revokeObjectURL(currentBlobUrl);
-                        }
-                        currentBlobUrl = URL.createObjectURL(blob);
-                        screen.src = currentBlobUrl;
+                        latestBlob = blob;
                     } else {
                         console.warn("Recebido um blob vazio ou inválido.");
                     }
-                    setTimeout(getScreen, 250);
                 })
                 .catch(error => {
                     console.error("Falha na requisição de fetch:", error);
-                    setTimeout(getScreen, 1000);
+                })
+                .finally(() => {
+                    isFetching = false;
                 });
+        }
+
+        function updateScreen() {
+            if (latestBlob) {
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                }
+                currentBlobUrl = URL.createObjectURL(latestBlob);
+                screen.src = currentBlobUrl;
+                latestBlob = null;
+            }
+            window.requestAnimationFrame(updateScreen);
         }
 
         screen.addEventListener("click", function (e) {
@@ -60,7 +75,15 @@
         });
 
         document.addEventListener("keydown", function (e) {
-            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.key}`, { method: "POST" });
+            e.preventDefault();
+            const key = e.key.length === 1 ? e.key : `{${e.code}}`;
+            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${key}&state=down`, { method: "POST" });
+        });
+
+        document.addEventListener("keyup", function (e) {
+            e.preventDefault();
+            const key = e.key.length === 1 ? e.key : `{${e.code}}`;
+            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${key}&state=up`, { method: "POST" });
         });
 
         const lockButton = document.getElementById("lock-mouse-btn");
@@ -81,7 +104,7 @@
             fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${e.movementX}&y=${e.movementY}&type=move`, { method: "POST" });
         }
 
-
-        getScreen();
+        setInterval(fetchScreen, 100);
+        window.requestAnimationFrame(updateScreen);
     </script>
 }
