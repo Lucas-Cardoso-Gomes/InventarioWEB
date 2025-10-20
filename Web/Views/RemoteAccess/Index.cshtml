@@ -12,21 +12,23 @@
         const ip = "@ViewBag.Ip";
         const screen = document.getElementById("screen");
         let currentBlobUrl = null;
+        let originalWidth = 0;
+        let originalHeight = 0;
 
         function getScreen() {
             fetch(`/RemoteAccess/GetScreenStream?ip=${ip}`)
                 .then(response => {
                     if (!response.ok) {
                         console.error("Erro ao buscar imagem:", response.status, response.statusText);
-                        // Tenta novamente após um tempo maior em caso de erro
                         setTimeout(getScreen, 1000);
-                        return;
+                        return Promise.reject(new Error('Resposta do servidor não foi OK'));
                     }
+                    originalWidth = parseInt(response.headers.get("X-Original-Width"));
+                    originalHeight = parseInt(response.headers.get("X-Original-Height"));
                     return response.blob();
                 })
                 .then(blob => {
                     if (blob && blob.size > 0) {
-                        // Limpa o blob anterior para evitar vazamento de memória
                         if (currentBlobUrl) {
                             URL.revokeObjectURL(currentBlobUrl);
                         }
@@ -35,20 +37,24 @@
                     } else {
                         console.warn("Recebido um blob vazio ou inválido.");
                     }
-                    // Chama a função novamente após um intervalo
                     setTimeout(getScreen, 250);
                 })
                 .catch(error => {
                     console.error("Falha na requisição de fetch:", error);
-                    // Tenta novamente após um tempo maior em caso de falha de rede
                     setTimeout(getScreen, 1000);
                 });
         }
 
         screen.addEventListener("click", function (e) {
+            if (originalWidth === 0 || originalHeight === 0) return;
+
             const rect = screen.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const scaleX = originalWidth / rect.width;
+            const scaleY = originalHeight / rect.height;
+
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+
             fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${x}&y=${y}&type=click`, { method: "POST" });
         });
 

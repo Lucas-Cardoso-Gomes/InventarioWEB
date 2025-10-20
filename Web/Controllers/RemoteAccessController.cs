@@ -41,6 +41,14 @@ namespace Web.Controllers
                 if (response != null && !response.Contains("Error"))
                 {
                     var imageBytes = Convert.FromBase64String(response);
+
+                    using (var ms = new MemoryStream(imageBytes))
+                    using (var image = System.Drawing.Image.FromStream(ms))
+                    {
+                        Response.Headers.Append("X-Original-Width", image.Width.ToString());
+                        Response.Headers.Append("X-Original-Height", image.Height.ToString());
+                    }
+
                     return File(imageBytes, "image/png");
                 }
                 return NotFound("Failed to get screen frame.");
