@@ -95,14 +95,47 @@ namespace coleta
                                     {
                                         byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
                                         string base64String = Convert.ToBase64String(screenshotBytes);
-                                        writer.WriteLine(base64String);
-                                        Console.WriteLine("[INFO] Screenshot sent successfully.");
+
+                                        // Envia o tamanho primeiro e depois os dados para garantir a integridade
+                                        writer.WriteLine(base64String.Length);
+                                        writer.Write(base64String);
+                                        await writer.FlushAsync();
+
+                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
                                     }
                                     catch (Exception ex)
                                     {
-                                        Console.WriteLine($"[ERROR] Failed to take screenshot: {ex.Message}");
+                                        Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
                                         writer.WriteLine($"Error: {ex.Message}");
                                     }
+                                }
+                                else if (comandoRemoto.StartsWith("mouse_event"))
+                                {
+                                    var parts = comandoRemoto.Split(' ');
+                                    int x = int.Parse(parts[1]);
+                                    int y = int.Parse(parts[2]);
+                                    string type = parts[3];
+
+                                    if (type == "click")
+                                    {
+                                        RemoteControl.SetCursorPos(x, y);
+                                        RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                                        RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                                    }
+                                    else if (type == "move")
+                                    {
+                                        RemoteControl.MoveCursor(x, y);
+                                    }
+                                    writer.WriteLine("Mouse event handled.");
+                                }
+                                else if (comandoRemoto.StartsWith("keyboard_event"))
+                                {
+                                    var key = comandoRemoto.Split(' ')[1];
+                                    // This is a simplified mapping. A more complete solution would handle more keys.
+                                    byte vk = (byte)char.ToUpper(key[0]);
+                                    RemoteControl.keybd_event(vk, 0, 0, 0);
+                                    RemoteControl.keybd_event(vk, 0, 0x02, 0); // KEYEVENTF_KEYUP
+                                    writer.WriteLine("Keyboard event handled.");
                                 }
                                 else
                                 {
