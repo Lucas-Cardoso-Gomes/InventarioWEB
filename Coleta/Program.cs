@@ -130,11 +130,27 @@ namespace coleta
                                 }
                                 else if (comandoRemoto.StartsWith("keyboard_event"))
                                 {
-                                    var key = comandoRemoto.Split(' ')[1];
-                                    // This is a simplified mapping. A more complete solution would handle more keys.
-                                    byte vk = (byte)char.ToUpper(key[0]);
-                                    RemoteControl.keybd_event(vk, 0, 0, 0);
-                                    RemoteControl.keybd_event(vk, 0, 0x02, 0); // KEYEVENTF_KEYUP
+                                    var parts = comandoRemoto.Split(' ');
+                                    var key = parts[1];
+                                    var state = parts[2];
+                                    if (key.StartsWith("{") && key.EndsWith("}"))
+                                    {
+                                        var vkCode = KeyCodeConverter.GetVirtualKeyCode(key.Trim('{', '}'));
+                                        RemoteControl.SendKeyEvent(vkCode, state == "up");
+                                    }
+                                    else
+                                    {
+                                        foreach (char c in key)
+                                        {
+                                            // Handle special characters that need Shift
+                                            if ("+^%~()".Contains(c))
+                                            {
+                                                RemoteControl.SendKeyEvent(KeyCodeConverter.GetVirtualKeyCode("Shift"), state == "up");
+                                            }
+                                            byte vk = (byte)char.ToUpper(c);
+                                            RemoteControl.keybd_event(vk, 0, state == "up" ? 0x02u : 0u, 0);
+                                        }
+                                    }
                                     writer.WriteLine("Keyboard event handled.");
                                 }
                                 else
