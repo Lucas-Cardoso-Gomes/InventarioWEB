@@ -2,6 +2,8 @@ using Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Web.Models;
 using Web.Hubs;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,13 +34,6 @@ builder.Services.AddScoped<PersistentLogService>();
 builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddHostedService<PingService>();
-
-// Configuração do Kestrel para escutar em todas as interfaces de rede
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-serverOptions.ListenAnyIP(80); // HTTP
-serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // HTTPS
-});
 
 var app = builder.Build();
 

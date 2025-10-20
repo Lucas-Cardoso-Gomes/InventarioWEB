@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
@@ -7,12 +7,14 @@ using System.Text.Json;
 using System.Management;
 using Microsoft.Extensions.Configuration;
 using Coleta.Models;
+using Coleta;
+using System.Threading.Tasks;
 
 namespace coleta
 {
     partial class Program
     {
-        static void Main()
+        static async Task Main()
         {
             // Carregar configurações do appsettings.json
             var builder = new ConfigurationBuilder()
@@ -54,7 +56,7 @@ namespace coleta
                             }
 
                             autenticacao = autenticacao.Trim();
-                            Console.WriteLine($"[DEBUG] Autenticação recebida: '{autenticacao}'");
+                            Console.WriteLine($"[DEBUG] Autênticação recebida: '{autenticacao}'");
 
                             if (autenticacao == solicitarInformacoes)
                             {
@@ -87,9 +89,27 @@ namespace coleta
                                 comandoRemoto = comandoRemoto.Trim();
                                 Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
 
-                                string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
-                                writer.WriteLine(resultadoComando);
-                                Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
+                                if (comandoRemoto == "take_screenshot")
+                                {
+                                    try
+                                    {
+                                        byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
+                                        string base64String = Convert.ToBase64String(screenshotBytes);
+                                        writer.WriteLine(base64String);
+                                        Console.WriteLine("[INFO] Screenshot sent successfully.");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[ERROR] Failed to take screenshot: {ex.Message}");
+                                        writer.WriteLine($"Error: {ex.Message}");
+                                    }
+                                }
+                                else
+                                {
+                                    string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
+                                    writer.WriteLine(resultadoComando);
+                                    Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
+                                }
                             }
                             else
                             {
