@@ -95,12 +95,17 @@ namespace coleta
                                     {
                                         byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
                                         string base64String = Convert.ToBase64String(screenshotBytes);
-                                        writer.WriteLine(base64String);
-                                        Console.WriteLine("[INFO] Screenshot sent successfully.");
+
+                                        // Envia o tamanho primeiro e depois os dados para garantir a integridade
+                                        writer.WriteLine(base64String.Length);
+                                        writer.Write(base64String);
+                                        await writer.FlushAsync();
+
+                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
                                     }
                                     catch (Exception ex)
                                     {
-                                        Console.WriteLine($"[ERROR] Failed to take screenshot: {ex.Message}");
+                                        Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
                                         writer.WriteLine($"Error: {ex.Message}");
                                     }
                                 }

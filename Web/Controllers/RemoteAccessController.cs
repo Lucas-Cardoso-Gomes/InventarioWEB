@@ -90,7 +90,20 @@ namespace Web.Controllers
                         await writer.WriteLineAsync(authKey);
                         await writer.WriteLineAsync(command);
 
-                        return await reader.ReadLineAsync();
+                        if (command == "take_screenshot")
+                        {
+                            // Lógica robusta para ler a imagem com tamanho prefixado
+                            var sizeLine = await reader.ReadLineAsync();
+                            if (int.TryParse(sizeLine, out int size))
+                            {
+                                var buffer = new char[size];
+                                await reader.ReadBlockAsync(buffer, 0, size);
+                                return new string(buffer);
+                            }
+                            return "Error: Invalid size received.";
+                        }
+
+                        return await reader.ReadLineAsync(); // Para outros comandos
                     }
                 }
             }
