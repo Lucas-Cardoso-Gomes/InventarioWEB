@@ -15,14 +15,17 @@ public class ScreenCapturer
 
         IntPtr desktopPtr = GetDC(IntPtr.Zero);
         IntPtr memoryDcPtr = CreateCompatibleDC(desktopPtr);
-
-        int width = GetSystemMetrics(SM_CXSCREEN);
-        int height = GetSystemMetrics(SM_CYSCREEN);
+        
+        int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
         IntPtr bitmapPtr = CreateCompatibleBitmap(desktopPtr, width, height);
         SelectObject(memoryDcPtr, bitmapPtr);
 
-        BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, 0, 0, SRCCOPY);
+        // Copy the entire virtual screen to the memory device context
+        BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, x, y, SRCCOPY);
 
         using (Bitmap bmp = Bitmap.FromHbitmap(bitmapPtr))
         {
@@ -34,9 +37,13 @@ public class ScreenCapturer
         }
     }
 
-    private const int SM_CXSCREEN = 0;
-    private const int SM_CYSCREEN = 1;
-    private const int SRCCOPY = 0x00CC0020;
+    // Constants for GetSystemMetrics
+    private const int SM_XVIRTUALSCREEN = 76;
+    private const int SM_YVIRTUALSCREEN = 77;
+    private const int SM_CXVIRTUALSCREEN = 78;
+    private const int SM_CYVIRTUALSCREEN = 79;
+
+    private const int SRCCOPY = 0x00CC0020; // Ternary raster operation code
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
