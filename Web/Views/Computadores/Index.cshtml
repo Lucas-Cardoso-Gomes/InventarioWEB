@@ -189,6 +189,7 @@
                                 <a asp-action="Edit" asp-route-id="@item.MAC" class="btn btn-warning btn-sm">Editar</a>
                                 <a asp-action="Delete" asp-route-id="@item.MAC" class="btn btn-danger btn-sm">Excluir</a>
                                 <a asp-controller="ScreenCapture" asp-action="Index" asp-route-ip="@item.IP" class="btn btn-primary btn-sm" target="_blank">Take Screenshot</a>
+                                <a asp-controller="RemoteAccess" asp-action="Index" asp-route-ip="@item.IP" class="btn btn-info btn-sm" target="_blank">Acesso Remoto</a>
                             }
                         </td>
                     }

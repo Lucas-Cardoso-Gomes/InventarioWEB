@@ -27,5 +27,19 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-4 mt-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Acesso Remoto por IP</h5>
+                    <p class="card-text">Digite o endereço de IP do computador que deseja acessar remotamente.</p>
+                    <form asp-controller="RemoteAccess" asp-action="Index" method="get" target="_blank">
+                        <div class="input-group mb-3">
+                            <input type="text" name="ip" class="form-control" placeholder="Digite o IP" required>
+                            <button class="btn btn-info" type="submit">Acessar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
