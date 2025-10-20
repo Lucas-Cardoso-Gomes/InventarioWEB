@@ -90,7 +90,7 @@ namespace Web.Controllers
                         await writer.WriteLineAsync(authKey);
                         await writer.WriteLineAsync(command);
 
-                        return await reader.ReadToEndAsync();
+                        return await reader.ReadLineAsync();
                     }
                 }
             }
