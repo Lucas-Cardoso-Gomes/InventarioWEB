@@ -53,9 +53,13 @@ namespace Web.Controllers
                         await writer.WriteLineAsync(authKey);
                         await writer.WriteLineAsync("take_screenshot");
 
-                        var base64Image = await reader.ReadToEndAsync();
-                        if (!string.IsNullOrEmpty(base64Image) && !base64Image.Contains("Error"))
+                        // Lógica robusta para ler a imagem com tamanho prefixado
+                        var sizeLine = await reader.ReadLineAsync();
+                        if (int.TryParse(sizeLine, out int size))
                         {
+                            var buffer = new char[size];
+                            await reader.ReadBlockAsync(buffer, 0, size);
+                            var base64Image = new string(buffer);
                             return Convert.FromBase64String(base64Image);
                         }
                     }
