@@ -116,12 +116,15 @@ namespace coleta
                                     int y = int.Parse(parts[2]);
                                     string type = parts[3];
 
-                                    RemoteControl.SetCursorPos(x, y);
-
                                     if (type == "click")
                                     {
+                                        RemoteControl.SetCursorPos(x, y);
                                         RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
                                         RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                                    }
+                                    else if (type == "move")
+                                    {
+                                        RemoteControl.MoveCursor(x, y);
                                     }
                                     writer.WriteLine("Mouse event handled.");
                                 }

@@ -4,6 +4,7 @@
 
 <div class="text-center">
     <h1 class="display-4">Acesso Remoto a @ViewBag.Ip</h1>
+    <button id="lock-mouse-btn" class="btn btn-primary mb-2">Travar Mouse</button>
     <img id="screen" src="" class="img-fluid" />
 </div>
 
@@ -61,6 +62,25 @@
         document.addEventListener("keydown", function (e) {
             fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.key}`, { method: "POST" });
         });
+
+        const lockButton = document.getElementById("lock-mouse-btn");
+
+        lockButton.addEventListener("click", () => {
+            screen.requestPointerLock();
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === screen) {
+                document.addEventListener("mousemove", handleMouseMove, false);
+            } else {
+                document.removeEventListener("mousemove", handleMouseMove, false);
+            }
+        }, false);
+
+        function handleMouseMove(e) {
+            fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${e.movementX}&y=${e.movementY}&type=move`, { method: "POST" });
+        }
+
 
         getScreen();
     </script>

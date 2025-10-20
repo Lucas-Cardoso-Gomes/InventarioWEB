@@ -15,4 +15,22 @@ public class RemoteControl
 
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    public static void MoveCursor(int dx, int dy)
+    {
+        if (GetCursorPos(out POINT p))
+        {
+            SetCursorPos(p.X + dx, p.Y + dy);
+        }
+    }
 }
