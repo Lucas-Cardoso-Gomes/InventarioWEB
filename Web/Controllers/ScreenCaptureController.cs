@@ -25,16 +25,16 @@ namespace Web.Controllers
         {
             if (string.IsNullOrEmpty(ip))
             {
-                return View("Error");
+                return BadRequest("IP address cannot be null or empty.");
             }
 
             var screenshot = await GetScreenshot(ip);
             if (screenshot != null)
             {
-                return View("Index", screenshot);
+                return File(screenshot, "image/png");
             }
 
-            return View("Error");
+            return NotFound("Failed to capture screenshot.");
         }
 
         private async Task<byte[]> GetScreenshot(string ip)
