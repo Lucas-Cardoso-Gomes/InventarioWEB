@@ -23,13 +23,12 @@
     <script>
         const ip = "@ViewBag.Ip";
         const screen = document.getElementById("screen");
-        const screenContainer = document.getElementById("remote-screen-container");
         let currentBlobUrl = null;
         let originalWidth = 0;
         let originalHeight = 0;
+
         let latestBlob = null;
         let isFetching = false;
-        let isFullscreen = false;
 
         function fetchScreen() {
             if (isFetching) return;
@@ -72,17 +71,54 @@
             window.requestAnimationFrame(updateScreen);
         }
 
-        function handleMouseClick(e) {
-            if (originalWidth === 0 || originalHeight === 0) return;
+        function sendMouseEvent(type, x, y, deltaY) {
+            if (originalWidth === 0 && type !== 'wheel') return;
 
-            const rect = screen.getBoundingClientRect();
-            const scaleX = originalWidth / rect.width;
-            const scaleY = originalHeight / rect.height;
+            let scaledX = x;
+            let scaledY = y;
 
-            const x = Math.round((e.clientX - rect.left) * scaleX);
-            const y = Math.round((e.clientY - rect.top) * scaleY);
+            if (type !== 'move' && type !== 'wheel') {
+                const rect = screen.getBoundingClientRect();
+                const scaleX = originalWidth / rect.width;
+                const scaleY = originalHeight / rect.height;
+                scaledX = Math.round((x - rect.left) * scaleX);
+                scaledY = Math.round((y - rect.top) * scaleY);
+            }
 
-            fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${x}&y=${y}&type=click`, { method: "POST" });
+            fetch(`/RemoteAccess/SendMouse?ip=${ip}`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, x: scaledX, y: scaledY, deltaY })
+            });
+        }
+
+        screen.addEventListener("mousedown", e => {
+            e.preventDefault();
+            sendMouseEvent(`down_${e.button}`, e.clientX, e.clientY, 0);
+        });
+
+        screen.addEventListener("mouseup", e => {
+            e.preventDefault();
+            sendMouseEvent(`up_${e.button}`, e.clientX, e.clientY, 0);
+        });
+
+        screen.addEventListener("wheel", e => {
+            e.preventDefault();
+            sendMouseEvent("wheel", 0, 0, e.deltaY);
+        }, { passive: false });
+
+        screen.addEventListener("contextmenu", e => e.preventDefault());
+
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === screen) {
+                document.addEventListener("mousemove", handleMouseMove, false);
+            } else {
+                document.removeEventListener("mousemove", handleMouseMove, false);
+            }
+        }, false);
+
+        function handleMouseMove(e) {
+            sendMouseEvent("move", e.movementX, e.movementY, 0);
         }
 
         function handleKeyboard(e, state) {
@@ -93,11 +129,24 @@
             fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.code}&state=${state}`, { method: "POST" });
         }
 
-        screen.addEventListener("click", handleMouseClick);
         document.addEventListener("keydown", (e) => handleKeyboard(e, "down"));
         document.addEventListener("keyup", (e) => handleKeyboard(e, "up"));
 
+        const lockButton = document.getElementById("lock-mouse-btn");
+        const ctrlAltDelButton = document.getElementById("send-ctrl-alt-del-btn");
+        const syncClipboardButton = document.getElementById("sync-clipboard-btn");
         const fullscreenButton = document.getElementById("fullscreen-btn");
+        const screenContainer = document.getElementById("remote-screen-container");
+        let isFullscreen = false;
+
+        lockButton.addEventListener("click", () => {
+            screen.requestPointerLock();
+        });
+
+        ctrlAltDelButton.addEventListener("click", () => {
+            fetch(`/RemoteAccess/SendCommand?ip=${ip}&command=send_ctrl_alt_del`, { method: "POST" });
+        });
+
         fullscreenButton.addEventListener("click", () => {
             if (!document.fullscreenElement) {
                 screenContainer.requestFullscreen().catch(err => {
@@ -112,18 +161,44 @@
             isFullscreen = !!document.fullscreenElement;
         });
 
-        const lockButton = document.getElementById("lock-mouse-btn");
-        lockButton.addEventListener("click", () => {
-            screen.requestPointerLock();
+        document.addEventListener("copy", (e) => {
+            const text = document.getSelection().toString();
+            if (text) {
+                fetch(`/RemoteAccess/SendClipboard?ip=${ip}`, {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(text)
+                });
+            }
         });
 
-        const ctrlAltDelButton = document.getElementById("send-ctrl-alt-del-btn");
-        ctrlAltDelButton.addEventListener("click", () => {
-            fetch(`/RemoteAccess/SendCommand?ip=${ip}&command=send_ctrl_alt_del`, { method: "POST" });
+        document.addEventListener("cut", (e) => {
+            const text = document.getSelection().toString();
+            if (text) {
+                fetch(`/RemoteAccess/SendClipboard?ip=${ip}`, {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(text)
+                });
+            }
+        });
+
+        document.addEventListener("paste", (e) => {
+            e.preventDefault();
+            fetch(`/RemoteAccess/GetClipboard?ip=${ip}`)
+                .then(response => response.text())
+                .then(text => {
+                    if (document.execCommand) {
+                        document.execCommand("insertText", false, text);
+                    } else {
+                        navigator.clipboard.writeText(text);
+                    }
+                });
         });
 
         const uploadButton = document.getElementById("upload-file-btn");
         const fileInput = document.getElementById("file-input");
+
         uploadButton.addEventListener("click", () => {
             const file = fileInput.files[0];
             if (file) {

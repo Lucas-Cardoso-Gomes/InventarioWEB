@@ -112,21 +112,24 @@ namespace coleta
                                 else if (comandoRemoto.StartsWith("mouse_event"))
                                 {
                                     var parts = comandoRemoto.Split(' ');
-                                    int x = int.Parse(parts[1]);
-                                    int y = int.Parse(parts[2]);
-                                    string type = parts[3];
+                                    var type = parts[1];
+                                    int x = int.Parse(parts[2]);
+                                    int y = int.Parse(parts[3]);
+                                    int deltaY = int.Parse(parts[4]);
 
-                                    if (type == "click")
-                                    {
-                                        RemoteControl.SetCursorPos(x, y);
-                                        RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                                        RemoteControl.mouse_event(RemoteControl.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                                    }
-                                    else if (type == "move")
-                                    {
-                                        RemoteControl.MoveCursor(x, y);
-                                    }
+                                    RemoteControl.HandleMouseEvent(type, x, y, deltaY);
                                     writer.WriteLine("Mouse event handled.");
+                                }
+                                else if (comandoRemoto.StartsWith("set_clipboard"))
+                                {
+                                    var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
+                                    RemoteControl.SetClipboardText(text);
+                                    writer.WriteLine("Clipboard set.");
+                                }
+                                else if (comandoRemoto == "get_clipboard")
+                                {
+                                    var text = RemoteControl.GetClipboardText();
+                                    writer.WriteLine(text);
                                 }
                                 else if (comandoRemoto.StartsWith("keyboard_event"))
                                 {

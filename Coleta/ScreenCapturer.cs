@@ -52,7 +52,7 @@ public class ScreenCapturer
         {
             using (MemoryStream ms = new MemoryStream())
             {
-                bmp.Save(ms, ImageFormat.Jpeg);
+                bmp.Save(ms, ImageFormat.Png);
                 return ms.ToArray();
             }
         }

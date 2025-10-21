@@ -34,6 +34,44 @@ public class RemoteControl
         }
     }
 
+    public static void HandleMouseEvent(string type, int x, int y, int deltaY)
+    {
+        uint flags = 0;
+        uint mouseData = 0;
+
+        switch (type)
+        {
+            case "down_0": flags = MOUSEEVENTF_LEFTDOWN; SetCursorPos(x, y); break;
+            case "up_0": flags = MOUSEEVENTF_LEFTUP; SetCursorPos(x, y); break;
+            case "down_1": flags = MOUSEEVENTF_MIDDLEDOWN; SetCursorPos(x, y); break;
+            case "up_1": flags = MOUSEEVENTF_MIDDLEUP; SetCursorPos(x, y); break;
+            case "down_2": flags = MOUSEEVENTF_RIGHTDOWN; SetCursorPos(x, y); break;
+            case "up_2": flags = MOUSEEVENTF_RIGHTUP; SetCursorPos(x, y); break;
+            case "move": MoveCursor(x, y); return;
+            case "wheel": flags = MOUSEEVENTF_WHEEL; mouseData = (uint)deltaY; break;
+        }
+
+        if (flags != 0)
+        {
+            INPUT[] inputs = new INPUT[1];
+            inputs[0] = new INPUT
+            {
+                type = 0, // INPUT_MOUSE
+                u = new InputUnion
+                {
+                    mi = new MOUSEINPUT
+                    {
+                        dwFlags = flags,
+                        mouseData = mouseData,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            };
+            SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+    }
+
+
     // Structures and functions for SendInput
     [StructLayout(LayoutKind.Sequential)]
     public struct INPUT
@@ -109,5 +147,50 @@ public class RemoteControl
         };
 
         SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll")]
+    private static extern bool EmptyClipboard();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+    [DllImport("user32.dll")]
+    private static extern bool CloseClipboard();
+
+    private const uint CF_UNICODETEXT = 13;
+
+    public static void SetClipboardText(string text)
+    {
+        if (OpenClipboard(IntPtr.Zero))
+        {
+            EmptyClipboard();
+            IntPtr hGlobal = Marshal.StringToHGlobalUni(text);
+            SetClipboardData(CF_UNICODETEXT, hGlobal);
+            CloseClipboard();
+            Marshal.FreeHGlobal(hGlobal);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetClipboardData(uint uFormat);
+
+    public static string GetClipboardText()
+    {
+        if (OpenClipboard(IntPtr.Zero))
+        {
+            IntPtr hData = GetClipboardData(CF_UNICODETEXT);
+            if (hData != IntPtr.Zero)
+            {
+                string text = Marshal.PtrToStringUni(hData);
+                CloseClipboard();
+                return text;
+            }
+            CloseClipboard();
+        }
+        return string.Empty;
     }
 }
