@@ -129,7 +129,7 @@
             fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${e.movementX}&y=${e.movementY}&type=move`, { method: "POST" });
         }
 
-        setInterval(fetchScreen, 100);
+        setInterval(fetchScreen, 100); 
         window.requestAnimationFrame(updateScreen);
     </script>
 }
