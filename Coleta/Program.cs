@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using SIPSorceryMedia.Windows;
+using SIPSorceryMedia.Encoders;
 
 namespace Coleta
 {
@@ -74,7 +75,7 @@ namespace Coleta
         {
             _peerConnection = new RTCPeerConnection(null);
 
-            var videoSource = new WindowsVideoEndPoint(new SIPSorceryMedia.Vp8VideoEncoder());
+            var videoSource = new WindowsVideoEndPoint(new Vp8VideoEncoder());
             var videoTrack = new MediaStreamTrack(videoSource.GetVideoSourceFormats());
             _peerConnection.addTrack(videoTrack);
 
@@ -83,12 +84,12 @@ namespace Coleta
                 Console.WriteLine($"Canal de dados '{dataChannel.label}' aberto.");
                 dataChannel.onmessage += (dc, protocol, data) =>
                 {
-                    if (protocol == DataChannelPayloadProtocols.String)
+                    if (protocol == DataChannelPayloadProtocols.dcpp_string)
                     {
                         var command = System.Text.Encoding.UTF8.GetString(data);
                         HandleRemoteControlCommand(command, dataChannel);
                     }
-                    else if (protocol == DataChannelPayloadProtocols.Binary)
+                    else if (protocol == DataChannelPayloadProtocols.dcpp_binary)
                     {
                         _fileStream?.Write(data, 0, data.Length);
                     }
