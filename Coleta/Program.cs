@@ -1,221 +1,150 @@
 using System;
+using System.Linq;
 using System.Net;
-using System.Net.Sockets;
-using System.Diagnostics;
-using System.Text;
-using System.Text.Json;
-using System.Management;
-using Microsoft.Extensions.Configuration;
-using Coleta.Models;
-using Coleta;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR.Client;
+using SIPSorcery.Net;
+using SIPSorceryMedia.Windows;
 
-namespace coleta
+namespace Coleta
 {
-    partial class Program
+    class Program
     {
+        private const string SIGNALR_HUB_URL = "http://localhost/webRtcHub";
+        private static HubConnection _hubConnection;
+        private static RTCPeerConnection _peerConnection;
+
         static async Task Main()
         {
-            // Carregar configurações do appsettings.json
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-            IConfiguration config = builder.Build();
+            Console.WriteLine("Iniciando Agente Coleta WebRTC...");
 
-            string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
-            string realizarComandos = config["Autenticacao:RealizarComandos"];
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(SIGNALR_HUB_URL)
+                .Build();
 
-            Console.Clear();
+            _hubConnection.On<string, string>("ReceiveOffer", async (fromConnectionId, offer) =>
+            {
+                Console.WriteLine($"Oferta recebida de {fromConnectionId}");
+                var offerSdp = new RTCSessionDescriptionInit { sdp = offer, type = RTCSdpType.offer };
+                await OnOfferReceived(fromConnectionId, offerSdp);
+            });
+
+            _hubConnection.On<string, string>("ReceiveCandidate", (fromConnectionId, candidate) =>
+            {
+                if (_peerConnection != null)
+                {
+                    _peerConnection.addIceCandidate(new RTCIceCandidateInit(candidate, 0, ""));
+                }
+            });
 
             try
             {
-                int port = 27275;
-                TcpListener listener = new TcpListener(IPAddress.Any, port);
-                listener.Start();
-                Console.WriteLine($"Aguardando solicitações na porta {port}...");
-                Console.WriteLine("Certifique-se de que a porta 27275 está liberada no firewall.");
+                await _hubConnection.StartAsync();
+                await _hubConnection.SendAsync("Join", GetLocalIPAddress());
+                Console.WriteLine("Agente conectado ao Hub de Sinalização. Aguardando conexões...");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao conectar ao Hub: {ex.Message}");
+                return;
+            }
 
-                while (true)
+            await Task.Delay(-1);
+        }
+
+        private static string GetLocalIPAddress()
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
                 {
-                    TcpClient client = null;
-                    try
+                    return ip.ToString();
+                }
+            }
+            return "127.0.0.1";
+        }
+
+        private static async Task OnOfferReceived(string fromConnectionId, RTCSessionDescriptionInit offer)
+        {
+            _peerConnection = new RTCPeerConnection(null);
+
+            var videoSource = new WindowsVideoEndPoint(new VideoEncoder());
+            var videoTrack = new MediaStreamTrack(videoSource.GetVideoSourceFormats());
+            _peerConnection.addTrack(videoTrack);
+
+            _peerConnection.OnDataChannel += (dataChannel) =>
+            {
+                Console.WriteLine($"Canal de dados '{dataChannel.label}' aberto.");
+                dataChannel.onmessage += (dc, _, data) =>
+                {
+                    var msg = System.Text.Encoding.UTF8.GetString(data);
+                    HandleRemoteControlCommand(msg, dataChannel);
+                };
+            };
+
+            _peerConnection.onicecandidate += (candidate) =>
+            {
+                if (candidate != null)
+                {
+                     _hubConnection.SendAsync("SendCandidate", fromConnectionId, candidate.candidate);
+                }
+            };
+
+            _peerConnection.onconnectionstatechange += (state) =>
+            {
+                Console.WriteLine($"Estado da conexão: {state}");
+            };
+
+            var result = _peerConnection.setRemoteDescription(offer);
+            if (result == SetDescriptionResultEnum.OK)
+            {
+                var answer = _peerConnection.createAnswer(null);
+                await _peerConnection.setLocalDescription(answer);
+                await _hubConnection.SendAsync("SendAnswer", fromConnectionId, answer.sdp);
+            }
+        }
+
+        private static void HandleRemoteControlCommand(string command, RTCDataChannel dataChannel)
+        {
+            var parts = command.Split(' ');
+            var commandType = parts[0];
+
+            try
+            {
+                if (commandType == "mouse_event")
+                {
+                    var type = parts[1];
+                    int x = int.Parse(parts[2]);
+                    int y = int.Parse(parts[3]);
+                    int deltaY = int.Parse(parts[4]);
+                    RemoteControl.HandleMouseEvent(type, x, y, deltaY);
+                }
+                else if (commandType == "keyboard_event")
+                {
+                    var key = parts[1];
+                    var state = parts[2];
+                    var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
+                    if (vkCode != 0)
                     {
-                        client = listener.AcceptTcpClient();
-                        using (NetworkStream stream = client.GetStream())
-                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
-                        {
-                            string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                            Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
-
-                            string autenticacao = reader.ReadLine();
-                            if (autenticacao == null)
-                            {
-                                Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
-                                continue;
-                            }
-
-                            autenticacao = autenticacao.Trim();
-                            Console.WriteLine($"[DEBUG] Autênticação recebida: '{autenticacao}'");
-
-                            if (autenticacao == solicitarInformacoes)
-                            {
-                                Console.WriteLine("[INFO] Solicitação de informações recebida.");
-                                var hardwareInfo = new HardwareInfo
-                                {
-                                    Processador = Processador.GetProcessorInfo(),
-                                    Ram = RAM.GetRamInfo(),
-                                    Usuario = User.GetUserInfo(),
-                                    Fabricante = Fabricante.GetManufacturer(),
-                                    MAC = MAC.GetFormattedMacAddress(),
-                                    SO = OS.GetOSInfo(),
-                                    ConsumoCPU = Consumo.Uso(),
-                                    Armazenamento = Armazenamento.GetStorageInfo()
-                                };
-
-                                string resposta = JsonSerializer.Serialize(hardwareInfo);
-                                writer.WriteLine(resposta);
-                                Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
-                            }
-                            else if (autenticacao == realizarComandos)
-                            {
-                                string comandoRemoto = reader.ReadLine();
-                                if (comandoRemoto == null)
-                                {
-                                    Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
-                                    continue;
-                                }
-
-                                comandoRemoto = comandoRemoto.Trim();
-                                Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
-
-                                if (comandoRemoto == "take_screenshot")
-                                {
-                                    try
-                                    {
-                                        byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
-                                        string base64String = Convert.ToBase64String(screenshotBytes);
-
-                                        // Envia o tamanho primeiro e depois os dados para garantir a integridade
-                                        writer.WriteLine(base64String.Length);
-                                        writer.Write(base64String);
-                                        await writer.FlushAsync();
-
-                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
-                                        writer.WriteLine($"Error: {ex.Message}");
-                                    }
-                                }
-                                else if (comandoRemoto.StartsWith("mouse_event"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    var type = parts[1];
-                                    int x = int.Parse(parts[2]);
-                                    int y = int.Parse(parts[3]);
-                                    int deltaY = int.Parse(parts[4]);
-
-                                    RemoteControl.HandleMouseEvent(type, x, y, deltaY);
-                                    writer.WriteLine("Mouse event handled.");
-                                }
-                                else if (comandoRemoto.StartsWith("set_clipboard"))
-                                {
-                                    var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
-                                    RemoteControl.SetClipboardText(text);
-                                    writer.WriteLine("Clipboard set.");
-                                }
-                                else if (comandoRemoto == "get_clipboard")
-                                {
-                                    var text = RemoteControl.GetClipboardText();
-                                    writer.WriteLine(text);
-                                }
-                                else if (comandoRemoto.StartsWith("keyboard_event"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    if (parts.Length >= 3)
-                                    {
-                                        var key = parts[1];
-                                        var state = parts[2];
-                                        var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
-                                        if (vkCode != 0)
-                                        {
-                                            RemoteControl.SendKeyEvent(vkCode, state == "up");
-                                        }
-                                        else
-                                        {
-                                            Console.WriteLine($"[WARN] Key not found in map: {key}");
-                                        }
-                                        writer.WriteLine("Keyboard event handled.");
-                                    }
-                                }
-                                else if (comandoRemoto == "send_ctrl_alt_del")
-                                {
-                                    try
-                                    {
-                                        Process.Start("taskmgr.exe");
-                                        writer.WriteLine("Ctrl+Alt+Del sent.");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        writer.WriteLine($"Error: {ex.Message}");
-                                    }
-                                }
-                                else if (comandoRemoto.StartsWith("upload_file"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    var fileName = parts[1];
-                                    var fileSize = long.Parse(parts[2]);
-                                    var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                                    var filePath = Path.Combine(desktopPath, fileName);
-
-                                    using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-                                    {
-                                        var buffer = new byte[8192];
-                                        long bytesRead = 0;
-                                        while (bytesRead < fileSize)
-                                        {
-                                            var read = await stream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
-                                            if (read == 0) break;
-                                            await fileStream.WriteAsync(buffer, 0, read);
-                                            bytesRead += read;
-                                        }
-                                    }
-                                    writer.WriteLine("File uploaded successfully.");
-                                }
-                                else
-                                {
-                                    string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
-                                    writer.WriteLine(resultadoComando);
-                                    Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
-                                }
-                            }
-                            else
-                            {
-                                string resposta = "Código de Autenticação Incorreto!";
-                                writer.WriteLine(resposta);
-                                Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacao}'");
-                            }
-                        }
+                        RemoteControl.SendKeyEvent(vkCode, state == "up");
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] Erro ao manusear cliente: {ex.Message}");
-                    }
-                    finally
-                    {
-                        client?.Close();
-                        Console.WriteLine("[INFO] Conexão fechada. Aguardando novas instruções...");
-                        Console.WriteLine("----------------------------------------------------");
-                    }
+                }
+                else if (commandType == "set_clipboard")
+                {
+                    var text = string.Join(" ", parts.Skip(1));
+                    RemoteControl.SetClipboardText(text);
+                }
+                else if (commandType == "get_clipboard")
+                {
+                    var text = RemoteControl.GetClipboardText();
+                    dataChannel.send($"clipboard_data {text}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Erro: " + ex.Message);
+                Console.WriteLine($"Erro ao processar comando: {ex.Message}");
             }
-            Console.WriteLine("Fora do Loop, sistema finalizando operações...");
         }
     }
 }
