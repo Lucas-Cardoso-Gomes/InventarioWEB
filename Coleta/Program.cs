@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using SIPSorceryMedia.Windows;
-using SIPSorceryMedia.Encoders;
+using SIPSorceryMedia.FFmpeg;
 
 namespace Coleta
 {
@@ -75,7 +75,7 @@ namespace Coleta
         {
             _peerConnection = new RTCPeerConnection(null);
 
-            var videoSource = new WindowsVideoEndPoint(new Vp8VideoEncoder());
+            var videoSource = new WindowsVideoEndPoint(new FFmpegVideoEncoder());
             var videoTrack = new MediaStreamTrack(videoSource.GetVideoSourceFormats());
             _peerConnection.addTrack(videoTrack);
 
