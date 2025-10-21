@@ -1,9 +1,12 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Coleta.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using SIPSorcery.Net;
+using SIPSorceryMedia.Abstractions;
 using SIPSorceryMedia.Windows;
 
 namespace Coleta
@@ -13,6 +16,8 @@ namespace Coleta
         private const string SIGNALR_HUB_URL = "http://localhost/webRtcHub";
         private static HubConnection _hubConnection;
         private static RTCPeerConnection _peerConnection;
+        private static FileStream _fileStream;
+        private static string _fileName;
 
         static async Task Main()
         {
@@ -22,18 +27,18 @@ namespace Coleta
                 .WithUrl(SIGNALR_HUB_URL)
                 .Build();
 
-            _hubConnection.On<string, string>("ReceiveOffer", async (fromConnectionId, offer) =>
+            _hubConnection.On<string, Sdp>("ReceiveOffer", async (fromConnectionId, offer) =>
             {
                 Console.WriteLine($"Oferta recebida de {fromConnectionId}");
-                var offerSdp = new RTCSessionDescriptionInit { sdp = offer, type = RTCSdpType.offer };
+                var offerSdp = new RTCSessionDescriptionInit { sdp = offer.sdp, type = RTCSdpType.offer };
                 await OnOfferReceived(fromConnectionId, offerSdp);
             });
 
-            _hubConnection.On<string, string>("ReceiveCandidate", (fromConnectionId, candidate) =>
+            _hubConnection.On<string, IceCandidate>("ReceiveCandidate", (fromConnectionId, candidate) =>
             {
                 if (_peerConnection != null)
                 {
-                    _peerConnection.addIceCandidate(new RTCIceCandidateInit(candidate, 0, ""));
+                    _peerConnection.addIceCandidate(new RTCIceCandidateInit { candidate = candidate.candidate, sdpMid = candidate.sdpMid, sdpMLineIndex = candidate.sdpMLineIndex });
                 }
             });
 
@@ -69,17 +74,23 @@ namespace Coleta
         {
             _peerConnection = new RTCPeerConnection(null);
 
-            var videoSource = new WindowsVideoEndPoint(new VideoEncoder());
+            var videoSource = new WindowsVideoEndPoint(new Vp8VideoEncoder());
             var videoTrack = new MediaStreamTrack(videoSource.GetVideoSourceFormats());
             _peerConnection.addTrack(videoTrack);
 
-            _peerConnection.OnDataChannel += (dataChannel) =>
+            _peerConnection.ondatachannel += (dataChannel) =>
             {
                 Console.WriteLine($"Canal de dados '{dataChannel.label}' aberto.");
                 dataChannel.onmessage += (dc, _, data) =>
                 {
-                    var msg = System.Text.Encoding.UTF8.GetString(data);
-                    HandleRemoteControlCommand(msg, dataChannel);
+                    if (data is string stringData)
+                    {
+                        HandleRemoteControlCommand(stringData, dataChannel);
+                    }
+                    else if (data is byte[] byteData)
+                    {
+                        _fileStream?.Write(byteData, 0, byteData.Length);
+                    }
                 };
             };
 
@@ -87,7 +98,7 @@ namespace Coleta
             {
                 if (candidate != null)
                 {
-                     _hubConnection.SendAsync("SendCandidate", fromConnectionId, candidate.candidate);
+                     _hubConnection.SendAsync("SendCandidate", fromConnectionId, candidate);
                 }
             };
 
@@ -101,29 +112,46 @@ namespace Coleta
             {
                 var answer = _peerConnection.createAnswer(null);
                 await _peerConnection.setLocalDescription(answer);
-                await _hubConnection.SendAsync("SendAnswer", fromConnectionId, answer.sdp);
+                await _hubConnection.SendAsync("SendAnswer", fromConnectionId, answer);
             }
         }
 
         private static void HandleRemoteControlCommand(string command, RTCDataChannel dataChannel)
         {
-            var parts = command.Split(' ');
-            var commandType = parts[0];
+            if (command.StartsWith("file_start"))
+            {
+                var parts = command.Split(',');
+                _fileName = parts[1];
+                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                var filePath = Path.Combine(desktopPath, _fileName);
+                _fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+                return;
+            }
+
+            if (command == "file_end")
+            {
+                _fileStream?.Close();
+                _fileStream = null;
+                return;
+            }
+
+            var commandParts = command.Split(' ');
+            var commandType = commandParts[0];
 
             try
             {
                 if (commandType == "mouse_event")
                 {
-                    var type = parts[1];
-                    int x = int.Parse(parts[2]);
-                    int y = int.Parse(parts[3]);
-                    int deltaY = int.Parse(parts[4]);
+                    var type = commandParts[1];
+                    int x = int.Parse(commandParts[2]);
+                    int y = int.Parse(commandParts[3]);
+                    int deltaY = int.Parse(commandParts[4]);
                     RemoteControl.HandleMouseEvent(type, x, y, deltaY);
                 }
                 else if (commandType == "keyboard_event")
                 {
-                    var key = parts[1];
-                    var state = parts[2];
+                    var key = commandParts[1];
+                    var state = commandParts[2];
                     var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
                     if (vkCode != 0)
                     {
@@ -132,7 +160,7 @@ namespace Coleta
                 }
                 else if (commandType == "set_clipboard")
                 {
-                    var text = string.Join(" ", parts.Skip(1));
+                    var text = string.Join(" ", commandParts.Skip(1));
                     RemoteControl.SetClipboardText(text);
                 }
                 else if (commandType == "get_clipboard")

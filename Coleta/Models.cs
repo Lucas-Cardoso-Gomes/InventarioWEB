@@ -48,4 +48,17 @@ namespace Coleta.Models
         public string TotalGB { get; set; }
         public string LivreGB { get; set; }
     }
+
+    public class Sdp
+    {
+        public string sdp { get; set; }
+        public string type { get; set; }
+    }
+
+    public class IceCandidate
+    {
+        public string candidate { get; set; }
+        public string sdpMid { get; set; }
+        public int sdpMLineIndex { get; set; }
+    }
 }
