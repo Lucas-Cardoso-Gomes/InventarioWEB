@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.IO;
 using Microsoft.Extensions.Logging;
+using Web.Models;
 
 namespace Web.Controllers
 {
@@ -61,9 +62,24 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> SendMouse(string ip, int x, int y, string type)
+        public async Task<IActionResult> SendMouse(string ip, [FromBody] MouseInput input)
         {
-            var command = $"mouse_event {x} {y} {type}";
+            var command = $"mouse_event {input.Type} {input.X} {input.Y} {input.DeltaY}";
+            await SendCommandToAgent(ip, command);
+            return Ok();
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetClipboard(string ip)
+        {
+            var text = await SendCommandToAgent(ip, "get_clipboard");
+            return Content(text);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SendClipboard(string ip, [FromBody] string text)
+        {
+            var command = $"set_clipboard {text}";
             await SendCommandToAgent(ip, command);
             return Ok();
         }
