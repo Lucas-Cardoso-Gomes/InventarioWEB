@@ -33,6 +33,7 @@ namespace Web.Controllers
         }
 
         [HttpGet]
+        [ResponseCache(NoStore = true)]
         public async Task<IActionResult> GetScreenStream(string ip)
         {
             try
@@ -49,7 +50,7 @@ namespace Web.Controllers
                         Response.Headers.Append("X-Original-Height", image.Height.ToString());
                     }
 
-                    return File(imageBytes, "image/png");
+                    return File(imageBytes, "image/jpeg");
                 }
                 return NotFound("Failed to get screen frame.");
             }

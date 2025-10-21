@@ -6,6 +6,7 @@
 <div class="text-center">
     <h1 class="display-4">Acesso Remoto a @ViewBag.Ip</h1>
     <div>
+        <button id="fullscreen-btn" class="btn btn-secondary mb-2">Tela Cheia</button>
         <button id="lock-mouse-btn" class="btn btn-primary mb-2">Travar Mouse</button>
         <button id="send-ctrl-alt-del-btn" class="btn btn-danger mb-2">Enviar Ctrl+Alt+Del</button>
     </div>
@@ -13,19 +14,22 @@
         <input type="file" id="file-input" class="form-control-file" />
         <button id="upload-file-btn" class="btn btn-success">Enviar Arquivo</button>
     </div>
-    <img id="screen" src="" class="img-fluid mt-3" />
+    <div id="remote-screen-container" class="mt-3" style="position: relative; width: 100%; height: auto;">
+        <img id="screen" src="" class="img-fluid" style="display: block; width: 100%; height: auto;" />
+    </div>
 </div>
 
 @section Scripts {
     <script>
         const ip = "@ViewBag.Ip";
         const screen = document.getElementById("screen");
+        const screenContainer = document.getElementById("remote-screen-container");
         let currentBlobUrl = null;
         let originalWidth = 0;
         let originalHeight = 0;
-
         let latestBlob = null;
         let isFetching = false;
+        let isFullscreen = false;
 
         function fetchScreen() {
             if (isFetching) return;
@@ -68,7 +72,7 @@
             window.requestAnimationFrame(updateScreen);
         }
 
-        screen.addEventListener("click", function (e) {
+        function handleMouseClick(e) {
             if (originalWidth === 0 || originalHeight === 0) return;
 
             const rect = screen.getBoundingClientRect();
@@ -79,32 +83,47 @@
             const y = Math.round((e.clientY - rect.top) * scaleY);
 
             fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${x}&y=${y}&type=click`, { method: "POST" });
+        }
+
+        function handleKeyboard(e, state) {
+            if (isFullscreen) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.code}&state=${state}`, { method: "POST" });
+        }
+
+        screen.addEventListener("click", handleMouseClick);
+        document.addEventListener("keydown", (e) => handleKeyboard(e, "down"));
+        document.addEventListener("keyup", (e) => handleKeyboard(e, "up"));
+
+        const fullscreenButton = document.getElementById("fullscreen-btn");
+        fullscreenButton.addEventListener("click", () => {
+            if (!document.fullscreenElement) {
+                screenContainer.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
         });
 
-        document.addEventListener("keydown", function (e) {
-            e.preventDefault();
-            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.code}&state=down`, { method: "POST" });
-        });
-
-        document.addEventListener("keyup", function (e) {
-            e.preventDefault();
-            fetch(`/RemoteAccess/SendKeyboard?ip=${ip}&key=${e.code}&state=up`, { method: "POST" });
+        document.addEventListener("fullscreenchange", () => {
+            isFullscreen = !!document.fullscreenElement;
         });
 
         const lockButton = document.getElementById("lock-mouse-btn");
-        const ctrlAltDelButton = document.getElementById("send-ctrl-alt-del-btn");
-
         lockButton.addEventListener("click", () => {
             screen.requestPointerLock();
         });
 
+        const ctrlAltDelButton = document.getElementById("send-ctrl-alt-del-btn");
         ctrlAltDelButton.addEventListener("click", () => {
             fetch(`/RemoteAccess/SendCommand?ip=${ip}&command=send_ctrl_alt_del`, { method: "POST" });
         });
 
         const uploadButton = document.getElementById("upload-file-btn");
         const fileInput = document.getElementById("file-input");
-
         uploadButton.addEventListener("click", () => {
             const file = fileInput.files[0];
             if (file) {
@@ -129,7 +148,7 @@
             fetch(`/RemoteAccess/SendMouse?ip=${ip}&x=${e.movementX}&y=${e.movementY}&type=move`, { method: "POST" });
         }
 
-        setInterval(fetchScreen, 100); 
+        setInterval(fetchScreen, 100);
         window.requestAnimationFrame(updateScreen);
     </script>
 }
