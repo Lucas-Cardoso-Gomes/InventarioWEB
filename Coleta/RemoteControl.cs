@@ -12,6 +12,9 @@ public class RemoteControl
     public const uint MOUSEEVENTF_LEFTUP = 0x04;
     public const uint MOUSEEVENTF_RIGHTDOWN = 0x08;
     public const uint MOUSEEVENTF_RIGHTUP = 0x10;
+    public const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+    public const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+    public const uint MOUSEEVENTF_WHEEL = 0x0800;
 
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
