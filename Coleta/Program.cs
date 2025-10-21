@@ -130,12 +130,56 @@ namespace coleta
                                 }
                                 else if (comandoRemoto.StartsWith("keyboard_event"))
                                 {
-                                    var key = comandoRemoto.Split(' ')[1];
-                                    // This is a simplified mapping. A more complete solution would handle more keys.
-                                    byte vk = (byte)char.ToUpper(key[0]);
-                                    RemoteControl.keybd_event(vk, 0, 0, 0);
-                                    RemoteControl.keybd_event(vk, 0, 0x02, 0); // KEYEVENTF_KEYUP
-                                    writer.WriteLine("Keyboard event handled.");
+                                    var parts = comandoRemoto.Split(' ');
+                                    if (parts.Length >= 3)
+                                    {
+                                        var key = parts[1];
+                                        var state = parts[2];
+                                        var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
+                                        if (vkCode != 0)
+                                        {
+                                            RemoteControl.SendKeyEvent(vkCode, state == "up");
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"[WARN] Key not found in map: {key}");
+                                        }
+                                        writer.WriteLine("Keyboard event handled.");
+                                    }
+                                }
+                                else if (comandoRemoto == "send_ctrl_alt_del")
+                                {
+                                    try
+                                    {
+                                        Process.Start("taskmgr.exe");
+                                        writer.WriteLine("Ctrl+Alt+Del sent.");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        writer.WriteLine($"Error: {ex.Message}");
+                                    }
+                                }
+                                else if (comandoRemoto.StartsWith("upload_file"))
+                                {
+                                    var parts = comandoRemoto.Split(' ');
+                                    var fileName = parts[1];
+                                    var fileSize = long.Parse(parts[2]);
+                                    var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                                    var filePath = Path.Combine(desktopPath, fileName);
+
+                                    using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                                    {
+                                        var buffer = new byte[8192];
+                                        long bytesRead = 0;
+                                        while (bytesRead < fileSize)
+                                        {
+                                            var read = await stream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
+                                            if (read == 0) break;
+                                            await fileStream.WriteAsync(buffer, 0, read);
+                                            bytesRead += read;
+                                        }
+                                    }
+                                    writer.WriteLine("File uploaded successfully.");
                                 }
                                 else
                                 {

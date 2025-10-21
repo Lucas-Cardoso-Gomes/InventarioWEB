@@ -69,17 +69,54 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> SendKeyboard(string ip, string key)
+        public async Task<IActionResult> SendKeyboard(string ip, string key, string state)
         {
-            // Simple sanitization
-            if (string.IsNullOrEmpty(key) || key.Length > 1)
-            {
-                // Handle special keys if necessary in the future
-                return BadRequest("Invalid key.");
-            }
-            var command = $"keyboard_event {key}";
+            var command = $"keyboard_event {key} {state}";
             await SendCommandToAgent(ip, command);
             return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> SendCommand(string ip, string command)
+        {
+            await SendCommandToAgent(ip, command);
+            return Ok();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UploadFile(string ip, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("File not selected or empty.");
+            }
+
+            try
+            {
+                using (var tcpClient = new TcpClient())
+                {
+                    await tcpClient.ConnectAsync(ip, 27275);
+                    using (var stream = tcpClient.GetStream())
+                    using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+                    {
+                        var authKey = _configuration["Autenticacao:RealizarComandos"];
+                        await writer.WriteLineAsync(authKey);
+
+                        await writer.WriteLineAsync($"upload_file {file.FileName} {file.Length}");
+
+                        using (var fileStream = file.OpenReadStream())
+                        {
+                            await fileStream.CopyToAsync(stream);
+                        }
+                    }
+                }
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload file to IP: {IP}", ip);
+                return StatusCode(500, "Failed to upload file.");
+            }
         }
 
         private async Task<string> SendCommandToAgent(string ip, string command)
