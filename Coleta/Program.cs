@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using SIPSorceryMedia.Windows;
+using SIPSorceryMedia.Encoders;
 
 namespace Coleta
 {
@@ -38,7 +39,7 @@ namespace Coleta
             {
                 if (_peerConnection != null)
                 {
-                    _peerConnection.addIceCandidate(new RTCIceCandidateInit { candidate = candidate.candidate, sdpMid = candidate.sdpMid, sdpMLineIndex = candidate.sdpMLineIndex });
+                    _peerConnection.addIceCandidate(new RTCIceCandidateInit { candidate = candidate.candidate, sdpMid = candidate.sdpMid, sdpMLineIndex = (ushort)candidate.sdpMLineIndex });
                 }
             });
 
@@ -81,15 +82,16 @@ namespace Coleta
             _peerConnection.ondatachannel += (dataChannel) =>
             {
                 Console.WriteLine($"Canal de dados '{dataChannel.label}' aberto.");
-                dataChannel.onmessage += (dc, _, data) =>
+                dataChannel.onmessage += (dc, protocol, data) =>
                 {
-                    if (data is string stringData)
+                    if (protocol == DataChannelPayloadProtocols.String)
                     {
-                        HandleRemoteControlCommand(stringData, dataChannel);
+                        var command = System.Text.Encoding.UTF8.GetString(data);
+                        HandleRemoteControlCommand(command, dataChannel);
                     }
-                    else if (data is byte[] byteData)
+                    else if (protocol == DataChannelPayloadProtocols.Binary)
                     {
-                        _fileStream?.Write(byteData, 0, byteData.Length);
+                        _fileStream?.Write(data, 0, data.Length);
                     }
                 };
             };
