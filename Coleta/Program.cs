@@ -84,12 +84,12 @@ namespace Coleta
                 Console.WriteLine($"Canal de dados '{dataChannel.label}' aberto.");
                 dataChannel.onmessage += (dc, protocol, data) =>
                 {
-                    if (protocol == DataChannelPayloadProtocols.dcpp_string)
+                    if (protocol == DataChannelPayloadProtocols.WebRTC_String)
                     {
                         var command = System.Text.Encoding.UTF8.GetString(data);
                         HandleRemoteControlCommand(command, dataChannel);
                     }
-                    else if (protocol == DataChannelPayloadProtocols.dcpp_binary)
+                    else if (protocol == DataChannelPayloadProtocols.WebRTC_Binary)
                     {
                         _fileStream?.Write(data, 0, data.Length);
                     }
