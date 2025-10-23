@@ -425,7 +425,8 @@ CREATE TABLE Smartphones (
     DataCriacao DATETIME NOT NULL,
     DataAlteracao DATETIME,
     ContaGoogle NVARCHAR(100),
-    SenhaGoogle NVARCHAR(100)
+    SenhaGoogle NVARCHAR(100),
+    MAC NVARCHAR(17)
 );
 GO
 
