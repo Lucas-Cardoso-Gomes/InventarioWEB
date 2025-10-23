@@ -67,6 +67,10 @@ namespace Web.Controllers
 
                     if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
                     {
+                        if (user.Role == "Colaborador" && returnUrl == "/")
+                        {
+                            return RedirectToAction("Index", "Chamados");
+                        }
                         return Redirect(returnUrl);
                     }
                     else
