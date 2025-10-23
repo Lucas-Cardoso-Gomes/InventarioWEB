@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 namespace Web.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin,Coordenador,Diretoria")]
     public class DashboardController : Controller
     {
         private readonly string _connectionString;

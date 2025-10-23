@@ -15,23 +15,38 @@ namespace Web.Services
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
 
-        public List<PersistentLog> GetLogs(string entityTypeFilter, string actionTypeFilter)
+        public Tuple<List<PersistentLog>, int> GetLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber, int pageSize)
         {
             var logs = new List<PersistentLog>();
+            int totalRecords = 0;
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-                string sql = "SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM PersistentLogs WHERE 1=1";
+                string whereClause = "WHERE 1=1";
                 if (!string.IsNullOrEmpty(entityTypeFilter))
                 {
-                    sql += " AND EntityType = @EntityType";
+                    whereClause += " AND EntityType = @EntityType";
                 }
                 if (!string.IsNullOrEmpty(actionTypeFilter))
                 {
-                    sql += " AND ActionType = @ActionType";
+                    whereClause += " AND ActionType = @ActionType";
                 }
-                sql += " ORDER BY Timestamp DESC";
 
+                string countSql = $"SELECT COUNT(*) FROM PersistentLogs {whereClause}";
+                using (SqlCommand countCmd = new SqlCommand(countSql, connection))
+                {
+                    if (!string.IsNullOrEmpty(entityTypeFilter))
+                    {
+                        countCmd.Parameters.AddWithValue("@EntityType", entityTypeFilter);
+                    }
+                    if (!string.IsNullOrEmpty(actionTypeFilter))
+                    {
+                        countCmd.Parameters.AddWithValue("@ActionType", actionTypeFilter);
+                    }
+                    totalRecords = (int)countCmd.ExecuteScalar();
+                }
+
+                string sql = $"SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM PersistentLogs {whereClause} ORDER BY Timestamp DESC OFFSET {(pageNumber - 1) * pageSize} ROWS FETCH NEXT {pageSize} ROWS ONLY";
                 using (SqlCommand cmd = new SqlCommand(sql, connection))
                 {
                     if (!string.IsNullOrEmpty(entityTypeFilter))
@@ -60,7 +75,7 @@ namespace Web.Services
                     }
                 }
             }
-            return logs;
+            return new Tuple<List<PersistentLog>, int>(logs, totalRecords);
         }
     }
 }

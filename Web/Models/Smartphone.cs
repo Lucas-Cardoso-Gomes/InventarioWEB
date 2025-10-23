@@ -35,5 +35,8 @@ namespace Web.Models
 
         [StringLength(100)]
         public string? SenhaGoogle { get; set; }
+
+        [StringLength(17)]
+        public string? MAC { get; set; }
     }
 }

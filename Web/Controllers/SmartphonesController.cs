@@ -50,7 +50,7 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Modelo,IMEI1,IMEI2,Usuario,Filial,ContaGoogle,SenhaGoogle")] Smartphone smartphone)
+        public async Task<IActionResult> Create([Bind("Modelo,IMEI1,IMEI2,Usuario,Filial,ContaGoogle,SenhaGoogle,MAC")] Smartphone smartphone)
         {
             if (ModelState.IsValid)
             {
@@ -80,7 +80,7 @@ namespace Web.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Modelo,IMEI1,IMEI2,Usuario,Filial,DataCriacao,ContaGoogle,SenhaGoogle")] Smartphone smartphone)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Modelo,IMEI1,IMEI2,Usuario,Filial,DataCriacao,ContaGoogle,SenhaGoogle,MAC")] Smartphone smartphone)
         {
             if (id != smartphone.Id)
             {

@@ -58,7 +58,7 @@ namespace Web.Services
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand(
-                    "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle)",
+                    "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC)",
                     connection);
                 
                 command.Parameters.AddWithValue("@Modelo", smartphone.Modelo);
@@ -69,6 +69,7 @@ namespace Web.Services
                 command.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                 command.Parameters.AddWithValue("@ContaGoogle", (object)smartphone.ContaGoogle ?? DBNull.Value);
                 command.Parameters.AddWithValue("@SenhaGoogle", (object)smartphone.SenhaGoogle ?? DBNull.Value);
+                command.Parameters.AddWithValue("@MAC", (object)smartphone.MAC ?? DBNull.Value);
                 
                 await command.ExecuteNonQueryAsync();
             }
@@ -80,7 +81,7 @@ namespace Web.Services
             {
                 await connection.OpenAsync();
                 var command = new SqlCommand(
-                    "UPDATE Smartphones SET Modelo = @Modelo, IMEI1 = @IMEI1, IMEI2 = @IMEI2, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle WHERE Id = @Id",
+                    "UPDATE Smartphones SET Modelo = @Modelo, IMEI1 = @IMEI1, IMEI2 = @IMEI2, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle, MAC = @MAC WHERE Id = @Id",
                     connection);
 
                 command.Parameters.AddWithValue("@Id", smartphone.Id);
@@ -92,6 +93,7 @@ namespace Web.Services
                 command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                 command.Parameters.AddWithValue("@ContaGoogle", (object)smartphone.ContaGoogle ?? DBNull.Value);
                 command.Parameters.AddWithValue("@SenhaGoogle", (object)smartphone.SenhaGoogle ?? DBNull.Value);
+                command.Parameters.AddWithValue("@MAC", (object)smartphone.MAC ?? DBNull.Value);
 
                 await command.ExecuteNonQueryAsync();
             }
@@ -121,7 +123,8 @@ namespace Web.Services
                 DataCriacao = reader.GetDateTime(reader.GetOrdinal("DataCriacao")),
                 DataAlteracao = reader.IsDBNull(reader.GetOrdinal("DataAlteracao")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("DataAlteracao")),
                 ContaGoogle = reader.IsDBNull(reader.GetOrdinal("ContaGoogle")) ? null : reader.GetString(reader.GetOrdinal("ContaGoogle")),
-                SenhaGoogle = reader.IsDBNull(reader.GetOrdinal("SenhaGoogle")) ? null : reader.GetString(reader.GetOrdinal("SenhaGoogle"))
+                SenhaGoogle = reader.IsDBNull(reader.GetOrdinal("SenhaGoogle")) ? null : reader.GetString(reader.GetOrdinal("SenhaGoogle")),
+                MAC = reader.IsDBNull(reader.GetOrdinal("MAC")) ? null : reader.GetString(reader.GetOrdinal("MAC"))
             };
         }
     }

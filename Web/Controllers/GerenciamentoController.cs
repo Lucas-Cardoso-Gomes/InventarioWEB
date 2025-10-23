@@ -163,16 +163,45 @@ namespace Web.Controllers
             return View();
         }
 
-        public IActionResult PersistentLogs(string entityTypeFilter, string actionTypeFilter)
+        public IActionResult PersistentLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber = 1, int pageSize = 100)
         {
-            var logs = _persistentLogService.GetLogs(entityTypeFilter, actionTypeFilter);
+            var (logs, totalRecords) = _persistentLogService.GetLogs(entityTypeFilter, actionTypeFilter, pageNumber, pageSize);
             var viewModel = new PersistentLogViewModel
             {
                 Logs = logs,
                 EntityTypeFilter = entityTypeFilter,
-                ActionTypeFilter = actionTypeFilter
+                ActionTypeFilter = actionTypeFilter,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalRecords
             };
             return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ClearPersistentLogs()
+        {
+            try
+            {
+                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                {
+                    connection.Open();
+                    string sql = "TRUNCATE TABLE PersistentLogs";
+                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+                TempData["SuccessMessage"] = "Log persistente limpo com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao limpar o log persistente.");
+                TempData["ErrorMessage"] = "Ocorreu um erro ao limpar o log persistente.";
+            }
+
+            return RedirectToAction(nameof(PersistentLogs));
         }
 
         // GET: /Gerenciamento/Coletar
