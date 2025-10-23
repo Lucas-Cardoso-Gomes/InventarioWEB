@@ -65,7 +65,21 @@ namespace Web.Controllers
                         new ClaimsPrincipal(claimsIdentity),
                         authProperties);
 
-                    return RedirectToLocal(returnUrl);
+                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                    {
+                        return Redirect(returnUrl);
+                    }
+                    else
+                    {
+                        if (user.Role == "Colaborador")
+                        {
+                            return RedirectToAction("Index", "Chamados");
+                        }
+                        else
+                        {
+                            return RedirectToAction("Index", "Dashboard");
+                        }
+                    }
                 }
                 ModelState.AddModelError(string.Empty, "Invalid login attempt.");
             }
@@ -77,18 +91,6 @@ namespace Web.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction("Index", "Computadores");
-        }
-
-        private IActionResult RedirectToLocal(string returnUrl)
-        {
-            if (Url.IsLocalUrl(returnUrl))
-            {
-                return Redirect(returnUrl);
-            }
-            else
-            {
-                return RedirectToAction("Index", "Computadores");
-            }
         }
     }
 }
