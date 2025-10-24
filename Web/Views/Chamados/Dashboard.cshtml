@@ -172,6 +172,24 @@
             </div>
         </div>
     </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">Chamados por Mês</div>
+                <div class="card-body">
+                    @if (Model.ChamadosPorMes.Any())
+                    {
+                        <canvas id="chamadosPorMesChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -223,6 +241,23 @@
                         datasets: [{
                             data: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Value))),
                             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                        }]
+                    }
+                });
+            }
+
+            // Chamados por Mês
+            if (@Html.Raw(Json.Serialize(Model.ChamadosPorMes.Any()))) {
+                new Chart(document.getElementById('chamadosPorMesChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(Model.ChamadosPorMes.Select(d => d.Label))),
+                        datasets: [{
+                            label: 'Número de Chamados',
+                            data: @Html.Raw(Json.Serialize(Model.ChamadosPorMes.Select(d => d.Value))),
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
                         }]
                     }
                 });

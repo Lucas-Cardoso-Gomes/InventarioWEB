@@ -14,5 +14,6 @@ namespace Web.Models
         public List<ChartData> HorarioMedioAbertura { get; set; } = new List<ChartData>();
         public List<ChartData> ChamadosPorDiaDaSemana { get; set; } = new List<ChartData>();
         public List<ChartData> ChamadosPorFilial { get; set; } = new List<ChartData>();
+        public List<ChartData> ChamadosPorMes { get; set; } = new List<ChartData>();
     }
 }

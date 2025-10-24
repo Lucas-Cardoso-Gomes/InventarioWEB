@@ -256,6 +256,8 @@ namespace Web.Controllers
                 _logger.LogInformation("Dashboard - Chamados por Dia da Semana: {Count} registros encontrados.", viewModel.ChamadosPorDiaDaSemana.Count);
                 viewModel.ChamadosPorFilial = await GetChamadosPorFilialAsync(connection, whereSql, parameters);
                 _logger.LogInformation("Dashboard - Chamados por Filial: {Count} registros encontrados.", viewModel.ChamadosPorFilial.Count);
+                viewModel.ChamadosPorMes = await GetChamadosPorMesAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Chamados por Mês: {Count} registros encontrados.", viewModel.ChamadosPorMes.Count);
             }
 
             return View(viewModel);
@@ -303,6 +305,31 @@ namespace Web.Controllers
                     while (await reader.ReadAsync())
                     {
                         data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetChamadosPorMesAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            var sql = $@"SELECT FORMAT(c.DataCriacao, 'MMMM', 'pt-BR') as Mes, COUNT(*) as Count
+                           FROM Chamados c
+                           {whereSql}
+                           GROUP BY FORMAT(c.DataCriacao, 'MMMM', 'pt-BR'), MONTH(c.DataCriacao)
+                           ORDER BY MONTH(c.DataCriacao)";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Mes"].ToString(), Value = (int)reader["Count"] });
                     }
                 }
             }
