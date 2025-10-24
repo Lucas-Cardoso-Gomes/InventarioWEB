@@ -78,30 +78,16 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Top 10 Serviços</div>
-                <div class="card-body">
-                    @if (Model.Top10Servicos.Any())
-                    {
-                        <canvas id="top10ServicosChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="top10ServicosContainer">
+                    <canvas id="top10ServicosChart"></canvas>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
-                <div class="card-body">
-                    @if (Model.Top10Usuarios.Any())
-                    {
-                        <canvas id="top10UsuariosChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="top10UsuariosContainer">
+                    <canvas id="top10UsuariosChart"></canvas>
                 </div>
             </div>
         </div>
@@ -111,30 +97,16 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Top Dias da Semana de Abertura de Chamados</div>
-                <div class="card-body">
-                    @if (Model.ChamadosPorDiaDaSemana.Any())
-                    {
-                        <canvas id="chamadosPorDiaDaSemanaChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="chamadosPorDiaDaSemanaContainer">
+                    <canvas id="chamadosPorDiaDaSemanaChart"></canvas>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Horário Médio de Abertura de Chamados</div>
-                <div class="card-body">
-                    @if (Model.HorarioMedioAbertura.Any())
-                    {
-                        <canvas id="horarioMedioAberturaChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="horarioMedioAberturaContainer">
+                    <canvas id="horarioMedioAberturaChart"></canvas>
                 </div>
             </div>
         </div>
@@ -144,30 +116,16 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Prioridade dos Serviços</div>
-                <div class="card-body">
-                    @if (Model.PrioridadeServicos.Any())
-                    {
-                        <canvas id="prioridadeServicosChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="prioridadeServicosContainer">
+                    <canvas id="prioridadeServicosChart"></canvas>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">Filiais que Mais Abrem Chamados</div>
-                <div class="card-body">
-                    @if (Model.ChamadosPorFilial.Any())
-                    {
-                        <canvas id="chamadosPorFilialChart"></canvas>
-                    }
-                    else
-                    {
-                        <p>Não há dados para exibir.</p>
-                    }
+                <div class="card-body" id="chamadosPorFilialContainer">
+                    <canvas id="chamadosPorFilialChart"></canvas>
                 </div>
             </div>
         </div>
@@ -178,6 +136,14 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            // Chart Data
+            const top10ServicosData = @Html.Raw(Json.Serialize(Model.Top10Servicos));
+            const prioridadeServicosData = @Html.Raw(Json.Serialize(Model.PrioridadeServicos));
+            const top10UsuariosData = @Html.Raw(Json.Serialize(Model.Top10Usuarios));
+            const horarioMedioAberturaData = @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura));
+            const chamadosPorDiaDaSemanaData = @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana));
+            const chamadosPorFilialData = @Html.Raw(Json.Serialize(Model.ChamadosPorFilial));
+
             // Persistent Filters
             const filterForm = document.querySelector('form[asp-action="Dashboard"]');
             const filterInputs = filterForm.querySelectorAll('input');
@@ -198,96 +164,108 @@
             });
 
             // Top 10 Serviços
-            if (@Model.Top10Servicos.Any().ToString().ToLower()) {
+            if (top10ServicosData.length > 0) {
                 new Chart(document.getElementById('top10ServicosChart'), {
                     type: 'bar',
                     data: {
-                    labels: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Label))),
-                    datasets: [{
-                        label: 'Número de Chamados',
-                        data: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Value))),
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    }]
-                }
+                        labels: top10ServicosData.map(d => d.label),
+                        datasets: [{
+                            label: 'Número de Chamados',
+                            data: top10ServicosData.map(d => d.value),
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    }
                 });
+            } else {
+                document.getElementById('top10ServicosContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
 
             // Prioridade dos Serviços
-            if (@Model.PrioridadeServicos.Any().ToString().ToLower()) {
+            if (prioridadeServicosData.length > 0) {
                 new Chart(document.getElementById('prioridadeServicosChart'), {
                     type: 'pie',
                     data: {
-                        labels: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Label))),
+                        labels: prioridadeServicosData.map(d => d.label),
                         datasets: [{
-                            data: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Value))),
+                            data: prioridadeServicosData.map(d => d.value),
                             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
                         }]
                     }
                 });
+            } else {
+                document.getElementById('prioridadeServicosContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
 
             // Top 10 Usuários
-            if (@Model.Top10Usuarios.Any().ToString().ToLower()) {
+            if (top10UsuariosData.length > 0) {
                 new Chart(document.getElementById('top10UsuariosChart'), {
                     type: 'bar',
                     data: {
-                        labels: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Label))),
+                        labels: top10UsuariosData.map(d => d.label),
                         datasets: [{
                             label: 'Número de Chamados Abertos',
-                            data: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Value))),
+                            data: top10UsuariosData.map(d => d.value),
                             backgroundColor: 'rgba(153, 102, 255, 0.2)',
                             borderColor: 'rgba(153, 102, 255, 1)',
                             borderWidth: 1
                         }]
                     }
                 });
+            } else {
+                document.getElementById('top10UsuariosContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
 
             // Horário Médio de Abertura
-            if (@Model.HorarioMedioAbertura.Any().ToString().ToLower()) {
+            if (horarioMedioAberturaData.length > 0) {
                 new Chart(document.getElementById('horarioMedioAberturaChart'), {
                     type: 'line',
                     data: {
-                        labels: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Label))),
+                        labels: horarioMedioAberturaData.map(d => d.label),
                         datasets: [{
                             label: 'Número de Chamados',
-                            data: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Value))),
+                            data: horarioMedioAberturaData.map(d => d.value),
                             backgroundColor: 'rgba(255, 159, 64, 0.2)',
                             borderColor: 'rgba(255, 159, 64, 1)',
                             borderWidth: 1
                         }]
                     }
                 });
+            } else {
+                document.getElementById('horarioMedioAberturaContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
 
             // Chamados por Dia da Semana
-            if (@Model.ChamadosPorDiaDaSemana.Any().ToString().ToLower()) {
+            if (chamadosPorDiaDaSemanaData.length > 0) {
                 new Chart(document.getElementById('chamadosPorDiaDaSemanaChart'), {
                     type: 'doughnut',
                     data: {
-                        labels: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Label))),
+                        labels: chamadosPorDiaDaSemanaData.map(d => d.label),
                         datasets: [{
-                            data: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Value))),
+                            data: chamadosPorDiaDaSemanaData.map(d => d.value),
                             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
                         }]
                     }
                 });
+            } else {
+                document.getElementById('chamadosPorDiaDaSemanaContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
 
             // Chamados por Filial
-            if (@Model.ChamadosPorFilial.Any().ToString().ToLower()) {
+            if (chamadosPorFilialData.length > 0) {
                 new Chart(document.getElementById('chamadosPorFilialChart'), {
                     type: 'pie',
                     data: {
-                        labels: @Html.Raw(Json.Serialize(Model.ChamadosPorFilial.Select(d => d.Label))),
+                        labels: chamadosPorFilialData.map(d => d.label),
                         datasets: [{
-                            data: @Html.Raw(Json.Serialize(Model.ChamadosPorFilial.Select(d => d.Value))),
+                            data: chamadosPorFilialData.map(d => d.value),
                             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
                         }]
                     }
                 });
+            } else {
+                document.getElementById('chamadosPorFilialContainer').innerHTML = '<p>Não há dados para exibir.</p>';
             }
         });
     </script>
