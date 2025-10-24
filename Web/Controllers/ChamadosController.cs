@@ -246,6 +246,8 @@ namespace Web.Controllers
                 viewModel.PrioridadeServicos = await GetPrioridadeServicosAsync(connection, whereSql, parameters);
                 viewModel.Top10Usuarios = await GetTop10UsuariosAsync(connection, whereSql, parameters);
                 viewModel.HorarioMedioAbertura = await GetHorarioMedioAberturaAsync(connection, whereSql, parameters);
+                viewModel.TopDiasDaSemana = await GetTopDiasDaSemanaAsync(connection, whereSql, parameters);
+                viewModel.FiliaisQueMaisAbremChamados = await GetFiliaisQueMaisAbremChamados(connection, whereSql, parameters);
             }
 
             return View(viewModel);
@@ -349,11 +351,11 @@ namespace Web.Controllers
         private async Task<List<ChartData>> GetHorarioMedioAberturaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            string sql = $@"SELECT CAST(DATEPART(hour, DataCriacao) AS NVARCHAR(2)) + ':00' as Hour, COUNT(*) as Count
-                           FROM Chamados
+            string sql = $@"SELECT CAST(DATEPART(hour, c.DataCriacao) AS NVARCHAR(2)) + ':00' as Hour, COUNT(*) as Count
+                           FROM Chamados c
                            {whereSql}
-                           GROUP BY DATEPART(hour, DataCriacao)
-                           ORDER BY DATEPART(hour, DataCriacao)";
+                           GROUP BY DATEPART(hour, c.DataCriacao)
+                           ORDER BY DATEPART(hour, c.DataCriacao)";
             using (var cmd = new SqlCommand(sql, connection))
             {
                 foreach (var p in parameters)
@@ -365,6 +367,69 @@ namespace Web.Controllers
                     while (await reader.ReadAsync())
                     {
                         data.Add(new ChartData { Label = reader["Hour"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetTopDiasDaSemanaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SET DATEFIRST 1;
+                           SELECT
+                               CASE DATEPART(weekday, c.DataCriacao)
+                                   WHEN 1 THEN 'Segunda-feira'
+                                   WHEN 2 THEN 'Terça-feira'
+                                   WHEN 3 THEN 'Quarta-feira'
+                                   WHEN 4 THEN 'Quinta-feira'
+                                   WHEN 5 THEN 'Sexta-feira'
+                                   WHEN 6 THEN 'Sábado'
+                                   WHEN 7 THEN 'Domingo'
+                               END as DiaDaSemana,
+                               COUNT(*) as Count
+                           FROM Chamados c
+                           {whereSql}
+                           GROUP BY DATEPART(weekday, c.DataCriacao)
+                           ORDER BY DATEPART(weekday, c.DataCriacao)";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["DiaDaSemana"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetFiliaisQueMaisAbremChamados(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SELECT TOP 10 f.Nome, COUNT(c.ID) as Count
+                           FROM Chamados c
+                           JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                           JOIN Filiais f ON co.FilialID = f.ID
+                           {whereSql}
+                           GROUP BY f.Nome
+                           ORDER BY Count DESC";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
                     }
                 }
             }

@@ -85,9 +85,9 @@
         </div>
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">Prioridade dos Serviços</div>
+                <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
                 <div class="card-body">
-                    <canvas id="prioridadeServicosChart"></canvas>
+                    <canvas id="top10UsuariosChart"></canvas>
                 </div>
             </div>
         </div>
@@ -96,9 +96,9 @@
     <div class="row mt-4">
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
+                <div class="card-header">Top Dias da Semana</div>
                 <div class="card-body">
-                    <canvas id="top10UsuariosChart"></canvas>
+                    <canvas id="topDiasDaSemanaChart"></canvas>
                 </div>
             </div>
         </div>
@@ -111,12 +111,59 @@
             </div>
         </div>
     </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Prioridade dos Serviços</div>
+                <div class="card-body">
+                    <canvas id="prioridadeServicosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Filiais que mais abrem chamados</div>
+                <div class="card-body">
+                    <canvas id="filiaisChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            const form = document.querySelector('form[asp-action="Dashboard"]');
+            const inputs = form.querySelectorAll('input, select');
+
+            // Load saved filters
+            inputs.forEach(input => {
+                const savedValue = localStorage.getItem(input.name);
+                if (savedValue) {
+                    input.value = savedValue;
+                }
+            });
+
+            // Save filters on change
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    localStorage.setItem(input.name, input.value);
+                });
+            });
+
+            // Clear saved filters
+            const clearButton = form.querySelector('a[asp-action="Dashboard"]');
+            clearButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                inputs.forEach(input => {
+                    localStorage.removeItem(input.name);
+                });
+                window.location.href = e.target.href;
+            });
+
             // Top 10 Serviços
             new Chart(document.getElementById('top10ServicosChart'), {
                 type: 'bar',
@@ -170,6 +217,33 @@
                         backgroundColor: 'rgba(255, 159, 64, 0.2)',
                         borderColor: 'rgba(255, 159, 64, 1)',
                         borderWidth: 1
+                    }]
+                }
+            });
+
+            // Top Dias da Semana
+            new Chart(document.getElementById('topDiasDaSemanaChart'), {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.TopDiasDaSemana.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.TopDiasDaSemana.Select(d => d.Value))),
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Filiais
+            new Chart(document.getElementById('filiaisChart'), {
+                type: 'pie',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.FiliaisQueMaisAbremChamados.Select(d => d.Label))),
+                    datasets: [{
+                        data: @Html.Raw(Json.Serialize(Model.FiliaisQueMaisAbremChamados.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
                     }]
                 }
             });
