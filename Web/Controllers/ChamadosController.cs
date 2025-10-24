@@ -205,27 +205,27 @@ namespace Web.Controllers
 
             if (startDate.HasValue)
             {
-                whereClauses.Add("DataCriacao >= @StartDate");
+                whereClauses.Add("c.DataCriacao >= @StartDate");
                 parameters.Add("@StartDate", startDate.Value);
             }
             if (endDate.HasValue)
             {
-                whereClauses.Add("DataCriacao <= @EndDate");
+                whereClauses.Add("c.DataCriacao <= @EndDate");
                 parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1));
             }
             if (year.HasValue)
             {
-                whereClauses.Add("YEAR(DataCriacao) = @Year");
+                whereClauses.Add("YEAR(c.DataCriacao) = @Year");
                 parameters.Add("@Year", year.Value);
             }
             if (month.HasValue)
             {
-                whereClauses.Add("MONTH(DataCriacao) = @Month");
+                whereClauses.Add("MONTH(c.DataCriacao) = @Month");
                 parameters.Add("@Month", month.Value);
             }
             if (day.HasValue)
             {
-                whereClauses.Add("DAY(DataCriacao) = @Day");
+                whereClauses.Add("DAY(c.DataCriacao) = @Day");
                 parameters.Add("@Day", day.Value);
             }
 
@@ -236,6 +236,7 @@ namespace Web.Controllers
                 await connection.OpenAsync();
 
                 // Cards
+                viewModel.TotalChamados = await GetTotalChamadosAsync(connection, whereSql, parameters);
                 viewModel.ChamadosAbertos = await GetCountByStatusAsync(connection, "Aberto", whereSql, parameters);
                 viewModel.ChamadosEmAndamento = await GetCountByStatusAsync(connection, "Em Andamento", whereSql, parameters);
                 viewModel.ChamadosFechados = await GetCountByStatusAsync(connection, "Fechado", whereSql, parameters);
@@ -248,6 +249,19 @@ namespace Web.Controllers
             }
 
             return View(viewModel);
+        }
+
+        private async Task<int> GetTotalChamadosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var sql = $"SELECT COUNT(*) FROM Chamados " + whereSql;
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                return (int)await cmd.ExecuteScalarAsync();
+            }
         }
 
         private async Task<int> GetCountByStatusAsync(SqlConnection connection, string status, string whereSql, Dictionary<string, object> parameters)

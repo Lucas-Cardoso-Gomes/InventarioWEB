@@ -4,6 +4,7 @@ namespace Web.Models
 {
     public class ChamadoDashboardViewModel
     {
+        public int TotalChamados { get; set; }
         public int ChamadosAbertos { get; set; }
         public int ChamadosEmAndamento { get; set; }
         public int ChamadosFechados { get; set; }
