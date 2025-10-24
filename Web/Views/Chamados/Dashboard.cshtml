@@ -242,7 +242,7 @@
 
             // Chamados por Mês
             criarGraficoSeCanvasExistir('chamadosPorMesChart', {
-                type: 'bar',
+                type: 'line',
                 data: {
                     labels: @Html.Raw(Json.Serialize(Model.ChamadosPorMes.Select(d => d.Label))),
                     datasets: [{
@@ -287,10 +287,11 @@
 
             // Chamados por Dia da Semana
             criarGraficoSeCanvasExistir('chamadosPorDiaDaSemanaChart', {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Label))),
                     datasets: [{
+                        label: 'Chamados Semanais', 
                         data: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Value))),
                         backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
                     }]
