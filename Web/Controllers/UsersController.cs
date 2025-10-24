@@ -41,10 +41,15 @@ namespace Web.Controllers
         }
 
         // GET: Users
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string sortOrder, string searchString, List<string> currentRoles, int pageNumber = 1, int pageSize = 25)
         {
-            var users = await _userService.GetAllUsersWithColaboradoresAsync();
-            return View(users);
+            ViewData["CurrentSort"] = sortOrder;
+            ViewData["NomeSortParm"] = string.IsNullOrEmpty(sortOrder) ? "nome_desc" : "";
+            ViewData["LoginSortParm"] = sortOrder == "login" ? "login_desc" : "login";
+            ViewData["RoleSortParm"] = sortOrder == "role" ? "role_desc" : "role";
+
+            var viewModel = await _userService.GetAllUsersWithColaboradoresAsync(sortOrder, searchString, currentRoles, pageNumber, pageSize);
+            return View(viewModel);
         }
 
         // GET: Users/Create

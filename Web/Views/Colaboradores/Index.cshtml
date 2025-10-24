@@ -1,15 +1,4 @@
-@model IEnumerable<Web.Models.Colaborador>
-@using System.Linq
-
-@functions {
-    public string FormatCpf(string cpf)
-    {
-        if (string.IsNullOrEmpty(cpf)) return "";
-        string numericCpf = new string(cpf.Where(char.IsDigit).ToArray());
-        if (numericCpf.Length != 11) return cpf;
-        return Convert.ToUInt64(numericCpf).ToString(@"000\.000\.000\-00");
-    }
-}
+@model Web.Models.ColaboradorIndexViewModel
 
 @{
     ViewData["Title"] = "Colaboradores";
@@ -27,74 +16,104 @@
 }
 
 <div class="row mb-3">
-    <div class="col-md-6">
+    <div class="col-12">
         @if (User.IsInRole("Admin"))
         {
             <a asp-action="Create" class="btn btn-primary">Adicionar Novo Colaborador</a>
         }
-    </div>
-    <div class="col-md-6">
-        <form asp-action="Index" method="get">
-            <div class="input-group">
-                <input type="text" name="searchString" class="form-control" placeholder="Procurar por nome, CPF ou e-mail..." value="@ViewData["CurrentFilter"]">
-                <button class="btn btn-outline-secondary" type="submit">Procurar</button>
-                 <a asp-action="Index" class="btn btn-outline-secondary">Limpar</a>
+        <div class="dropdown d-inline-block">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="columnVisibilityDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                Exibir/Ocultar Colunas
+            </button>
+            <div class="dropdown-menu" aria-labelledby="columnVisibilityDropdown" id="column-visibility-menu">
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
-@if (User.IsInRole("Admin"))
-{
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <form asp-controller="Colaboradores" asp-action="Importar" method="post" enctype="multipart/form-data">
-                <div class="input-group">
-                    <input type="file" name="file" class="form-control" />
-                    <button type="submit" class="btn btn-success">Importar</button>
+<form asp-action="Index" method="get" class="card mb-4" id="colaboradores-filter-form">
+    <div class="card-header" id="filterHeader">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                Filtros
+            </button>
+        </h5>
+    </div>
+    <div id="filterCollapse" class="collapse show" aria-labelledby="filterHeader">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label for="searchString" class="form-label">Pesquisa Geral</label>
+                    <input type="text" name="searchString" id="searchString" class="form-control" placeholder="Pesquisar por Nome, CPF, Email..." value="@Model.SearchString">
                 </div>
-            </form>
+                @{
+                    Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
+                    {
+                        <div class="col-md-3 filterable-list-container">
+                            <label class="form-label">@title</label>
+                            <input type="text" class="form-control form-control-sm mb-2 filterable-list-input" placeholder="Filtrar...">
+                            <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
+                                @if (items != null)
+                                {
+                                    @foreach (var item in items)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
+                                            <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
+                                                @item
+                                            </label>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    };
+
+                    renderFilter("Filial", "CurrentFiliais", Model.Filiais, Model.CurrentFiliais);
+                    renderFilter("Setor", "CurrentSetores", Model.Setores, Model.CurrentSetores);
+                }
+            </div>
+        </div>
+        <div class="card-footer text-end">
+            <a asp-action="Index" class="btn btn-secondary" id="clear-filters-btn">Limpar Filtros</a>
+            <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
         </div>
     </div>
-}
-
+</form>
 
 <div class="table-responsive">
     <table class="table table-striped table-bordered">
         <thead>
             <tr>
-                <th>@Html.DisplayNameFor(model => model.Nome)</th>
-                <th>@Html.DisplayNameFor(model => model.Email)</th>
-                <th>@Html.DisplayNameFor(model => model.Filial)</th>
-                <th>@Html.DisplayNameFor(model => model.Setor)</th>
-                <th>@Html.DisplayNameFor(model => model.DataInclusao)</th>
-                <th>@Html.DisplayNameFor(model => model.DataAlteracao)</th>
-                <th>Coordenador</th>
-                @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+                <th class="col-nome"><a asp-action="Index" asp-route-sortOrder="@ViewData["NomeSortParm"]" asp-route-searchString="@Model.SearchString">Nome</a></th>
+                <th class="col-email"><a asp-action="Index" asp-route-sortOrder="@ViewData["EmailSortParm"]" asp-route-searchString="@Model.SearchString">Email</a></th>
+                <th class="col-filial"><a asp-action="Index" asp-route-sortOrder="@ViewData["FilialSortParm"]" asp-route-searchString="@Model.SearchString">Filial</a></th>
+                <th class="col-setor"><a asp-action="Index" asp-route-sortOrder="@ViewData["SetorSortParm"]" asp-route-searchString="@Model.SearchString">Setor</a></th>
+                <th class="col-datainclusao">Data Inclusão</th>
+                <th class="col-dataalteracao">Data Alteração</th>
+                <th class="col-coordenador">Coordenador</th>
+                @if (User.IsInRole("Admin"))
                 {
                     <th>Ações</th>
                 }
             </tr>
         </thead>
         <tbody>
-            @foreach (var item in Model)
+            @foreach (var item in Model.Colaboradores)
             {
                 <tr>
-                    <td>@Html.DisplayFor(modelItem => item.Nome)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Email)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Filial)</td>
-                    <td>@Html.DisplayFor(modelItem => item.Setor)</td>
-                    <td>@Html.DisplayFor(modelItem => item.DataInclusao)</td>
-                    <td>@Html.DisplayFor(modelItem => item.DataAlteracao)</td>
-                    <td>@Html.DisplayFor(modelItem => item.CoordenadorNome)</td>
-                    @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
+                    <td class="col-nome">@Html.DisplayFor(modelItem => item.Nome)</td>
+                    <td class="col-email">@Html.DisplayFor(modelItem => item.Email)</td>
+                    <td class="col-filial">@Html.DisplayFor(modelItem => item.Filial)</td>
+                    <td class="col-setor">@Html.DisplayFor(modelItem => item.Setor)</td>
+                    <td class="col-datainclusao">@item.DataInclusao?.ToString("g")</td>
+                    <td class="col-dataalteracao">@item.DataAlteracao?.ToString("g")</td>
+                    <td class="col-coordenador">@Html.DisplayFor(modelItem => item.CoordenadorNome)</td>
+                    @if (User.IsInRole("Admin"))
                     {
                         <td>
-                             @if (User.IsInRole("Admin"))
-                            {
-                                <a asp-action="Edit" asp-route-id="@item.CPF" class="btn btn-warning btn-sm">Editar</a>
-                                <a asp-action="Delete" asp-route-id="@item.CPF" class="btn btn-danger btn-sm">Excluir</a>
-                            }
+                            <a asp-action="Edit" asp-route-id="@item.CPF" class="btn btn-warning btn-sm">Editar</a>
+                            <a asp-action="Delete" asp-route-id="@item.CPF" class="btn btn-danger btn-sm">Excluir</a>
                         </td>
                     }
                 </tr>
@@ -102,3 +121,26 @@
         </tbody>
     </table>
 </div>
+
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+            <a class="page-link" asp-action="Index" asp-route-sortOrder="@Model.CurrentSort" asp-route-searchString="@Model.SearchString" asp-route-pageNumber="@(Model.PageNumber - 1)" asp-route-pageSize="@Model.PageSize">Anterior</a>
+        </li>
+        @for (int i = 1; i <= Model.TotalPages; i++)
+        {
+            <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                <a class="page-link" asp-action="Index" asp-route-sortOrder="@Model.CurrentSort" asp-route-searchString="@Model.SearchString" asp-route-pageNumber="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+            </li>
+        }
+        <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+            <a class="page-link" asp-action="Index" asp-route-sortOrder="@Model.CurrentSort" asp-route-searchString="@Model.SearchString" asp-route-pageNumber="@(Model.PageNumber + 1)" asp-route-pageSize="@Model.PageSize">Próxima</a>
+        </li>
+    </ul>
+</nav>
+
+@section Scripts {
+    <script src="~/js/colaborador-list.js" asp-append-version="true"></script>
+    <script src="~/js/filterable-checkbox-list.js" asp-append-version="true"></script>
+    <script src="~/js/colaborador-filter-persistence.js" asp-append-version="true"></script>
+}

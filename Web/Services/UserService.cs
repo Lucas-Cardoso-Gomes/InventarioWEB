@@ -60,35 +60,131 @@ namespace Web.Services
             }
         }
 
-        public async Task<IEnumerable<User>> GetAllUsersWithColaboradoresAsync()
+        public async Task<UserIndexViewModel> GetAllUsersWithColaboradoresAsync(string sortOrder, string searchString, List<string> currentRoles, int pageNumber, int pageSize)
         {
-            var users = new List<User>();
+            var viewModel = new UserIndexViewModel
+            {
+                Users = new List<User>(),
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SearchString = searchString,
+                CurrentSort = sortOrder,
+                CurrentRoles = currentRoles ?? new List<string>()
+            };
+
             using (var connection = new SqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
-                var command = new SqlCommand("SELECT u.*, c.Nome as ColaboradorNome FROM Usuarios u LEFT JOIN Colaboradores c ON u.ColaboradorCPF = c.CPF", connection);
+
+                viewModel.Roles = await GetDistinctUserValuesAsync(connection, "Role");
+
+                var whereClauses = new List<string>();
+                var parameters = new Dictionary<string, object>();
+                string baseSql = "FROM Usuarios u LEFT JOIN Colaboradores c ON u.ColaboradorCPF = c.CPF";
+
+                if (!string.IsNullOrEmpty(searchString))
+                {
+                    whereClauses.Add("(u.Nome LIKE @search OR u.Login LIKE @search OR c.Nome LIKE @search)");
+                    parameters.Add("@search", $"%{searchString}%");
+                }
+
+                if (currentRoles != null && currentRoles.Any())
+                {
+                    var roleParams = new List<string>();
+                    for (int i = 0; i < currentRoles.Count; i++)
+                    {
+                        var paramName = $"@role{i}";
+                        roleParams.Add(paramName);
+                        parameters.Add(paramName, currentRoles[i]);
+                    }
+                    whereClauses.Add($"u.Role IN ({string.Join(", ", roleParams)})");
+                }
+
+                string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+                string countSql = $"SELECT COUNT(u.Id) {baseSql} {whereSql}";
+
+                using (var countCommand = new SqlCommand(countSql, connection))
+                {
+                    foreach (var p in parameters)
+                    {
+                        countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                    }
+                    viewModel.TotalCount = (int)await countCommand.ExecuteScalarAsync();
+                }
+
+                string orderBySql;
+                switch (sortOrder)
+                {
+                    case "nome_desc":
+                        orderBySql = "ORDER BY u.Nome DESC";
+                        break;
+                    case "login":
+                        orderBySql = "ORDER BY u.Login";
+                        break;
+                    case "login_desc":
+                        orderBySql = "ORDER BY u.Login DESC";
+                        break;
+                    case "role":
+                        orderBySql = "ORDER BY u.Role";
+                        break;
+                    case "role_desc":
+                        orderBySql = "ORDER BY u.Role DESC";
+                        break;
+                    default:
+                        orderBySql = "ORDER BY u.Nome";
+                        break;
+                }
+
+                string sql = $"SELECT u.*, c.Nome as ColaboradorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                using (var command = new SqlCommand(sql, connection))
+                {
+                    foreach (var p in parameters)
+                    {
+                        command.Parameters.AddWithValue(p.Key, p.Value);
+                    }
+                    command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                    command.Parameters.AddWithValue("@pageSize", pageSize);
+
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var user = new User
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
+                                Login = reader.GetString(reader.GetOrdinal("Login")),
+                                Role = reader.GetString(reader.GetOrdinal("Role")),
+                                IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
+                                ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF")),
+                                Colaborador = new Colaborador()
+                            };
+                            if (!reader.IsDBNull(reader.GetOrdinal("ColaboradorNome")))
+                            {
+                                user.Colaborador.Nome = reader.GetString(reader.GetOrdinal("ColaboradorNome"));
+                            }
+                            viewModel.Users.Add(user);
+                        }
+                    }
+                }
+            }
+            return viewModel;
+        }
+
+        private async Task<List<string>> GetDistinctUserValuesAsync(SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Usuarios WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            {
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        var user = new User
-                        {
-                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                            Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                            Login = reader.GetString(reader.GetOrdinal("Login")),
-                            Role = reader.GetString(reader.GetOrdinal("Role")),
-                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
-                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF")),
-                        };
-                        if (!reader.IsDBNull(reader.GetOrdinal("ColaboradorNome")))
-                        {
-                            user.Colaborador = new Colaborador { Nome = reader.GetString(reader.GetOrdinal("ColaboradorNome")) };
-                        }
-                        users.Add(user);
+                        values.Add(reader.GetString(0));
                     }
                 }
             }
-            return users;
+            return values;
         }
 
         public async Task<User> FindByIdAsync(int id)

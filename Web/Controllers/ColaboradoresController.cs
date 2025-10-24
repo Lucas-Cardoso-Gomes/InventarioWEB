@@ -34,60 +34,105 @@ namespace Web.Controllers
             return new string(cpf.Where(char.IsDigit).ToArray());
         }
 
-        // GET: Colaboradores
-        public IActionResult Index(string searchString)
+        public IActionResult Index(string sortOrder, string searchString, List<string> currentFiliais, List<string> currentSetores, int pageNumber = 1, int pageSize = 25)
         {
-            ViewData["CurrentFilter"] = searchString;
-            var colaboradores = new List<Colaborador>();
+            ViewData["CurrentSort"] = sortOrder;
+            ViewData["NomeSortParm"] = string.IsNullOrEmpty(sortOrder) ? "nome_desc" : "";
+            ViewData["EmailSortParm"] = sortOrder == "email" ? "email_desc" : "email";
+            ViewData["FilialSortParm"] = sortOrder == "filial" ? "filial_desc" : "filial";
+            ViewData["SetorSortParm"] = sortOrder == "setor" ? "setor_desc" : "setor";
+
+            var viewModel = new ColaboradorIndexViewModel
+            {
+                Colaboradores = new List<Colaborador>(),
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SearchString = searchString,
+                CurrentSort = sortOrder,
+                CurrentFiliais = currentFiliais ?? new List<string>(),
+                CurrentSetores = currentSetores ?? new List<string>()
+            };
+
             try
             {
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
-                    string sql = "SELECT c.*, co.Nome as CoordenadorNome FROM Colaboradores c LEFT JOIN Colaboradores co ON c.CoordenadorCPF = co.CPF";
+
+                    viewModel.Filiais = GetDistinctColaboradorValues(connection, "Filial");
+                    viewModel.Setores = GetDistinctColaboradorValues(connection, "Setor");
+
+                    var whereClauses = new List<string>();
+                    var parameters = new Dictionary<string, object>();
+                    string baseSql = "FROM Colaboradores c LEFT JOIN Colaboradores co ON c.CoordenadorCPF = co.CPF";
+
                     if (!string.IsNullOrEmpty(searchString))
                     {
-                        sql += " WHERE c.Nome LIKE @search OR c.CPF LIKE @search OR c.Email LIKE @search";
+                        whereClauses.Add("(c.Nome LIKE @search OR c.CPF LIKE @search OR c.Email LIKE @search)");
+                        parameters.Add("@search", $"%{searchString}%");
                     }
+
+                    Action<string, List<string>> addInClause = (columnName, values) =>
+                    {
+                        if (values != null && values.Any())
+                        {
+                            var paramNames = new List<string>();
+                            for (int i = 0; i < values.Count; i++)
+                            {
+                                var paramName = $"@{columnName.ToLower()}{i}";
+                                paramNames.Add(paramName);
+                                parameters.Add(paramName, values[i]);
+                            }
+                            whereClauses.Add($"{columnName} IN ({string.Join(", ", paramNames)})");
+                        }
+                    };
+
+                    addInClause("c.Filial", viewModel.CurrentFiliais);
+                    addInClause("c.Setor", viewModel.CurrentSetores);
+
+                    string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
+
+                    string countSql = $"SELECT COUNT(c.CPF) {baseSql} {whereSql}";
+                    using (var countCommand = new SqlCommand(countSql, connection))
+                    {
+                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                    }
+
+                    string orderBySql;
+                    switch (sortOrder)
+                    {
+                        case "nome_desc": orderBySql = "ORDER BY c.Nome DESC"; break;
+                        case "email": orderBySql = "ORDER BY c.Email"; break;
+                        case "email_desc": orderBySql = "ORDER BY c.Email DESC"; break;
+                        case "filial": orderBySql = "ORDER BY c.Filial"; break;
+                        case "filial_desc": orderBySql = "ORDER BY c.Filial DESC"; break;
+                        case "setor": orderBySql = "ORDER BY c.Setor"; break;
+                        case "setor_desc": orderBySql = "ORDER BY c.Setor DESC"; break;
+                        default: orderBySql = "ORDER BY c.Nome"; break;
+                    }
+
+                    string sql = $"SELECT c.*, co.Nome as CoordenadorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
                     using (SqlCommand cmd = new SqlCommand(sql, connection))
                     {
-                        if (!string.IsNullOrEmpty(searchString))
-                        {
-                            cmd.Parameters.AddWithValue("@search", $"%{searchString}%");
-                        }
+                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
+                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
+                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
 
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                colaboradores.Add(new Colaborador
+                                viewModel.Colaboradores.Add(new Colaborador
                                 {
                                     CPF = reader["CPF"].ToString(),
                                     Nome = reader["Nome"].ToString(),
                                     Email = reader["Email"].ToString(),
-                                    SenhaEmail = reader["SenhaEmail"].ToString(),
-                                    Teams = reader["Teams"].ToString(),
-                                    SenhaTeams = reader["SenhaTeams"].ToString(),
-                                    EDespacho = reader["EDespacho"].ToString(),
-                                    SenhaEDespacho = reader["SenhaEDespacho"].ToString(),
-                                    Genius = reader["Genius"].ToString(),
-                                    SenhaGenius = reader["SenhaGenius"].ToString(),
-                                    Ibrooker = reader["Ibrooker"].ToString(),
-                                    SenhaIbrooker = reader["SenhaIbrooker"].ToString(),
-                                    Adicional = reader["Adicional"].ToString(),
-                                    SenhaAdicional = reader["SenhaAdicional"].ToString(),
                                     Filial = reader["Filial"].ToString(),
                                     Setor = reader["Setor"].ToString(),
-                                    Smartphone = reader["Smartphone"].ToString(),
-                                    TelefoneFixo = reader["TelefoneFixo"].ToString(),
-                                    Ramal = reader["Ramal"].ToString(),
-                                    Alarme = reader["Alarme"].ToString(),
-                                    Videoporteiro = reader["Videoporteiro"].ToString(),
-                                    Obs = reader["Obs"].ToString(),
-                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
-                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                    CoordenadorCPF = reader["CoordenadorCPF"] != DBNull.Value ? reader["CoordenadorCPF"].ToString() : null,
-                                    CoordenadorNome = reader["CoordenadorNome"] != DBNull.Value ? reader["CoordenadorNome"].ToString() : null
+                                    DataInclusao = reader["DataInclusao"] as DateTime?,
+                                    DataAlteracao = reader["DataAlteracao"] as DateTime?,
+                                    CoordenadorNome = reader["CoordenadorNome"] as string
                                 });
                             }
                         }
@@ -97,8 +142,10 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao obter a lista de colaboradores.");
+                ViewBag.Message = "Ocorreu um erro ao obter a lista de colaboradores. Por favor, tente novamente mais tarde.";
             }
-            return View(colaboradores);
+
+            return View(viewModel);
         }
 
         // GET: Colaboradores/Create
@@ -476,6 +523,22 @@ namespace Web.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        private List<string> GetDistinctColaboradorValues(SqlConnection connection, string columnName)
+        {
+            var values = new List<string>();
+            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Colaboradores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        values.Add(reader.GetString(0));
+                    }
+                }
+            }
+            return values;
         }
 
         private void AddColaboradorParameters(SqlCommand cmd, Colaborador colaborador)
