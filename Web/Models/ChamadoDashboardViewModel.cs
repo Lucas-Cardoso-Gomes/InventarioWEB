@@ -13,6 +13,5 @@ namespace Web.Models
         public List<ChartData> Top10Usuarios { get; set; } = new List<ChartData>();
         public List<ChartData> HorarioMedioAbertura { get; set; } = new List<ChartData>();
         public List<ChartData> TopDiasDaSemana { get; set; } = new List<ChartData>();
-        public List<ChartData> FiliaisQueMaisAbremChamados { get; set; } = new List<ChartData>();
     }
 }
