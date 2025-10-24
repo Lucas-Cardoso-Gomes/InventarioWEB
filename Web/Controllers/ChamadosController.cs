@@ -254,7 +254,7 @@ namespace Web.Controllers
 
         private async Task<int> GetTotalChamadosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
-            var sql = $"SELECT COUNT(*) FROM Chamados " + whereSql;
+            var sql = $"SELECT COUNT(*) FROM Chamados c " + whereSql;
             using (var cmd = new SqlCommand(sql, connection))
             {
                 foreach (var p in parameters)
@@ -267,7 +267,7 @@ namespace Web.Controllers
 
         private async Task<int> GetCountByStatusAsync(SqlConnection connection, string status, string whereSql, Dictionary<string, object> parameters)
         {
-            var sql = $"SELECT COUNT(*) FROM Chamados WHERE Status = @Status " + whereSql.Replace("WHERE", "AND");
+            var sql = $"SELECT COUNT(*) FROM Chamados c WHERE Status = @Status " + whereSql.Replace("WHERE", "AND");
             using (var cmd = new SqlCommand(sql, connection))
             {
                 cmd.Parameters.AddWithValue("@Status", status);
@@ -282,7 +282,7 @@ namespace Web.Controllers
         private async Task<List<ChartData>> GetTop10ServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            var sql = $"SELECT TOP 10 Servico, COUNT(*) as Count FROM Chamados {whereSql} GROUP BY Servico ORDER BY Count DESC";
+            var sql = $"SELECT TOP 10 Servico, COUNT(*) as Count FROM Chamados c {whereSql} GROUP BY Servico ORDER BY Count DESC";
             using (var cmd = new SqlCommand(sql, connection))
             {
                 foreach (var p in parameters)
@@ -303,7 +303,7 @@ namespace Web.Controllers
         private async Task<List<ChartData>> GetPrioridadeServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            var sql = $"SELECT Prioridade, COUNT(*) as Count FROM Chamados {whereSql} GROUP BY Prioridade";
+            var sql = $"SELECT Prioridade, COUNT(*) as Count FROM Chamados c {whereSql} GROUP BY Prioridade";
             using (var cmd = new SqlCommand(sql, connection))
             {
                 foreach (var p in parameters)
