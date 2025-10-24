@@ -49,6 +49,8 @@ namespace Web.Models
         [StringLength(50)]
         public string Prioridade { get; set; }
 
+        public string Filial { get; set; }
+
         [NotMapped]
         public string? AdminNome { get; set; }
 

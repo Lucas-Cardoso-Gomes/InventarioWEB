@@ -180,6 +180,7 @@ namespace Web.Controllers
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
                                     Status = reader["Status"].ToString(),
                                      Prioridade = reader["Prioridade"].ToString(),
+                                    Filial = reader["Filial"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 });
@@ -246,6 +247,8 @@ namespace Web.Controllers
                 viewModel.PrioridadeServicos = await GetPrioridadeServicosAsync(connection, whereSql, parameters);
                 viewModel.Top10Usuarios = await GetTop10UsuariosAsync(connection, whereSql, parameters);
                 viewModel.HorarioMedioAbertura = await GetHorarioMedioAberturaAsync(connection, whereSql, parameters);
+                viewModel.ChamadosPorDiaDaSemana = await GetChamadosPorDiaDaSemanaAsync(connection, whereSql, parameters);
+                viewModel.ChamadosPorFilial = await GetChamadosPorFilialAsync(connection, whereSql, parameters);
             }
 
             return View(viewModel);
@@ -293,6 +296,57 @@ namespace Web.Controllers
                     while (await reader.ReadAsync())
                     {
                         data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetChamadosPorDiaDaSemanaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SELECT FORMAT(c.DataCriacao, 'dddd', 'pt-BR') as DiaDaSemana, COUNT(*) as Count
+                           FROM Chamados c
+                           {whereSql}
+                           GROUP BY FORMAT(c.DataCriacao, 'dddd', 'pt-BR')
+                           ORDER BY MIN(DATEPART(weekday, c.DataCriacao))";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["DiaDaSemana"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetChamadosPorFilialAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SELECT co.Filial, COUNT(c.ID) as Count
+                           FROM Chamados c
+                           JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                           {whereSql}
+                           GROUP BY co.Filial
+                           ORDER BY Count DESC";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Filial"].ToString(), Value = (int)reader["Count"] });
                     }
                 }
             }
@@ -406,10 +460,22 @@ namespace Web.Controllers
                 {
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
-                        connection.Open();
-                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
+                        await connection.OpenAsync();
+                        string userFilial = "N/A";
+                        var cmdText = "SELECT Filial FROM Colaboradores WHERE CPF = @CPF";
+                        using (var cmdFilial = new SqlCommand(cmdText, connection))
+                        {
+                            cmdFilial.Parameters.AddWithValue("@CPF", chamado.ColaboradorCPF);
+                            var result = await cmdFilial.ExecuteScalarAsync();
+                            if (result != null && result != DBNull.Value)
+                            {
+                                userFilial = result.ToString();
+                            }
+                        }
+
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade, Filial)
                                        OUTPUT INSERTED.ID
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade, @Filial)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", adminCpfValue);
@@ -419,6 +485,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
                             cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
+                            cmd.Parameters.AddWithValue("@Filial", userFilial);
                             chamado.ID = (int)await cmd.ExecuteScalarAsync();
                         }
                     }
@@ -649,6 +716,7 @@ namespace Web.Controllers
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
                                     Status = reader["Status"].ToString(),
                                     Prioridade = reader["Prioridade"].ToString(),
+                                     Filial = reader["Filial"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 };
