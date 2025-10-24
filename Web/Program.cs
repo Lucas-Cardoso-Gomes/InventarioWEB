@@ -35,12 +35,12 @@ builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddHostedService<PingService>();
 
-// Configuração do Kestrel para escutar em todas as interfaces de rede
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-serverOptions.ListenAnyIP(80); // HTTP
-serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // HTTPS
-});
+// // Configuração do Kestrel para escutar em todas as interfaces de rede
+// builder.WebHost.ConfigureKestrel(serverOptions =>
+// {
+// serverOptions.ListenAnyIP(80); // HTTP
+// serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // HTTPS
+// });
 
 
 var app = builder.Build();

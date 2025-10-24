@@ -245,11 +245,17 @@ namespace Web.Controllers
 
                 // Charts
                 viewModel.Top10Servicos = await GetTop10ServicosAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Top 10 Serviços: {Count} registros encontrados.", viewModel.Top10Servicos.Count);
                 viewModel.PrioridadeServicos = await GetPrioridadeServicosAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Prioridade Serviços: {Count} registros encontrados.", viewModel.PrioridadeServicos.Count);
                 viewModel.Top10Usuarios = await GetTop10UsuariosAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Top 10 Usuários: {Count} registros encontrados.", viewModel.Top10Usuarios.Count);
                 viewModel.HorarioMedioAbertura = await GetHorarioMedioAberturaAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Horário Médio Abertura: {Count} registros encontrados.", viewModel.HorarioMedioAbertura.Count);
                 viewModel.ChamadosPorDiaDaSemana = await GetChamadosPorDiaDaSemanaAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Chamados por Dia da Semana: {Count} registros encontrados.", viewModel.ChamadosPorDiaDaSemana.Count);
                 viewModel.ChamadosPorFilial = await GetChamadosPorFilialAsync(connection, whereSql, parameters);
+                _logger.LogInformation("Dashboard - Chamados por Filial: {Count} registros encontrados.", viewModel.ChamadosPorFilial.Count);
             }
 
             return View(viewModel);
