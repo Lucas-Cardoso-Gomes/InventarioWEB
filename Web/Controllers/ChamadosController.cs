@@ -15,6 +15,7 @@ using System.IO;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using OfficeOpenXml;
 
 namespace Web.Controllers
 {
@@ -909,6 +910,105 @@ namespace Web.Controllers
         }
 
         // GET: Chamados/GetServicos
+        [Authorize(Roles = "Admin,Diretoria/RH")]
+        public IActionResult Import()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin,Diretoria/RH")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Import(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                ModelState.AddModelError("file", "Por favor, selecione um arquivo.");
+                return View();
+            }
+
+            if (Path.GetExtension(file.FileName).ToLower() != ".xlsx")
+            {
+                ModelState.AddModelError("file", "Por favor, selecione um arquivo Excel (.xlsx).");
+                return View();
+            }
+
+            var chamados = new List<Chamado>();
+            using (var stream = new MemoryStream())
+            {
+                await file.CopyToAsync(stream);
+                using (var package = new OfficeOpenXml.ExcelPackage(stream))
+                {
+                    var worksheet = package.Workbook.Worksheets.First();
+                    var rowCount = worksheet.Dimension.Rows;
+
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        var colaboradorCpf = worksheet.Cells[row, 1].Value?.ToString()?.Trim();
+                        var servico = worksheet.Cells[row, 2].Value?.ToString()?.Trim();
+                        var descricao = worksheet.Cells[row, 3].Value?.ToString()?.Trim();
+
+                        if (string.IsNullOrEmpty(colaboradorCpf) || string.IsNullOrEmpty(servico) || string.IsNullOrEmpty(descricao))
+                        {
+                            ModelState.AddModelError("file", $"Dados inválidos na linha {row}. As colunas CPF, Serviço e Descrição são obrigatórias.");
+                            return View();
+                        }
+
+                        var chamado = new Chamado
+                        {
+                            ColaboradorCPF = colaboradorCpf,
+                            Servico = servico,
+                            Descricao = descricao,
+                            Prioridade = worksheet.Cells[row, 4].Value?.ToString().Trim() ?? "Médio",
+                            Status = worksheet.Cells[row, 5].Value?.ToString().Trim() ?? "Aberto",
+                            DataCriacao = DateTime.Now
+                        };
+
+                        chamados.Add(chamado);
+                    }
+                }
+            }
+
+            if (chamados.Any())
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var chamado in chamados)
+                            {
+                                string sql = @"INSERT INTO Chamados (ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
+                                               VALUES (@ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
+                                using (var cmd = new SqlCommand(sql, connection, transaction))
+                                {
+                                    cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
+                                    cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
+                                    cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
+                                    cmd.Parameters.AddWithValue("@DataCriacao", chamado.DataCriacao);
+                                    cmd.Parameters.AddWithValue("@Status", chamado.Status);
+                                    cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
+                                    await cmd.ExecuteNonQueryAsync();
+                                }
+                            }
+                            transaction.Commit();
+                            ViewBag.SuccessMessage = "Chamados importados com sucesso!";
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao importar chamados.");
+                            ModelState.AddModelError(string.Empty, "Ocorreu um erro ao importar os chamados. A importação foi revertida.");
+                        }
+                    }
+                }
+            }
+
+            return View();
+        }
+
         [HttpGet]
         public IActionResult GetServicos()
         {

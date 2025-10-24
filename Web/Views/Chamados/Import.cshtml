@@ -1,0 +1,28 @@
+@{
+    ViewData["Title"] = "Importar Chamados";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<p>Selecione um arquivo Excel (.xlsx) para importar novos chamados.</p>
+
+<div class="alert alert-info">
+    <strong>Formato do arquivo Excel:</strong>
+    <p>O arquivo deve conter as seguintes colunas, na ordem especificada:</p>
+    <ul>
+        <li><b>Coluna 1:</b> CPF do Colaborador (obrigatório)</li>
+        <li><b>Coluna 2:</b> Serviço (obrigatório)</li>
+        <li><b>Coluna 3:</b> Descrição (obrigatório)</li>
+        <li><b>Coluna 4:</b> Prioridade (opcional, padrão: Médio)</li>
+        <li><b>Coluna 5:</b> Status (opcional, padrão: Aberto)</li>
+    </ul>
+    <p>A primeira linha do arquivo é considerada o cabeçalho e será ignorada.</p>
+</div>
+
+<form asp-action="Import" asp-controller="Chamados" method="post" enctype="multipart/form-data">
+    <div class="form-group">
+        <label for="file">Arquivo Excel:</label>
+        <input type="file" name="file" id="file" class="form-control" accept=".xlsx" />
+    </div>
+    <button type="submit" class="btn btn-primary">Importar</button>
+</form>
