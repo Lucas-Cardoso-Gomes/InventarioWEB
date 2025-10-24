@@ -198,7 +198,7 @@
             });
 
             // Top 10 Serviços
-            if (@Model.Top10Servicos.Any()) {
+            if (@Model.Top10Servicos.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('top10ServicosChart'), {
                     type: 'bar',
                     data: {
@@ -215,7 +215,7 @@
             }
 
             // Prioridade dos Serviços
-            if (@Model.PrioridadeServicos.Any()) {
+            if (@Model.PrioridadeServicos.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('prioridadeServicosChart'), {
                     type: 'pie',
                     data: {
@@ -229,7 +229,7 @@
             }
 
             // Top 10 Usuários
-            if (@Model.Top10Usuarios.Any()) {
+            if (@Model.Top10Usuarios.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('top10UsuariosChart'), {
                     type: 'bar',
                     data: {
@@ -246,7 +246,7 @@
             }
 
             // Horário Médio de Abertura
-            if (@Model.HorarioMedioAbertura.Any()) {
+            if (@Model.HorarioMedioAbertura.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('horarioMedioAberturaChart'), {
                     type: 'line',
                     data: {
@@ -263,7 +263,7 @@
             }
 
             // Chamados por Dia da Semana
-            if (@Model.ChamadosPorDiaDaSemana.Any()) {
+            if (@Model.ChamadosPorDiaDaSemana.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('chamadosPorDiaDaSemanaChart'), {
                     type: 'doughnut',
                     data: {
@@ -277,7 +277,7 @@
             }
 
             // Chamados por Filial
-            if (@Model.ChamadosPorFilial.Any()) {
+            if (@Model.ChamadosPorFilial.Any().ToString().ToLower()) {
                 new Chart(document.getElementById('chamadosPorFilialChart'), {
                     type: 'pie',
                     data: {
