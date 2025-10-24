@@ -1093,6 +1093,7 @@ namespace Web.Controllers
                 messageBuilder.AppendLine($"<b>Serviço:</b> {chamado.Servico}<br/>");
                 messageBuilder.AppendLine($"<b>Colaborador:</b> {chamado.ColaboradorNome}<br/>");
                 messageBuilder.AppendLine($"<b>Descrição:</b> {chamado.Descricao}<br/>");
+                messageBuilder.AppendLine($"<b>Prioridade:</b> {chamado.Prioridade}<br/>");
                 messageBuilder.AppendLine($"<b>Status:</b> {status}<br/>");
 
                 if (status == "Fechado")
