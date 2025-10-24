@@ -163,7 +163,7 @@ namespace Web.Controllers
             return View();
         }
 
-        public IActionResult PersistentLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber = 1, int pageSize = 100)
+        public IActionResult PersistentLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber = 1, int pageSize = 50)
         {
             var (logs, totalRecords) = _persistentLogService.GetLogs(entityTypeFilter, actionTypeFilter, pageNumber, pageSize);
             var viewModel = new PersistentLogViewModel
