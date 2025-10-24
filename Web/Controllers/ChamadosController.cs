@@ -68,7 +68,8 @@ namespace Web.Controllers
                     connection.Open();
                     var sqlBuilder = new System.Text.StringBuilder(@"SELECT c.*,
                                           a.Nome as AdminNome,
-                                          co.Nome as ColaboradorNome
+                                          co.Nome as ColaboradorNome,
+                                          co.Filial
                                    FROM Chamados c
                                    LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
                                    INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF");
@@ -460,22 +461,10 @@ namespace Web.Controllers
                 {
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
-                        await connection.OpenAsync();
-                        string userFilial = "N/A";
-                        var cmdText = "SELECT Filial FROM Colaboradores WHERE CPF = @CPF";
-                        using (var cmdFilial = new SqlCommand(cmdText, connection))
-                        {
-                            cmdFilial.Parameters.AddWithValue("@CPF", chamado.ColaboradorCPF);
-                            var result = await cmdFilial.ExecuteScalarAsync();
-                            if (result != null && result != DBNull.Value)
-                            {
-                                userFilial = result.ToString();
-                            }
-                        }
-
-                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade, Filial)
+                        connection.Open();
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
                                        OUTPUT INSERTED.ID
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade, @Filial)";
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", adminCpfValue);
@@ -485,7 +474,6 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
                             cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
-                            cmd.Parameters.AddWithValue("@Filial", userFilial);
                             chamado.ID = (int)await cmd.ExecuteScalarAsync();
                         }
                     }
@@ -693,7 +681,8 @@ namespace Web.Controllers
                     connection.Open();
                     string sql = @"SELECT c.*,
                                           a.Nome as AdminNome,
-                                          co.Nome as ColaboradorNome
+                                          co.Nome as ColaboradorNome,
+                                          co.Filial
                                    FROM Chamados c
                                    LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
                                    INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
