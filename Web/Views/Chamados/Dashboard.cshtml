@@ -1,75 +1,70 @@
-@using System.Text.Json
 @model Web.Models.ChamadoDashboardViewModel
 @{
     ViewData["Title"] = "Dashboard de Chamados";
 }
 
-<h2>@ViewData["Title"]</h2>
-
-<div class="card mb-4">
-    <div class="card-header">
-        Filtros
-    </div>
-    <div class="card-body">
-        <form asp-action="Dashboard" method="get" class="row g-3">
-            <div class="col-md-4">
-                <label for="startDate" class="form-label">Data Início</label>
-                <input type="date" id="startDate" name="startDate" class="form-control" value="@(ViewContext.HttpContext.Request.Query["startDate"].ToString())" />
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Chamados Abertos</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosAbertos</h4>
+                </div>
             </div>
-            <div class="col-md-4">
-                <label for="endDate" class="form-label">Data Fim</label>
-                <input type="date" id="endDate" name="endDate" class="form-control" value="@(ViewContext.HttpContext.Request.Query["endDate"].ToString())" />
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Chamados Em Andamento</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosEmAndamento</h4>
+                </div>
             </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary me-2">Filtrar</button>
-                <a asp-action="Dashboard" class="btn btn-secondary">Limpar</a>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-header">Total de Chamados</div>
-            <div class="card-body">
-                <h4 class="card-title">@Model.TotalChamados</h4>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-secondary mb-3">
+                <div class="card-header">Chamados Fechados</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosFechados</h4>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                Top 10 Serviços
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top 10 Serviços</div>
+                <div class="card-body">
+                    <canvas id="top10ServicosChart"></canvas>
+                </div>
             </div>
-            <div class="card-body">
-                <canvas id="topServicosChart"></canvas>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Prioridade dos Serviços</div>
+                <div class="card-body">
+                    <canvas id="prioridadeServicosChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                Total de Chamados por Admin
-            </div>
-            <div class="card-body">
-                <canvas id="totalPorAdminChart"></canvas>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
+                <div class="card-body">
+                    <canvas id="top10UsuariosChart"></canvas>
+                </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                Top 10 Colaboradores com Mais Chamados
-            </div>
-            <div class="card-body">
-                <canvas id="topColaboradoresChart"></canvas>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Horário Médio de Abertura de Chamados</div>
+                <div class="card-body">
+                    <canvas id="horarioMedioAberturaChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -79,69 +74,60 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // Top 10 Serviços Chart
-            var topServicosCtx = document.getElementById('topServicosChart').getContext('2d');
-            var topServicosData = @Html.Raw(JsonSerializer.Serialize(Model.Top10Servicos));
-            new Chart(topServicosCtx, {
+            // Top 10 Serviços
+            new Chart(document.getElementById('top10ServicosChart'), {
                 type: 'bar',
                 data: {
-                    labels: topServicosData.map(d => d.Label),
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Label))),
                     datasets: [{
-                        label: 'Nº de Chamados',
-                        data: topServicosData.map(d => d.Value),
-                        backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Value))),
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
                     }]
-                },
-                options: {
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
                 }
             });
 
-            // Total de Chamados por Admin Chart
-            var totalPorAdminCtx = document.getElementById('totalPorAdminChart').getContext('2d');
-            var totalPorAdminData = @Html.Raw(JsonSerializer.Serialize(Model.TotalChamadosPorAdmin));
-            new Chart(totalPorAdminCtx, {
+            // Prioridade dos Serviços
+            new Chart(document.getElementById('prioridadeServicosChart'), {
                 type: 'pie',
                 data: {
-                    labels: totalPorAdminData.map(d => d.Label),
+                    labels: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Label))),
                     datasets: [{
-                        data: totalPorAdminData.map(d => d.Value),
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.6)',
-                            'rgba(54, 162, 235, 0.6)',
-                            'rgba(255, 206, 86, 0.6)',
-                            'rgba(75, 192, 192, 0.6)',
-                            'rgba(153, 102, 255, 0.6)',
-                            'rgba(255, 159, 64, 0.6)'
-                        ]
+                        data: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
                     }]
                 }
             });
 
-            // Top 10 Colaboradores Chart
-            var topColaboradoresCtx = document.getElementById('topColaboradoresChart').getContext('2d');
-            var topColaboradoresData = @Html.Raw(JsonSerializer.Serialize(Model.Top10Colaboradores));
-            new Chart(topColaboradoresCtx, {
+            // Top 10 Usuários
+            new Chart(document.getElementById('top10UsuariosChart'), {
                 type: 'bar',
                 data: {
-                    labels: topColaboradoresData.map(d => d.Label),
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Label))),
                     datasets: [{
-                        label: 'Nº de Chamados',
-                        data: topColaboradoresData.map(d => d.Value),
-                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                        label: 'Número de Chamados Abertos',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Value))),
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
                     }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    scales: {
-                        x: {
-                            beginAtZero: true
-                        }
-                    }
+                }
+            });
+
+            // Horário Médio de Abertura
+            new Chart(document.getElementById('horarioMedioAberturaChart'), {
+                type: 'line',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Value))),
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    }]
                 }
             });
         });

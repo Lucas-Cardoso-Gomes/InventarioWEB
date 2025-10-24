@@ -4,12 +4,8 @@ namespace Web.Models
 {
     public class DashboardViewModel
     {
-        public int ChamadosAbertos { get; set; }
-        public int ChamadosEmAndamento { get; set; }
-        public int ChamadosFechados { get; set; }
-        public List<ChartData> Top10Servicos { get; set; } = new List<ChartData>();
-        public List<ChartData> PrioridadeServicos { get; set; } = new List<ChartData>();
-        public List<ChartData> Top10Usuarios { get; set; } = new List<ChartData>();
-        public List<ChartData> HorarioMedioAbertura { get; set; } = new List<ChartData>();
+        public int TotalComputadores { get; set; }
+        public int OpenChamados { get; set; }
+        public IEnumerable<Manutencao> RecentManutencoes { get; set; }
     }
 }

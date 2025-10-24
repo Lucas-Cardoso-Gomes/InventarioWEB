@@ -197,7 +197,7 @@ namespace Web.Controllers
         }
 
         [Authorize(Roles = "Admin,Diretoria/RH")]
-        public IActionResult Dashboard(DateTime? startDate, DateTime? endDate, int? year, int? month, int? day)
+        public async Task<IActionResult> Dashboard(DateTime? startDate, DateTime? endDate, int? year, int? month, int? day)
         {
             var viewModel = new ChamadoDashboardViewModel();
             var whereClauses = new List<string>();
@@ -205,27 +205,27 @@ namespace Web.Controllers
 
             if (startDate.HasValue)
             {
-                whereClauses.Add("c.DataCriacao >= @StartDate");
+                whereClauses.Add("DataCriacao >= @StartDate");
                 parameters.Add("@StartDate", startDate.Value);
             }
             if (endDate.HasValue)
             {
-                whereClauses.Add("c.DataCriacao <= @EndDate");
+                whereClauses.Add("DataCriacao <= @EndDate");
                 parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1));
             }
             if (year.HasValue)
             {
-                whereClauses.Add("YEAR(c.DataCriacao) = @Year");
+                whereClauses.Add("YEAR(DataCriacao) = @Year");
                 parameters.Add("@Year", year.Value);
             }
             if (month.HasValue)
             {
-                whereClauses.Add("MONTH(c.DataCriacao) = @Month");
+                whereClauses.Add("MONTH(DataCriacao) = @Month");
                 parameters.Add("@Month", month.Value);
             }
             if (day.HasValue)
             {
-                whereClauses.Add("DAY(c.DataCriacao) = @Day");
+                whereClauses.Add("DAY(DataCriacao) = @Day");
                 parameters.Add("@Day", day.Value);
             }
 
@@ -233,69 +233,128 @@ namespace Web.Controllers
 
             using (var connection = new SqlConnection(_connectionString))
             {
-                connection.Open();
+                await connection.OpenAsync();
 
-                string totalSql = $"SELECT COUNT(*) FROM Chamados c {whereSql}";
-                using (var cmd = new SqlCommand(totalSql, connection))
-                {
-                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                    viewModel.TotalChamados = (int)cmd.ExecuteScalar();
-                }
+                // Cards
+                viewModel.ChamadosAbertos = await GetCountByStatusAsync(connection, "Aberto", whereSql, parameters);
+                viewModel.ChamadosEmAndamento = await GetCountByStatusAsync(connection, "Em Andamento", whereSql, parameters);
+                viewModel.ChamadosFechados = await GetCountByStatusAsync(connection, "Fechado", whereSql, parameters);
 
-                string topServicosSql = $@"SELECT TOP 10 Servico, COUNT(*) as Count
-                                           FROM Chamados c {whereSql}
-                                           GROUP BY Servico
-                                           ORDER BY Count DESC";
-                using (var cmd = new SqlCommand(topServicosSql, connection))
-                {
-                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            viewModel.Top10Servicos.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
-                        }
-                    }
-                }
-
-                string porAdminSql = $@"SELECT a.Nome, COUNT(c.ID) as Count
-                                        FROM Chamados c
-                                        JOIN Colaboradores a ON c.AdminCPF = a.CPF
-                                        {whereSql}
-                                        GROUP BY a.Nome
-                                        ORDER BY Count DESC";
-                using (var cmd = new SqlCommand(porAdminSql, connection))
-                {
-                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            viewModel.TotalChamadosPorAdmin.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
-                        }
-                    }
-                }
-
-                string topColaboradoresSql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
-                                                FROM Chamados c
-                                                JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
-                                                {whereSql}
-                                                GROUP BY co.Nome
-                                                ORDER BY Count DESC";
-                using (var cmd = new SqlCommand(topColaboradoresSql, connection))
-                {
-                    foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            viewModel.Top10Colaboradores.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
-                        }
-                    }
-                }
+                // Charts
+                viewModel.Top10Servicos = await GetTop10ServicosAsync(connection, whereSql, parameters);
+                viewModel.PrioridadeServicos = await GetPrioridadeServicosAsync(connection, whereSql, parameters);
+                viewModel.Top10Usuarios = await GetTop10UsuariosAsync(connection, whereSql, parameters);
+                viewModel.HorarioMedioAbertura = await GetHorarioMedioAberturaAsync(connection, whereSql, parameters);
             }
 
             return View(viewModel);
+        }
+
+        private async Task<int> GetCountByStatusAsync(SqlConnection connection, string status, string whereSql, Dictionary<string, object> parameters)
+        {
+            var sql = $"SELECT COUNT(*) FROM Chamados WHERE Status = @Status " + whereSql.Replace("WHERE", "AND");
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                cmd.Parameters.AddWithValue("@Status", status);
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                return (int)await cmd.ExecuteScalarAsync();
+            }
+        }
+
+        private async Task<List<ChartData>> GetTop10ServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            var sql = $"SELECT TOP 10 Servico, COUNT(*) as Count FROM Chamados {whereSql} GROUP BY Servico ORDER BY Count DESC";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetPrioridadeServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            var sql = $"SELECT Prioridade, COUNT(*) as Count FROM Chamados {whereSql} GROUP BY Prioridade";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Prioridade"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetTop10UsuariosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
+                           FROM Chamados c
+                           JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                           {whereSql}
+                           GROUP BY co.Nome
+                           ORDER BY Count DESC";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetHorarioMedioAberturaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            var data = new List<ChartData>();
+            string sql = $@"SELECT CAST(DATEPART(hour, DataCriacao) AS NVARCHAR(2)) + ':00' as Hour, COUNT(*) as Count
+                           FROM Chamados
+                           {whereSql}
+                           GROUP BY DATEPART(hour, DataCriacao)
+                           ORDER BY DATEPART(hour, DataCriacao)";
+            using (var cmd = new SqlCommand(sql, connection))
+            {
+                foreach (var p in parameters)
+                {
+                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                }
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        data.Add(new ChartData { Label = reader["Hour"].ToString(), Value = (int)reader["Count"] });
+                    }
+                }
+            }
+            return data;
         }
 
         // GET: Chamados/Create
