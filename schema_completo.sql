@@ -134,7 +134,8 @@ CREATE TABLE Chamados (
     Descricao NVARCHAR(1000) NOT NULL,
     DataAlteracao DATETIME,
     DataCriacao DATETIME NOT NULL,
-    Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado'))
+    Status NVARCHAR(50) NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado')),
+    Prioridade NVARCHAR(50) NOT NULL DEFAULT 'Médio' CHECK (Prioridade IN ('Crítico', 'Alto', 'Médio', 'Baixo'))
 );
 GO
 

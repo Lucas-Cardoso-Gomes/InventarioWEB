@@ -5,54 +5,131 @@
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-lg-3 col-md-6">
-            <div class="card text-white bg-primary mb-3" style="background-color: var(--primary-green) !important;">
-                <div class="card-header">Total de Computadores</div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Chamados Abertos</div>
                 <div class="card-body">
-                    <h4 class="card-title">@Model.TotalComputadores</h4>
+                    <h4 class="card-title">@Model.ChamadosAbertos</h4>
                 </div>
             </div>
         </div>
-        <div class="col-lg-3 col-md-6">
-            <div class="card text-white bg-danger mb-3">
-                <div class="card-header">Chamados em Aberto</div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Chamados Em Andamento</div>
                 <div class="card-body">
-                    <h4 class="card-title">@Model.OpenChamados</h4>
+                    <h4 class="card-title">@Model.ChamadosEmAndamento</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="card text-white bg-secondary mb-3">
+                <div class="card-header">Chamados Fechados</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosFechados</h4>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row mt-4">
-        <div class="col-md-12">
+        <div class="col-md-6">
             <div class="card">
-                <div class="card-header">
-                    Últimas Manutenções
-                </div>
+                <div class="card-header">Top 10 Serviços</div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Computador</th>
-                                    <th>Data</th>
-                                    <th>Histórico</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var manutencao in Model.RecentManutencoes)
-                                {
-                                    <tr>
-                                        <td>@manutencao.Computador?.Hostname</td>
-                                        <td>@(manutencao.Data.HasValue ? manutencao.Data.Value.ToShortDateString() : "")</td>
-                                        <td>@manutencao.Historico</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                    <canvas id="top10ServicosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Prioridade dos Serviços</div>
+                <div class="card-body">
+                    <canvas id="prioridadeServicosChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
+                <div class="card-body">
+                    <canvas id="top10UsuariosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Horário Médio de Abertura de Chamados</div>
+                <div class="card-body">
+                    <canvas id="horarioMedioAberturaChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Top 10 Serviços
+            new Chart(document.getElementById('top10ServicosChart'), {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Value))),
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Prioridade dos Serviços
+            new Chart(document.getElementById('prioridadeServicosChart'), {
+                type: 'pie',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Label))),
+                    datasets: [{
+                        data: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                    }]
+                }
+            });
+
+            // Top 10 Usuários
+            new Chart(document.getElementById('top10UsuariosChart'), {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados Abertos',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Value))),
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Horário Médio de Abertura
+            new Chart(document.getElementById('horarioMedioAberturaChart'), {
+                type: 'line',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Value))),
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+        });
+    </script>
+}

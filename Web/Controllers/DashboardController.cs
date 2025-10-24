@@ -21,103 +21,99 @@ namespace Web.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var viewModel = new DashboardViewModel
+            var viewModel = new DashboardViewModel();
+
+            using (var connection = new SqlConnection(_connectionString))
             {
-                TotalComputadores = await GetTotalComputadoresCountAsync(),
-                OpenChamados = await GetOpenChamadosCountAsync(),
-                RecentManutencoes = await GetRecentManutencoesAsync(5)
-            };
+                await connection.OpenAsync();
+
+                // Cards
+                viewModel.ChamadosAbertos = await GetCountByStatusAsync(connection, "Aberto");
+                viewModel.ChamadosEmAndamento = await GetCountByStatusAsync(connection, "Em Andamento");
+                viewModel.ChamadosFechados = await GetCountByStatusAsync(connection, "Fechado");
+
+                // Charts
+                viewModel.Top10Servicos = await GetTop10ServicosAsync(connection);
+                viewModel.PrioridadeServicos = await GetPrioridadeServicosAsync(connection);
+                viewModel.Top10Usuarios = await GetTop10UsuariosAsync(connection);
+                viewModel.HorarioMedioAbertura = await GetHorarioMedioAberturaAsync(connection);
+            }
 
             return View(viewModel);
         }
 
-        private async Task<int> GetTotalComputadoresCountAsync()
+        private async Task<int> GetCountByStatusAsync(SqlConnection connection, string status)
         {
-            try
+            using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Chamados WHERE Status = @Status", connection))
             {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Computadores", connection))
-                    {
-                        return (int)await cmd.ExecuteScalarAsync();
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Log exception
-                return 0;
+                cmd.Parameters.AddWithValue("@Status", status);
+                return (int)await cmd.ExecuteScalarAsync();
             }
         }
 
-        private async Task<int> GetOpenChamadosCountAsync()
+        private async Task<List<ChartData>> GetTop10ServicosAsync(SqlConnection connection)
         {
-            try
+            var data = new List<ChartData>();
+            using (var cmd = new SqlCommand("SELECT TOP 10 Servico, COUNT(*) as Count FROM Chamados GROUP BY Servico ORDER BY Count DESC", connection))
+            using (var reader = await cmd.ExecuteReaderAsync())
             {
-                using (var connection = new SqlConnection(_connectionString))
+                while (await reader.ReadAsync())
                 {
-                    await connection.OpenAsync();
-                    string sql = "SELECT COUNT(*) FROM Chamados WHERE Status IN ('Aberto', 'Em Andamento')";
-                    using (var cmd = new SqlCommand(sql, connection))
-                    {
-                        return (int)await cmd.ExecuteScalarAsync();
-                    }
+                    data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
                 }
             }
-            catch (Exception)
-            {
-                // Log exception
-                return 0;
-            }
+            return data;
         }
 
-        private async Task<IEnumerable<Manutencao>> GetRecentManutencoesAsync(int count)
+        private async Task<List<ChartData>> GetPrioridadeServicosAsync(SqlConnection connection)
         {
-            var manutencoes = new List<Manutencao>();
-            try
+            var data = new List<ChartData>();
+            using (var cmd = new SqlCommand("SELECT Prioridade, COUNT(*) as Count FROM Chamados GROUP BY Prioridade", connection))
+            using (var reader = await cmd.ExecuteReaderAsync())
             {
-                using (var connection = new SqlConnection(_connectionString))
+                while (await reader.ReadAsync())
                 {
-                    await connection.OpenAsync();
-                    string sql = @"
-                        SELECT TOP (@Count)
-                            m.Id, m.Data, m.Historico, m.ComputadorMAC,
-                            c.Hostname
-                        FROM Manutencoes m
-                        LEFT JOIN Computadores c ON m.ComputadorMAC = c.MAC
-                        ORDER BY m.Data DESC";
-
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@Count", count);
-                        using (var reader = await command.ExecuteReaderAsync())
-                        {
-                            while (await reader.ReadAsync())
-                            {
-                                var manutencao = new Manutencao
-                                {
-                                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                    Data = reader.IsDBNull(reader.GetOrdinal("Data")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("Data")),
-                                    Historico = reader.IsDBNull(reader.GetOrdinal("Historico")) ? null : reader.GetString(reader.GetOrdinal("Historico")),
-                                    ComputadorMAC = reader.IsDBNull(reader.GetOrdinal("ComputadorMAC")) ? null : reader.GetString(reader.GetOrdinal("ComputadorMAC"))
-                                };
-
-                                if (!reader.IsDBNull(reader.GetOrdinal("Hostname")))
-                                {
-                                    manutencao.Computador = new Computador { Hostname = reader.GetString(reader.GetOrdinal("Hostname")) };
-                                }
-                                manutencoes.Add(manutencao);
-                            }
-                        }
-                    }
+                    data.Add(new ChartData { Label = reader["Prioridade"].ToString(), Value = (int)reader["Count"] });
                 }
             }
-            catch(Exception)
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetTop10UsuariosAsync(SqlConnection connection)
+        {
+            var data = new List<ChartData>();
+            string sql = @"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
+                           FROM Chamados c
+                           JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
+                           GROUP BY co.Nome
+                           ORDER BY Count DESC";
+            using (var cmd = new SqlCommand(sql, connection))
+            using (var reader = await cmd.ExecuteReaderAsync())
             {
-                // Log exception
+                while (await reader.ReadAsync())
+                {
+                    data.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                }
             }
-            return manutencoes;
+            return data;
+        }
+
+        private async Task<List<ChartData>> GetHorarioMedioAberturaAsync(SqlConnection connection)
+        {
+            var data = new List<ChartData>();
+            string sql = @"SELECT CAST(DATEPART(hour, DataCriacao) AS NVARCHAR(2)) + ':00' as Hour, COUNT(*) as Count
+                           FROM Chamados
+                           GROUP BY DATEPART(hour, DataCriacao)
+                           ORDER BY DATEPART(hour, DataCriacao)";
+            using (var cmd = new SqlCommand(sql, connection))
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    data.Add(new ChartData { Label = reader["Hour"].ToString(), Value = (int)reader["Count"] });
+                }
+            }
+            return data;
         }
     }
 }

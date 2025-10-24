@@ -179,6 +179,7 @@ namespace Web.Controllers
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
                                     Status = reader["Status"].ToString(),
+                                     Prioridade = reader["Prioridade"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 });
@@ -333,9 +334,9 @@ namespace Web.Controllers
                     using (SqlConnection connection = new SqlConnection(_connectionString))
                     {
                         connection.Open();
-                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status)
+                        string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
                                        OUTPUT INSERTED.ID
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status)";
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
                         {
                             cmd.Parameters.AddWithValue("@AdminCPF", adminCpfValue);
@@ -344,6 +345,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
+                            cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
                             chamado.ID = (int)await cmd.ExecuteScalarAsync();
                         }
                     }
@@ -508,7 +510,8 @@ namespace Web.Controllers
                                        Servico = @Servico,
                                        Descricao = @Descricao,
                                        DataAlteracao = @DataAlteracao,
-                                       Status = @Status
+                                       Status = @Status,
+                                       Prioridade = @Prioridade
                                        WHERE ID = @ID";
 
                         using (SqlCommand cmd = new SqlCommand(sql, connection))
@@ -519,6 +522,7 @@ namespace Web.Controllers
                             cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
                             cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
                             cmd.Parameters.AddWithValue("@Status", chamado.Status);
+                            cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
                             cmd.Parameters.AddWithValue("@ID", id);
                             await cmd.ExecuteNonQueryAsync();
                         }
@@ -571,6 +575,7 @@ namespace Web.Controllers
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
                                     Status = reader["Status"].ToString(),
+                                    Prioridade = reader["Prioridade"].ToString(),
                                     AdminNome = reader["AdminNome"] != DBNull.Value ? reader["AdminNome"].ToString() : null,
                                     ColaboradorNome = reader["ColaboradorNome"].ToString()
                                 };

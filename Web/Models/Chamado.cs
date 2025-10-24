@@ -45,6 +45,10 @@ namespace Web.Models
         [StringLength(50)]
         public string Status { get; set; } = "Aberto";
 
+        [Required(ErrorMessage = "A prioridade é obrigatória.")]
+        [StringLength(50)]
+        public string Prioridade { get; set; }
+
         [NotMapped]
         public string? AdminNome { get; set; }
 

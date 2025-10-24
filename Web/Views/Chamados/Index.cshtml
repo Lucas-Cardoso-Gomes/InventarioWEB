@@ -139,6 +139,9 @@
                     @Html.DisplayNameFor(model => model.Status)
                 </th>
                 <th>
+                    Prioridade
+                </th>
+                <th>
                     Ações
                 </th>
             </tr>
@@ -178,6 +181,9 @@
                         {
                             <span class="badge bg-secondary">@item.Status</span>
                         }
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Prioridade)
                     </td>
                     <td>
                         <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-info btn-sm">Chat</a>
