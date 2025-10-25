@@ -3,7 +3,11 @@ window.addEventListener('pageshow', function (event) {
     if (!form) return;
 
     const storageKey = 'colaboradorFilterState';
-    const checkboxNames = ['CurrentFiliais', 'CurrentSetores'];
+    const checkboxNames = [
+        'CurrentFiliais', 'CurrentSetores', 'CurrentSmartphones',
+        'CurrentTelefoneFixos', 'CurrentRamais', 'CurrentAlarmes',
+        'CurrentVideoporteiros', 'CurrentCoordenadores'
+    ];
 
     function saveFilterState() {
         const state = {

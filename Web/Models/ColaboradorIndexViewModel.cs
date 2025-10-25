@@ -15,6 +15,18 @@ namespace Web.Models
         public List<string> Filiais { get; set; }
         public List<string> CurrentSetores { get; set; }
         public List<string> Setores { get; set; }
+        public List<string> CurrentSmartphones { get; set; }
+        public List<string> Smartphones { get; set; }
+        public List<string> CurrentTelefoneFixos { get; set; }
+        public List<string> TelefoneFixos { get; set; }
+        public List<string> CurrentRamais { get; set; }
+        public List<string> Ramais { get; set; }
+        public List<string> CurrentAlarmes { get; set; }
+        public List<string> Alarmes { get; set; }
+        public List<string> CurrentVideoporteiros { get; set; }
+        public List<string> Videoporteiros { get; set; }
+        public List<string> CurrentCoordenadores { get; set; }
+        public List<string> Coordenadores { get; set; }
 
         public int TotalPages => (int)System.Math.Ceiling((double)TotalCount / PageSize);
         public bool HasPreviousPage => PageNumber > 1;

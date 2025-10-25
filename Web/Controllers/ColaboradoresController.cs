@@ -34,7 +34,12 @@ namespace Web.Controllers
             return new string(cpf.Where(char.IsDigit).ToArray());
         }
 
-        public IActionResult Index(string sortOrder, string searchString, List<string> currentFiliais, List<string> currentSetores, int pageNumber = 1, int pageSize = 25)
+        public IActionResult Index(
+            string sortOrder, string searchString,
+            List<string> currentFiliais, List<string> currentSetores, List<string> currentSmartphones,
+            List<string> currentTelefoneFixos, List<string> currentRamais, List<string> currentAlarmes,
+            List<string> currentVideoporteiros, List<string> currentCoordenadores,
+            int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
             ViewData["NomeSortParm"] = string.IsNullOrEmpty(sortOrder) ? "nome_desc" : "";
@@ -50,7 +55,13 @@ namespace Web.Controllers
                 SearchString = searchString,
                 CurrentSort = sortOrder,
                 CurrentFiliais = currentFiliais ?? new List<string>(),
-                CurrentSetores = currentSetores ?? new List<string>()
+                CurrentSetores = currentSetores ?? new List<string>(),
+                CurrentSmartphones = currentSmartphones ?? new List<string>(),
+                CurrentTelefoneFixos = currentTelefoneFixos ?? new List<string>(),
+                CurrentRamais = currentRamais ?? new List<string>(),
+                CurrentAlarmes = currentAlarmes ?? new List<string>(),
+                CurrentVideoporteiros = currentVideoporteiros ?? new List<string>(),
+                CurrentCoordenadores = currentCoordenadores ?? new List<string>()
             };
 
             try
@@ -61,6 +72,12 @@ namespace Web.Controllers
 
                     viewModel.Filiais = GetDistinctColaboradorValues(connection, "Filial");
                     viewModel.Setores = GetDistinctColaboradorValues(connection, "Setor");
+                    viewModel.Smartphones = GetDistinctColaboradorValues(connection, "Smartphone");
+                    viewModel.TelefoneFixos = GetDistinctColaboradorValues(connection, "TelefoneFixo");
+                    viewModel.Ramais = GetDistinctColaboradorValues(connection, "Ramal");
+                    viewModel.Alarmes = GetDistinctColaboradorValues(connection, "Alarme");
+                    viewModel.Videoporteiros = GetDistinctColaboradorValues(connection, "Videoporteiro");
+                    viewModel.Coordenadores = GetCoordenadores().Select(c => c.Nome).ToList();
 
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
@@ -79,7 +96,7 @@ namespace Web.Controllers
                             var paramNames = new List<string>();
                             for (int i = 0; i < values.Count; i++)
                             {
-                                var paramName = $"@{columnName.ToLower()}{i}";
+                                var paramName = $"@{columnName.ToLower().Replace(".", "")}{i}";
                                 paramNames.Add(paramName);
                                 parameters.Add(paramName, values[i]);
                             }
@@ -89,6 +106,12 @@ namespace Web.Controllers
 
                     addInClause("c.Filial", viewModel.CurrentFiliais);
                     addInClause("c.Setor", viewModel.CurrentSetores);
+                    addInClause("c.Smartphone", viewModel.CurrentSmartphones);
+                    addInClause("c.TelefoneFixo", viewModel.CurrentTelefoneFixos);
+                    addInClause("c.Ramal", viewModel.CurrentRamais);
+                    addInClause("c.Alarme", viewModel.CurrentAlarmes);
+                    addInClause("c.Videoporteiro", viewModel.CurrentVideoporteiros);
+                    addInClause("co.Nome", viewModel.CurrentCoordenadores);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
