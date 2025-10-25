@@ -37,8 +37,7 @@ namespace Web.Controllers
         public IActionResult Index(
             string sortOrder, string searchString,
             List<string> currentFiliais, List<string> currentSetores, List<string> currentSmartphones,
-            List<string> currentTelefoneFixos, List<string> currentRamais, List<string> currentAlarmes,
-            List<string> currentVideoporteiros, List<string> currentCoordenadores,
+            List<string> currentTelefoneFixos, List<string> currentRamais, List<string> currentCoordenadores,
             int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
@@ -59,8 +58,6 @@ namespace Web.Controllers
                 CurrentSmartphones = currentSmartphones ?? new List<string>(),
                 CurrentTelefoneFixos = currentTelefoneFixos ?? new List<string>(),
                 CurrentRamais = currentRamais ?? new List<string>(),
-                CurrentAlarmes = currentAlarmes ?? new List<string>(),
-                CurrentVideoporteiros = currentVideoporteiros ?? new List<string>(),
                 CurrentCoordenadores = currentCoordenadores ?? new List<string>()
             };
 
@@ -75,8 +72,6 @@ namespace Web.Controllers
                     viewModel.Smartphones = GetDistinctColaboradorValues(connection, "Smartphone");
                     viewModel.TelefoneFixos = GetDistinctColaboradorValues(connection, "TelefoneFixo");
                     viewModel.Ramais = GetDistinctColaboradorValues(connection, "Ramal");
-                    viewModel.Alarmes = GetDistinctColaboradorValues(connection, "Alarme");
-                    viewModel.Videoporteiros = GetDistinctColaboradorValues(connection, "Videoporteiro");
                     viewModel.Coordenadores = GetCoordenadores().Select(c => c.Nome).ToList();
 
                     var whereClauses = new List<string>();
@@ -109,8 +104,6 @@ namespace Web.Controllers
                     addInClause("c.Smartphone", viewModel.CurrentSmartphones);
                     addInClause("c.TelefoneFixo", viewModel.CurrentTelefoneFixos);
                     addInClause("c.Ramal", viewModel.CurrentRamais);
-                    addInClause("c.Alarme", viewModel.CurrentAlarmes);
-                    addInClause("c.Videoporteiro", viewModel.CurrentVideoporteiros);
                     addInClause("co.Nome", viewModel.CurrentCoordenadores);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";

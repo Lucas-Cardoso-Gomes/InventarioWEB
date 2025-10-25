@@ -21,10 +21,6 @@ namespace Web.Models
         public List<string> TelefoneFixos { get; set; }
         public List<string> CurrentRamais { get; set; }
         public List<string> Ramais { get; set; }
-        public List<string> CurrentAlarmes { get; set; }
-        public List<string> Alarmes { get; set; }
-        public List<string> CurrentVideoporteiros { get; set; }
-        public List<string> Videoporteiros { get; set; }
         public List<string> CurrentCoordenadores { get; set; }
         public List<string> Coordenadores { get; set; }
 
