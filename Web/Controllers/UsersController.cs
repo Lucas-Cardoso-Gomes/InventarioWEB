@@ -5,8 +5,9 @@ using Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Data;
 
 namespace Web.Controllers
 {
@@ -14,30 +15,37 @@ namespace Web.Controllers
     public class UsersController : Controller
     {
         private readonly UserService _userService;
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
-        public UsersController(UserService userService, PersistentLogService persistentLogService, IConfiguration configuration)
+        public UsersController(UserService userService, PersistentLogService persistentLogService, IDatabaseService databaseService)
         {
             _userService = userService;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
         }
 
         private async Task<List<Colaborador>> GetAllColaboradoresAsync()
         {
             var colaboradores = new List<Colaborador>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("SELECT CPF, Nome FROM Colaboradores ORDER BY Nome", connection);
-                using (var reader = await command.ExecuteReaderAsync())
+                // SQLite doesn't support async open properly with IDbConnection interface in older context, but SqliteConnection does.
+                // However, standard is synchronous for SQLite usually or Task.CompletedTask wrapper.
+                // Since CreateConnection returns IDbConnection, we treat it synchronously or cast.
+                // But for consistency let's just Open.
+                connection.Open();
+                using (var command = connection.CreateCommand())
                 {
-                    while (await reader.ReadAsync())
+                    command.CommandText = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+                    using (var reader = command.ExecuteReader())
                     {
-                        colaboradores.Add(new Colaborador { CPF = reader.GetString(0), Nome = reader.GetString(1) });
+                        while (reader.Read())
+                        {
+                            colaboradores.Add(new Colaborador { CPF = reader["CPF"].ToString(), Nome = reader["Nome"].ToString() });
+                        }
                     }
                 }
             }
-            return colaboradores;
+            return await Task.FromResult(colaboradores);
         }
 
         // GET: Users
