@@ -63,15 +63,25 @@ namespace Web.Services
                     {
                         while (reader.Read())
                         {
-                            logs.Add(new PersistentLog
+                            var log = new PersistentLog();
+                            log.Id = Convert.ToInt32(reader["Id"]);
+
+                            var timestampObj = reader["Timestamp"];
+                            if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime dt))
                             {
-                                Id = Convert.ToInt32(reader["Id"]),
-                                Timestamp = Convert.ToDateTime(reader["Timestamp"]),
-                                EntityType = reader["EntityType"].ToString(),
-                                ActionType = reader["ActionType"].ToString(),
-                                PerformedBy = reader["PerformedBy"].ToString(),
-                                Details = reader["Details"].ToString()
-                            });
+                                log.Timestamp = dt;
+                            }
+                            else
+                            {
+                                log.Timestamp = DateTime.MinValue;
+                            }
+
+                            log.EntityType = reader["EntityType"] != DBNull.Value ? reader["EntityType"].ToString() : string.Empty;
+                            log.ActionType = reader["ActionType"] != DBNull.Value ? reader["ActionType"].ToString() : string.Empty;
+                            log.PerformedBy = reader["PerformedBy"] != DBNull.Value ? reader["PerformedBy"].ToString() : string.Empty;
+                            log.Details = reader["Details"] != DBNull.Value ? reader["Details"].ToString() : string.Empty;
+
+                            logs.Add(log);
                         }
                     }
                 }

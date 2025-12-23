@@ -110,14 +110,24 @@ namespace Web.Controllers
                         {
                             while (reader.Read())
                             {
-                                viewModel.Logs.Add(new Log
+                                var log = new Log();
+                                log.Id = Convert.ToInt32(reader["Id"]);
+
+                                var timestampObj = reader["Timestamp"];
+                                if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime dt))
                                 {
-                                    Id = reader.GetInt32(0),
-                                    Timestamp = reader.GetDateTime(1),
-                                    Level = reader.GetString(2),
-                                    Message = reader.GetString(3),
-                                    Source = reader.IsDBNull(4) ? null : reader.GetString(4)
-                                });
+                                    log.Timestamp = dt;
+                                }
+                                else
+                                {
+                                    log.Timestamp = DateTime.MinValue;
+                                }
+
+                                log.Level = reader["Level"] != DBNull.Value ? reader["Level"].ToString() : string.Empty;
+                                log.Message = reader["Message"] != DBNull.Value ? reader["Message"].ToString() : string.Empty;
+                                log.Source = reader["Source"] != DBNull.Value ? reader["Source"].ToString() : null;
+
+                                viewModel.Logs.Add(log);
                             }
                         }
                     }
