@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Migração de Dados";
+}
+
+<div class="container mt-4">
+    <h2>Migração de Dados do SQL Server para SQLite</h2>
+    <p class="text-warning">Atenção: Esta ação irá apagar todos os dados atuais do banco de dados local e importar os dados do SQL Server.</p>
+
+    @if (ViewBag.Message != null)
+    {
+        <div class="alert alert-info">@ViewBag.Message</div>
+    }
+
+    <form asp-action="Migrate" method="post">
+        <div class="form-group">
+            <label for="connectionString">String de Conexão do SQL Server (Origem):</label>
+            <input type="text" class="form-control" id="connectionString" name="connectionString" required placeholder="Server=seu_servidor;Database=seu_banco;User Id=seu_usuario;Password=sua_senha;TrustServerCertificate=True;">
+            <small class="form-text text-muted">Certifique-se de que a string de conexão está correta e que o servidor é acessível.</small>
+        </div>
+        <button type="submit" class="btn btn-danger mt-3" onclick="return confirm('Tem certeza? Isso apagará os dados locais!');">Iniciar Migração</button>
+    </form>
+</div>
