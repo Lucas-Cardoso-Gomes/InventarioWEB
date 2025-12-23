@@ -17,8 +17,8 @@ namespace Web.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<DatabaseService> _logger;
-        private readonly string _connectionString;
-        private readonly string _dbFilePath;
+        private string _connectionString;
+        private string _dbFilePath;
 
         public DatabaseService(IConfiguration configuration, ILogger<DatabaseService> logger)
         {
@@ -26,9 +26,20 @@ namespace Web.Services
             _logger = logger;
             _connectionString = _configuration.GetConnectionString("DefaultConnection");
 
-            // Extract file path from connection string if possible, or assume it's "Coletados.db"
-            var builder = new SqliteConnectionStringBuilder(_connectionString);
-            _dbFilePath = builder.DataSource;
+            try
+            {
+                // Try to parse as SQLite connection string
+                var builder = new SqliteConnectionStringBuilder(_connectionString);
+                _dbFilePath = builder.DataSource;
+            }
+            catch (Exception ex)
+            {
+                // Fallback for when the configuration might still contain SQL Server string (e.g. from User Secrets)
+                _logger.LogWarning(ex, "Failed to parse connection string as SQLite. It might be a legacy SQL Server string. Falling back to default 'Data Source=Coletados.db'.");
+                _connectionString = "Data Source=Coletados.db";
+                var builder = new SqliteConnectionStringBuilder(_connectionString);
+                _dbFilePath = builder.DataSource;
+            }
         }
 
         public IDbConnection CreateConnection()
