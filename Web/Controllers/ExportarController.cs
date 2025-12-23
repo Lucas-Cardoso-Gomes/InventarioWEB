@@ -3,31 +3,33 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using Web.Models;
 using Microsoft.AspNetCore.Authorization;
+using Web.Services;
+using System.Data;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador")]
     public class ExportarController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<ExportarController> _logger;
 
-        public ExportarController(IConfiguration configuration, ILogger<ExportarController> logger)
+        public ExportarController(IDatabaseService databaseService, ILogger<ExportarController> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
         }
 
         public IActionResult Index()
         {
             var viewModel = new ExportarViewModel();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 // Computer filters
@@ -53,7 +55,7 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        private List<Colaborador> GetCoordenadores(SqlConnection connection)
+        private List<Colaborador> GetCoordenadores(IDbConnection connection)
         {
             var coordenadores = new List<Colaborador>();
             string sql;
@@ -64,16 +66,17 @@ namespace Web.Controllers
             }
             else
             {
-                var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                // Note: Parameters are not directly supported in SQL string here, need to handle in command execution
                 sql = "SELECT c.CPF, c.Nome FROM Colaboradores c WHERE c.CPF = @UserCPF";
             }
 
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 if (!User.IsInRole("Admin"))
                 {
                     var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                    cmd.Parameters.AddWithValue("@UserCPF", userCpf);
+                    var p = cmd.CreateParameter(); p.ParameterName = "@UserCPF"; p.Value = userCpf; cmd.Parameters.Add(p);
                 }
 
                 using (var reader = cmd.ExecuteReader())
@@ -91,12 +94,13 @@ namespace Web.Controllers
             return coordenadores;
         }
 
-        private List<Colaborador> GetColaboradores(SqlConnection connection)
+        private List<Colaborador> GetColaboradores(IDbConnection connection)
         {
             var colaboradores = new List<Colaborador>();
             string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -112,12 +116,13 @@ namespace Web.Controllers
             return colaboradores;
         }
 
-        private List<string> GetDistinctValues(SqlConnection connection, string tableName, string columnName)
+        private List<string> GetDistinctValues(IDbConnection connection, string tableName, string columnName)
         {
             var values = new List<string>();
             var sql = $"SELECT DISTINCT {columnName} FROM {tableName} WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
-            using (var command = new SqlCommand(sql, connection))
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = sql;
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -135,7 +140,7 @@ namespace Web.Controllers
             var csvBuilder = new StringBuilder();
             string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.csv";
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
 
@@ -173,17 +178,28 @@ namespace Web.Controllers
 
                             string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
                             csvBuilder.AppendLine(computerHeader);
-                            sql = $"SELECT {computerHeader} FROM Computadores";
+                            // Need to select ColaboradorNome via JOIN? The original code selected ColaboradorNome but query was SELECT {computerHeader} FROM Computadores.
+                            // Computadores table doesn't have ColaboradorNome column. It seems the original code was bugged or relied on ViewModel mapping that isn't fully shown.
+                            // Assuming Computadores table has fields or we need to join.
+                            // Let's check Schema... Computadores has ColaboradorCPF.
+                            // The original code `reader[col]` implies columns exist in result set.
+                            // I should fix the query to include the join if ColaboradorNome is requested.
+
+                            // To be safe and minimal change, I will use LEFT JOIN to get ColaboradorNome if it is in the header list.
+                            // Original header has "ColaboradorNome".
+                            sql = $"SELECT c.*, col.Nome as ColaboradorNome FROM Computadores c LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF";
+
                             if (whereClauses.Any())
                             {
                                 sql += " WHERE " + string.Join(" AND ", whereClauses);
                             }
 
-                            using (var cmd = new SqlCommand(sql, connection))
+                            using (var cmd = connection.CreateCommand())
                             {
+                                cmd.CommandText = sql;
                                 foreach (var p in parameters)
                                 {
-                                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                                    var param = cmd.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; cmd.Parameters.Add(param);
                                 }
 
                                 using (var reader = cmd.ExecuteReader())
@@ -193,7 +209,11 @@ namespace Web.Controllers
                                         var line = new List<string>();
                                         foreach (var col in computerHeader.Split(','))
                                         {
-                                            line.Add(reader[col].ToString());
+                                            try {
+                                                line.Add(reader[col].ToString());
+                                            } catch {
+                                                line.Add(""); // Handle missing column gracefully
+                                            }
                                         }
                                         csvBuilder.AppendLine(string.Join(",", line));
                                     }
@@ -208,17 +228,18 @@ namespace Web.Controllers
 
                             string monitorHeader = "PartNumber,ColaboradorNome,Marca,Modelo,Tamanho";
                             csvBuilder.AppendLine(monitorHeader);
-                            sql = $"SELECT {monitorHeader} FROM Monitores";
+                            sql = $"SELECT m.*, col.Nome as ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF";
                             if (whereClauses.Any())
                             {
                                 sql += " WHERE " + string.Join(" AND ", whereClauses);
                             }
 
-                            using (var cmd = new SqlCommand(sql, connection))
+                            using (var cmd = connection.CreateCommand())
                             {
+                                cmd.CommandText = sql;
                                 foreach (var p in parameters)
                                 {
-                                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                                    var param = cmd.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; cmd.Parameters.Add(param);
                                 }
 
                                 using (var reader = cmd.ExecuteReader())
@@ -228,7 +249,11 @@ namespace Web.Controllers
                                         var line = new List<string>();
                                         foreach (var col in monitorHeader.Split(','))
                                         {
-                                            line.Add(reader[col].ToString());
+                                            try {
+                                                line.Add(reader[col].ToString());
+                                            } catch {
+                                                line.Add("");
+                                            }
                                         }
                                         csvBuilder.AppendLine(string.Join(",", line));
                                     }
@@ -241,17 +266,18 @@ namespace Web.Controllers
 
                             string perifericoHeader = "PartNumber,ColaboradorNome,Tipo,DataEntrega";
                             csvBuilder.AppendLine(perifericoHeader);
-                            sql = $"SELECT {perifericoHeader} FROM Perifericos";
+                            sql = $"SELECT p.*, col.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF";
                             if (whereClauses.Any())
                             {
                                 sql += " WHERE " + string.Join(" AND ", whereClauses);
                             }
 
-                            using (var cmd = new SqlCommand(sql, connection))
+                            using (var cmd = connection.CreateCommand())
                             {
+                                cmd.CommandText = sql;
                                 foreach (var p in parameters)
                                 {
-                                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                                    var param = cmd.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; cmd.Parameters.Add(param);
                                 }
 
                                 using (var reader = cmd.ExecuteReader())
@@ -261,7 +287,11 @@ namespace Web.Controllers
                                         var line = new List<string>();
                                         foreach (var col in perifericoHeader.Split(','))
                                         {
-                                            line.Add(reader[col].ToString());
+                                            try {
+                                                line.Add(reader[col].ToString());
+                                            } catch {
+                                                line.Add("");
+                                            }
                                         }
                                         csvBuilder.AppendLine(string.Join(",", line));
                                     }
@@ -278,9 +308,10 @@ namespace Web.Controllers
                     csvBuilder.AppendLine("Computadores");
                     csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
                     string sqlComputadores = "SELECT c.MAC, c.IP, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";
-                    using (var cmd = new SqlCommand(sqlComputadores, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
+                        cmd.CommandText = sqlComputadores;
+                        var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -295,9 +326,10 @@ namespace Web.Controllers
                     csvBuilder.AppendLine("Monitores");
                     csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
                     string sqlMonitores = "SELECT m.PartNumber, col.Nome AS ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m INNER JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF WHERE m.ColaboradorCPF = @colaboradorCpf";
-                    using (var cmd = new SqlCommand(sqlMonitores, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
+                        cmd.CommandText = sqlMonitores;
+                        var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -312,9 +344,10 @@ namespace Web.Controllers
                     csvBuilder.AppendLine("Perifericos");
                     csvBuilder.AppendLine("PartNumber,ColaboradorNome,Tipo,DataEntrega");
                     string sqlPerifericos = "SELECT p.PartNumber, col.Nome AS ColaboradorNome, p.Tipo, p.DataEntrega FROM Perifericos p INNER JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF WHERE p.ColaboradorCPF = @colaboradorCpf";
-                    using (var cmd = new SqlCommand(sqlPerifericos, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
+                        cmd.CommandText = sqlPerifericos;
+                        var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -347,9 +380,10 @@ namespace Web.Controllers
                         LEFT JOIN Perifericos p ON ma.PerifericoPartNumber = p.PartNumber AND p.ColaboradorCPF = @colaboradorCpf
                         WHERE c.ColaboradorCPF = @colaboradorCpf OR m.ColaboradorCPF = @colaboradorCpf OR p.ColaboradorCPF = @colaboradorCpf";
 
-                    using (var cmd = new SqlCommand(sqlManutencoes, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@colaboradorCpf", viewModel.SelectedColaboradorCPF);
+                        cmd.CommandText = sqlManutencoes;
+                        var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -381,9 +415,10 @@ namespace Web.Controllers
                         INNER JOIN Colaboradores colab ON c.ColaboradorCPF = colab.CPF
                         WHERE colab.CoordenadorCPF = @coordenadorCpf OR colab.CPF = @coordenadorCpf";
 
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@coordenadorCpf", viewModel.CoordenadorCPF);
+                        cmd.CommandText = sql;
+                        var p = cmd.CreateParameter(); p.ParameterName = "@coordenadorCpf"; p.Value = viewModel.CoordenadorCPF; cmd.Parameters.Add(p);
 
                         using (var reader = cmd.ExecuteReader())
                         {

@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
+builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
@@ -44,6 +45,12 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+    dbService.InitializeDatabase();
+}
 
 // Configure o pipeline HTTP
 if (!app.Environment.IsDevelopment())

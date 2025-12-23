@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
-using Microsoft.Data.SqlClient;
+using System.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -20,12 +21,12 @@ namespace Web.Controllers
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class ComputadoresController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<ComputadoresController> _logger;
 
-        public ComputadoresController(IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
+        public ComputadoresController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
         }
 
@@ -59,7 +60,7 @@ namespace Web.Controllers
 
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
 
@@ -122,10 +123,17 @@ namespace Web.Controllers
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
                     string countSql = $"SELECT COUNT(comp.MAC) {baseSql} {whereSql}";
-                    using (var countCommand = new SqlCommand(countSql, connection))
+                    using (var countCommand = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
-                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                        countCommand.CommandText = countSql;
+                        foreach (var p in parameters) {
+                            var param = countCommand.CreateParameter();
+                            param.ParameterName = p.Key;
+                            param.Value = p.Value;
+                            countCommand.Parameters.Add(param);
+                        }
+                        var countResult = countCommand.ExecuteScalar();
+                        viewModel.TotalCount = countResult != DBNull.Value ? Convert.ToInt32(countResult) : 0;
                     }
 
                     string orderBySql;
@@ -156,16 +164,23 @@ namespace Web.Controllers
                             comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
                             comp.DataColeta, comp.PartNumber
                     ";
-                    string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+                    string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} LIMIT @pageSize OFFSET @offset";
                     // --- FIM DA CORREÇÃO ---
 
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
-                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+                        cmd.CommandText = sql;
+                        foreach (var p in parameters) {
+                            var param = cmd.CreateParameter();
+                            param.ParameterName = p.Key;
+                            param.Value = p.Value;
+                            cmd.Parameters.Add(param);
+                        }
 
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        var pOffset = cmd.CreateParameter(); pOffset.ParameterName = "@offset"; pOffset.Value = (pageNumber - 1) * pageSize; cmd.Parameters.Add(pOffset);
+                        var pPageSize = cmd.CreateParameter(); pPageSize.ParameterName = "@pageSize"; pPageSize.Value = pageSize; cmd.Parameters.Add(pPageSize);
+
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
@@ -281,17 +296,20 @@ namespace Web.Controllers
                 int atualizados = 0;
                 var invalidCpfs = new List<string>();
 
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
 
                     var colaboradoresCpf = new HashSet<string>();
-                    using (var cmd = new SqlCommand("SELECT CPF FROM Colaboradores", connection))
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (await reader.ReadAsync())
+                        cmd.CommandText = "SELECT CPF FROM Colaboradores";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            colaboradoresCpf.Add(reader.GetString(0));
+                            while (reader.Read())
+                            {
+                                colaboradoresCpf.Add(reader.GetString(0));
+                            }
                         }
                     }
 
@@ -319,11 +337,13 @@ namespace Web.Controllers
                                                        ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
                                                        ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber
                                                        WHERE MAC = @MAC";
-                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = updateSql;
                                         AddComputadorParameters(cmd, computador);
-                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
+                                        cmd.ExecuteNonQuery();
                                     }
                                     atualizados++;
                                 }
@@ -331,11 +351,13 @@ namespace Web.Controllers
                                 {
                                     string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber)
                                                        VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
-                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = insertSql;
                                         AddComputadorParameters(cmd, computador);
-                                        cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
+                                        cmd.ExecuteNonQuery();
                                     }
                                     adicionados++;
                                 }
@@ -365,44 +387,46 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private void AddComputadorParameters(SqlCommand cmd, Computador computador)
+        private void AddComputadorParameters(IDbCommand cmd, Computador computador)
         {
-            cmd.Parameters.AddWithValue("@MAC", computador.MAC);
-            cmd.Parameters.AddWithValue("@IP", (object)computador.IP ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)computador.ColaboradorCPF ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Hostname", (object)computador.Hostname ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Fabricante", (object)computador.Fabricante ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Processador", (object)computador.Processador ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)computador.ProcessadorFabricante ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)computador.ProcessadorCore ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)computador.ProcessadorThread ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)computador.ProcessadorClock ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Ram", (object)computador.Ram ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@RamTipo", (object)computador.RamTipo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@RamVelocidade", (object)computador.RamVelocidade ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@RamVoltagem", (object)computador.RamVoltagem ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@RamPorModule", (object)computador.RamPorModule ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)computador.ArmazenamentoC ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)computador.ArmazenamentoCTotal ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)computador.ArmazenamentoCLivre ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)computador.ArmazenamentoD ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)computador.ArmazenamentoDTotal ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)computador.ArmazenamentoDLivre ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)computador.ConsumoCPU ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SO", (object)computador.SO ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@PartNumber", (object)computador.PartNumber ?? DBNull.Value);
+            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = computador.MAC; cmd.Parameters.Add(p1);
+            var p2 = cmd.CreateParameter(); p2.ParameterName = "@IP"; p2.Value = (object)computador.IP ?? DBNull.Value; cmd.Parameters.Add(p2);
+            var p3 = cmd.CreateParameter(); p3.ParameterName = "@ColaboradorCPF"; p3.Value = (object)computador.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p3);
+            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Hostname"; p4.Value = (object)computador.Hostname ?? DBNull.Value; cmd.Parameters.Add(p4);
+            var p5 = cmd.CreateParameter(); p5.ParameterName = "@Fabricante"; p5.Value = (object)computador.Fabricante ?? DBNull.Value; cmd.Parameters.Add(p5);
+            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Processador"; p6.Value = (object)computador.Processador ?? DBNull.Value; cmd.Parameters.Add(p6);
+            var p7 = cmd.CreateParameter(); p7.ParameterName = "@ProcessadorFabricante"; p7.Value = (object)computador.ProcessadorFabricante ?? DBNull.Value; cmd.Parameters.Add(p7);
+            var p8 = cmd.CreateParameter(); p8.ParameterName = "@ProcessadorCore"; p8.Value = (object)computador.ProcessadorCore ?? DBNull.Value; cmd.Parameters.Add(p8);
+            var p9 = cmd.CreateParameter(); p9.ParameterName = "@ProcessadorThread"; p9.Value = (object)computador.ProcessadorThread ?? DBNull.Value; cmd.Parameters.Add(p9);
+            var p10 = cmd.CreateParameter(); p10.ParameterName = "@ProcessadorClock"; p10.Value = (object)computador.ProcessadorClock ?? DBNull.Value; cmd.Parameters.Add(p10);
+            var p11 = cmd.CreateParameter(); p11.ParameterName = "@Ram"; p11.Value = (object)computador.Ram ?? DBNull.Value; cmd.Parameters.Add(p11);
+            var p12 = cmd.CreateParameter(); p12.ParameterName = "@RamTipo"; p12.Value = (object)computador.RamTipo ?? DBNull.Value; cmd.Parameters.Add(p12);
+            var p13 = cmd.CreateParameter(); p13.ParameterName = "@RamVelocidade"; p13.Value = (object)computador.RamVelocidade ?? DBNull.Value; cmd.Parameters.Add(p13);
+            var p14 = cmd.CreateParameter(); p14.ParameterName = "@RamVoltagem"; p14.Value = (object)computador.RamVoltagem ?? DBNull.Value; cmd.Parameters.Add(p14);
+            var p15 = cmd.CreateParameter(); p15.ParameterName = "@RamPorModule"; p15.Value = (object)computador.RamPorModule ?? DBNull.Value; cmd.Parameters.Add(p15);
+            var p16 = cmd.CreateParameter(); p16.ParameterName = "@ArmazenamentoC"; p16.Value = (object)computador.ArmazenamentoC ?? DBNull.Value; cmd.Parameters.Add(p16);
+            var p17 = cmd.CreateParameter(); p17.ParameterName = "@ArmazenamentoCTotal"; p17.Value = (object)computador.ArmazenamentoCTotal ?? DBNull.Value; cmd.Parameters.Add(p17);
+            var p18 = cmd.CreateParameter(); p18.ParameterName = "@ArmazenamentoCLivre"; p18.Value = (object)computador.ArmazenamentoCLivre ?? DBNull.Value; cmd.Parameters.Add(p18);
+            var p19 = cmd.CreateParameter(); p19.ParameterName = "@ArmazenamentoD"; p19.Value = (object)computador.ArmazenamentoD ?? DBNull.Value; cmd.Parameters.Add(p19);
+            var p20 = cmd.CreateParameter(); p20.ParameterName = "@ArmazenamentoDTotal"; p20.Value = (object)computador.ArmazenamentoDTotal ?? DBNull.Value; cmd.Parameters.Add(p20);
+            var p21 = cmd.CreateParameter(); p21.ParameterName = "@ArmazenamentoDLivre"; p21.Value = (object)computador.ArmazenamentoDLivre ?? DBNull.Value; cmd.Parameters.Add(p21);
+            var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = (object)computador.ConsumoCPU ?? DBNull.Value; cmd.Parameters.Add(p22);
+            var p23 = cmd.CreateParameter(); p23.ParameterName = "@SO"; p23.Value = (object)computador.SO ?? DBNull.Value; cmd.Parameters.Add(p23);
+            var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = (object)computador.PartNumber ?? DBNull.Value; cmd.Parameters.Add(p24);
         }
 
-        private Computador FindComputadorById(string id, SqlConnection connection, SqlTransaction transaction)
+        private Computador FindComputadorById(string id, IDbConnection connection, IDbTransaction transaction)
         {
             Computador computador = null;
 
             try
             {
                 string sql = "SELECT * FROM Computadores WHERE MAC = @MAC";
-                using (var cmd = new SqlCommand(sql, connection, transaction))
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("@MAC", id);
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = sql;
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = id; cmd.Parameters.Add(p1);
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
@@ -448,11 +472,12 @@ namespace Web.Controllers
             return computador;
         }
 
-        private List<string> GetDistinctComputerValues(SqlConnection connection, string columnName)
+        private List<string> GetDistinctComputerValues(IDbConnection connection, string columnName)
         {
             var values = new List<string>();
-            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = $"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -480,39 +505,44 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
 
                         string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber)";
 
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
-                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@DataColeta", DateTime.Now);
-                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            var comp = new Computador
+                            {
+                                MAC = viewModel.MAC,
+                                IP = viewModel.IP,
+                                ColaboradorCPF = viewModel.ColaboradorCPF,
+                                Hostname = viewModel.Hostname,
+                                Fabricante = viewModel.Fabricante,
+                                Processador = viewModel.Processador,
+                                ProcessadorFabricante = viewModel.ProcessadorFabricante,
+                                ProcessadorCore = viewModel.ProcessadorCore,
+                                ProcessadorThread = viewModel.ProcessadorThread,
+                                ProcessadorClock = viewModel.ProcessadorClock,
+                                Ram = viewModel.Ram,
+                                RamTipo = viewModel.RamTipo,
+                                RamVelocidade = viewModel.RamVelocidade,
+                                RamVoltagem = viewModel.RamVoltagem,
+                                RamPorModule = viewModel.RamPorModule,
+                                ArmazenamentoC = viewModel.ArmazenamentoC,
+                                ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
+                                ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
+                                ArmazenamentoD = viewModel.ArmazenamentoD,
+                                ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
+                                ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
+                                ConsumoCPU = viewModel.ConsumoCPU,
+                                SO = viewModel.SO,
+                                PartNumber = viewModel.PartNumber
+                            };
+                            AddComputadorParameters(cmd, comp);
+                            var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -578,37 +608,42 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber WHERE MAC = @MAC";
 
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@MAC", viewModel.MAC);
-                            cmd.Parameters.AddWithValue("@IP", (object)viewModel.IP ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)viewModel.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Hostname", (object)viewModel.Hostname ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Fabricante", (object)viewModel.Fabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Processador", (object)viewModel.Processador ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorFabricante", (object)viewModel.ProcessadorFabricante ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorCore", (object)viewModel.ProcessadorCore ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorThread", (object)viewModel.ProcessadorThread ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ProcessadorClock", (object)viewModel.ProcessadorClock ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Ram", (object)viewModel.Ram ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamTipo", (object)viewModel.RamTipo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVelocidade", (object)viewModel.RamVelocidade ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamVoltagem", (object)viewModel.RamVoltagem ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@RamPorModule", (object)viewModel.RamPorModule ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoC", (object)viewModel.ArmazenamentoC ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCTotal", (object)viewModel.ArmazenamentoCTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoCLivre", (object)viewModel.ArmazenamentoCLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoD", (object)viewModel.ArmazenamentoD ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDTotal", (object)viewModel.ArmazenamentoDTotal ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ArmazenamentoDLivre", (object)viewModel.ArmazenamentoDLivre ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@ConsumoCPU", (object)viewModel.ConsumoCPU ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@SO", (object)viewModel.SO ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@PartNumber", (object)viewModel.PartNumber ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            var comp = new Computador
+                            {
+                                MAC = viewModel.MAC,
+                                IP = viewModel.IP,
+                                ColaboradorCPF = viewModel.ColaboradorCPF,
+                                Hostname = viewModel.Hostname,
+                                Fabricante = viewModel.Fabricante,
+                                Processador = viewModel.Processador,
+                                ProcessadorFabricante = viewModel.ProcessadorFabricante,
+                                ProcessadorCore = viewModel.ProcessadorCore,
+                                ProcessadorThread = viewModel.ProcessadorThread,
+                                ProcessadorClock = viewModel.ProcessadorClock,
+                                Ram = viewModel.Ram,
+                                RamTipo = viewModel.RamTipo,
+                                RamVelocidade = viewModel.RamVelocidade,
+                                RamVoltagem = viewModel.RamVoltagem,
+                                RamPorModule = viewModel.RamPorModule,
+                                ArmazenamentoC = viewModel.ArmazenamentoC,
+                                ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
+                                ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
+                                ArmazenamentoD = viewModel.ArmazenamentoD,
+                                ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
+                                ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
+                                ConsumoCPU = viewModel.ConsumoCPU,
+                                SO = viewModel.SO,
+                                PartNumber = viewModel.PartNumber
+                            };
+                            AddComputadorParameters(cmd, comp);
 
                             cmd.ExecuteNonQuery();
                         }
@@ -641,13 +676,14 @@ namespace Web.Controllers
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@MAC", id);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = id; cmd.Parameters.Add(p1);
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -671,14 +707,15 @@ namespace Web.Controllers
             Computador computador = null;
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "SELECT comp.*, col.Nome AS ColaboradorNome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF WHERE comp.MAC = @MAC";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@MAC", id);
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = id; cmd.Parameters.Add(p1);
+                        using (var reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
                             {
@@ -727,13 +764,14 @@ namespace Web.Controllers
         private List<Colaborador> GetColaboradores()
         {
             var colaboradores = new List<Colaborador>();
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                using (var cmd = connection.CreateCommand())
                 {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    cmd.CommandText = sql;
+                    using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {

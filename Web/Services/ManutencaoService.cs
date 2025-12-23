@@ -1,24 +1,25 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Web.Models;
+using System.Data;
 
 namespace Web.Services
 {
     public class ManutencaoService
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
-        public ManutencaoService(IConfiguration configuration)
+        public ManutencaoService(IDatabaseService databaseService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
         }
 
         public List<Manutencao> GetAllManutencoes(string partNumber, string colaborador, string hostname)
         {
             var manutencoes = new List<Manutencao>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 var sql = @"
@@ -36,33 +37,28 @@ namespace Web.Services
                     LEFT JOIN Colaboradores col_p ON p.ColaboradorCPF = col_p.CPF
                     WHERE 1=1";
 
+                var parameters = new List<Action<IDbCommand>>();
+
                 if (!string.IsNullOrEmpty(partNumber))
                 {
                     sql += " AND (c.MAC LIKE @PartNumber OR mo.PartNumber LIKE @PartNumber OR p.PartNumber LIKE @PartNumber)";
+                    parameters.Add(cmd => { var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = $"%{partNumber}%"; cmd.Parameters.Add(p); });
                 }
                 if (!string.IsNullOrEmpty(colaborador))
                 {
                     sql += " AND (col_c.Nome LIKE @Colaborador OR col_mo.Nome LIKE @Colaborador OR col_p.Nome LIKE @Colaborador)";
+                    parameters.Add(cmd => { var p = cmd.CreateParameter(); p.ParameterName = "@Colaborador"; p.Value = $"%{colaborador}%"; cmd.Parameters.Add(p); });
                 }
                 if (!string.IsNullOrEmpty(hostname))
                 {
                     sql += " AND c.Hostname LIKE @Hostname";
+                    parameters.Add(cmd => { var p = cmd.CreateParameter(); p.ParameterName = "@Hostname"; p.Value = $"%{hostname}%"; cmd.Parameters.Add(p); });
                 }
 
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
-                    if (!string.IsNullOrEmpty(partNumber))
-                    {
-                        command.Parameters.AddWithValue("@PartNumber", $"%{partNumber}%");
-                    }
-                    if (!string.IsNullOrEmpty(colaborador))
-                    {
-                        command.Parameters.AddWithValue("@Colaborador", $"%{colaborador}%");
-                    }
-                    if (!string.IsNullOrEmpty(hostname))
-                    {
-                        command.Parameters.AddWithValue("@Hostname", $"%{hostname}%");
-                    }
+                    command.CommandText = sql;
+                    foreach (var action in parameters) action(command);
 
                     using (var reader = command.ExecuteReader())
                     {
@@ -70,28 +66,28 @@ namespace Web.Services
                         {
                             var manutencao = new Manutencao
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                DataManutencaoHardware = reader.IsDBNull(reader.GetOrdinal("DataManutencaoHardware")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("DataManutencaoHardware")),
-                                DataManutencaoSoftware = reader.IsDBNull(reader.GetOrdinal("DataManutencaoSoftware")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("DataManutencaoSoftware")),
-                                ManutencaoExterna = reader.IsDBNull(reader.GetOrdinal("ManutencaoExterna")) ? null : reader.GetString(reader.GetOrdinal("ManutencaoExterna")),
-                                Data = reader.IsDBNull(reader.GetOrdinal("Data")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("Data")),
-                                Historico = reader.IsDBNull(reader.GetOrdinal("Historico")) ? null : reader.GetString(reader.GetOrdinal("Historico")),
-                                ComputadorMAC = reader.IsDBNull(reader.GetOrdinal("MAC")) ? null : reader.GetString(reader.GetOrdinal("MAC")),
-                                MonitorPartNumber = reader.IsDBNull(reader.GetOrdinal("MonitorPN")) ? null : reader.GetString(reader.GetOrdinal("MonitorPN")),
-                                PerifericoPartNumber = reader.IsDBNull(reader.GetOrdinal("PerifericoPN")) ? null : reader.GetString(reader.GetOrdinal("PerifericoPN"))
+                                Id = Convert.ToInt32(reader["Id"]),
+                                DataManutencaoHardware = reader["DataManutencaoHardware"] != DBNull.Value ? Convert.ToDateTime(reader["DataManutencaoHardware"]) : (DateTime?)null,
+                                DataManutencaoSoftware = reader["DataManutencaoSoftware"] != DBNull.Value ? Convert.ToDateTime(reader["DataManutencaoSoftware"]) : (DateTime?)null,
+                                ManutencaoExterna = reader["ManutencaoExterna"] != DBNull.Value ? reader["ManutencaoExterna"].ToString() : null,
+                                Data = reader["Data"] != DBNull.Value ? Convert.ToDateTime(reader["Data"]) : (DateTime?)null,
+                                Historico = reader["Historico"] != DBNull.Value ? reader["Historico"].ToString() : null,
+                                ComputadorMAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : null,
+                                MonitorPartNumber = reader["MonitorPN"] != DBNull.Value ? reader["MonitorPN"].ToString() : null,
+                                PerifericoPartNumber = reader["PerifericoPN"] != DBNull.Value ? reader["PerifericoPN"].ToString() : null
                             };
 
                             if (manutencao.ComputadorMAC != null)
                             {
-                                manutencao.Computador = new Computador { MAC = manutencao.ComputadorMAC, Hostname = reader.GetString(reader.GetOrdinal("Hostname")) };
+                                manutencao.Computador = new Computador { MAC = manutencao.ComputadorMAC, Hostname = reader["Hostname"].ToString() };
                             }
                             if (manutencao.MonitorPartNumber != null)
                             {
-                                manutencao.Monitor = new Web.Models.Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader.GetString(reader.GetOrdinal("Modelo")) };
+                                manutencao.Monitor = new Web.Models.Monitor { PartNumber = manutencao.MonitorPartNumber, Modelo = reader["Modelo"].ToString() };
                             }
                             if (manutencao.PerifericoPartNumber != null)
                             {
-                                manutencao.Periferico = new Periferico { PartNumber = manutencao.PerifericoPartNumber, Tipo = reader.GetString(reader.GetOrdinal("Tipo")) };
+                                manutencao.Periferico = new Periferico { PartNumber = manutencao.PerifericoPartNumber, Tipo = reader["Tipo"].ToString() };
                             }
                             manutencoes.Add(manutencao);
                         }
@@ -103,20 +99,22 @@ namespace Web.Services
 
         public void AddManutencao(Manutencao manutencao)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "INSERT INTO Manutencoes (ComputadorMAC, MonitorPartNumber, PerifericoPartNumber, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico) VALUES (@ComputadorMAC, @MonitorPartNumber, @PerifericoPartNumber, @DataManutencaoHardware, @DataManutencaoSoftware, @ManutencaoExterna, @Data, @Historico)";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@ComputadorMAC", (object)manutencao.ComputadorMAC ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@MonitorPartNumber", (object)manutencao.MonitorPartNumber ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@PerifericoPartNumber", (object)manutencao.PerifericoPartNumber ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@DataManutencaoHardware", (object)manutencao.DataManutencaoHardware ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@DataManutencaoSoftware", (object)manutencao.DataManutencaoSoftware ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@ManutencaoExterna", (object)manutencao.ManutencaoExterna ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@Data", (object)manutencao.Data ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@Historico", (object)manutencao.Historico ?? DBNull.Value);
+                    command.CommandText = sql;
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@ComputadorMAC"; p1.Value = (object)manutencao.ComputadorMAC ?? DBNull.Value; command.Parameters.Add(p1);
+                    var p2 = command.CreateParameter(); p2.ParameterName = "@MonitorPartNumber"; p2.Value = (object)manutencao.MonitorPartNumber ?? DBNull.Value; command.Parameters.Add(p2);
+                    var p3 = command.CreateParameter(); p3.ParameterName = "@PerifericoPartNumber"; p3.Value = (object)manutencao.PerifericoPartNumber ?? DBNull.Value; command.Parameters.Add(p3);
+                    var p4 = command.CreateParameter(); p4.ParameterName = "@DataManutencaoHardware"; p4.Value = (object)manutencao.DataManutencaoHardware ?? DBNull.Value; command.Parameters.Add(p4);
+                    var p5 = command.CreateParameter(); p5.ParameterName = "@DataManutencaoSoftware"; p5.Value = (object)manutencao.DataManutencaoSoftware ?? DBNull.Value; command.Parameters.Add(p5);
+                    var p6 = command.CreateParameter(); p6.ParameterName = "@ManutencaoExterna"; p6.Value = (object)manutencao.ManutencaoExterna ?? DBNull.Value; command.Parameters.Add(p6);
+                    var p7 = command.CreateParameter(); p7.ParameterName = "@Data"; p7.Value = (object)manutencao.Data ?? DBNull.Value; command.Parameters.Add(p7);
+                    var p8 = command.CreateParameter(); p8.ParameterName = "@Historico"; p8.Value = (object)manutencao.Historico ?? DBNull.Value; command.Parameters.Add(p8);
+
                     command.ExecuteNonQuery();
                 }
             }
@@ -125,28 +123,30 @@ namespace Web.Services
         public Manutencao GetManutencaoById(int id)
         {
             Manutencao manutencao = null;
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT Id, ComputadorMAC, MonitorPartNumber, PerifericoPartNumber, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico FROM Manutencoes WHERE Id = @Id";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@Id", id);
+                    command.CommandText = sql;
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = id; command.Parameters.Add(p1);
+
                     using (var reader = command.ExecuteReader())
                     {
                         if (reader.Read())
                         {
                             manutencao = new Manutencao
                             {
-                                Id = reader.GetInt32(0),
-                                ComputadorMAC = reader.IsDBNull(1) ? null : reader.GetString(1),
-                                MonitorPartNumber = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                PerifericoPartNumber = reader.IsDBNull(3) ? null : reader.GetString(3),
-                                DataManutencaoHardware = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4),
-                                DataManutencaoSoftware = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5),
-                                ManutencaoExterna = reader.IsDBNull(6) ? null : reader.GetString(6),
-                                Data = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7),
-                                Historico = reader.IsDBNull(8) ? null : reader.GetString(8)
+                                Id = Convert.ToInt32(reader["Id"]),
+                                ComputadorMAC = reader["ComputadorMAC"] != DBNull.Value ? reader["ComputadorMAC"].ToString() : null,
+                                MonitorPartNumber = reader["MonitorPartNumber"] != DBNull.Value ? reader["MonitorPartNumber"].ToString() : null,
+                                PerifericoPartNumber = reader["PerifericoPartNumber"] != DBNull.Value ? reader["PerifericoPartNumber"].ToString() : null,
+                                DataManutencaoHardware = reader["DataManutencaoHardware"] != DBNull.Value ? Convert.ToDateTime(reader["DataManutencaoHardware"]) : (DateTime?)null,
+                                DataManutencaoSoftware = reader["DataManutencaoSoftware"] != DBNull.Value ? Convert.ToDateTime(reader["DataManutencaoSoftware"]) : (DateTime?)null,
+                                ManutencaoExterna = reader["ManutencaoExterna"] != DBNull.Value ? reader["ManutencaoExterna"].ToString() : null,
+                                Data = reader["Data"] != DBNull.Value ? Convert.ToDateTime(reader["Data"]) : (DateTime?)null,
+                                Historico = reader["Historico"] != DBNull.Value ? reader["Historico"].ToString() : null
                             };
                         }
                     }
@@ -157,21 +157,23 @@ namespace Web.Services
 
         public void UpdateManutencao(Manutencao manutencao)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "UPDATE Manutencoes SET ComputadorMAC = @ComputadorMAC, MonitorPartNumber = @MonitorPartNumber, PerifericoPartNumber = @PerifericoPartNumber, DataManutencaoHardware = @DataManutencaoHardware, DataManutencaoSoftware = @DataManutencaoSoftware, ManutencaoExterna = @ManutencaoExterna, Data = @Data, Historico = @Historico WHERE Id = @Id";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@Id", manutencao.Id);
-                    command.Parameters.AddWithValue("@ComputadorMAC", (object)manutencao.ComputadorMAC ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@MonitorPartNumber", (object)manutencao.MonitorPartNumber ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@PerifericoPartNumber", (object)manutencao.PerifericoPartNumber ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@DataManutencaoHardware", (object)manutencao.DataManutencaoHardware ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@DataManutencaoSoftware", (object)manutencao.DataManutencaoSoftware ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@ManutencaoExterna", (object)manutencao.ManutencaoExterna ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@Data", (object)manutencao.Data ?? DBNull.Value);
-                    command.Parameters.AddWithValue("@Historico", (object)manutencao.Historico ?? DBNull.Value);
+                    command.CommandText = sql;
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = manutencao.Id; command.Parameters.Add(p1);
+                    var p2 = command.CreateParameter(); p2.ParameterName = "@ComputadorMAC"; p2.Value = (object)manutencao.ComputadorMAC ?? DBNull.Value; command.Parameters.Add(p2);
+                    var p3 = command.CreateParameter(); p3.ParameterName = "@MonitorPartNumber"; p3.Value = (object)manutencao.MonitorPartNumber ?? DBNull.Value; command.Parameters.Add(p3);
+                    var p4 = command.CreateParameter(); p4.ParameterName = "@PerifericoPartNumber"; p4.Value = (object)manutencao.PerifericoPartNumber ?? DBNull.Value; command.Parameters.Add(p4);
+                    var p5 = command.CreateParameter(); p5.ParameterName = "@DataManutencaoHardware"; p5.Value = (object)manutencao.DataManutencaoHardware ?? DBNull.Value; command.Parameters.Add(p5);
+                    var p6 = command.CreateParameter(); p6.ParameterName = "@DataManutencaoSoftware"; p6.Value = (object)manutencao.DataManutencaoSoftware ?? DBNull.Value; command.Parameters.Add(p6);
+                    var p7 = command.CreateParameter(); p7.ParameterName = "@ManutencaoExterna"; p7.Value = (object)manutencao.ManutencaoExterna ?? DBNull.Value; command.Parameters.Add(p7);
+                    var p8 = command.CreateParameter(); p8.ParameterName = "@Data"; p8.Value = (object)manutencao.Data ?? DBNull.Value; command.Parameters.Add(p8);
+                    var p9 = command.CreateParameter(); p9.ParameterName = "@Historico"; p9.Value = (object)manutencao.Historico ?? DBNull.Value; command.Parameters.Add(p9);
+
                     command.ExecuteNonQuery();
                 }
             }
@@ -179,13 +181,14 @@ namespace Web.Services
 
         public void DeleteManutencao(int id)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "DELETE FROM Manutencoes WHERE Id = @Id";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@Id", id);
+                    command.CommandText = sql;
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = id; command.Parameters.Add(p1);
                     command.ExecuteNonQuery();
                 }
             }

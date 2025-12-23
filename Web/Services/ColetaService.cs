@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
 using Web.Services;
+using System.IO;
 
 namespace Web.Services
 {
@@ -18,15 +19,15 @@ namespace Web.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<ColetaService> _logger;
         private readonly LogService _logService;
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly string _solicitarInformacoes;
 
-        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService)
+        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService, IDatabaseService databaseService)
         {
             _configuration = configuration;
             _logger = logger;
             _logService = logService;
-            _connectionString = _configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
         }
 
@@ -99,45 +100,72 @@ namespace Web.Services
 
         private void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                string mergeQuery = @"
-                    MERGE INTO Computadores AS target
-                    USING (VALUES (@MAC)) AS source (MAC)
-                    ON target.MAC = source.MAC
-                    WHEN MATCHED THEN
-                        UPDATE SET IP = @IP, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, Hostname = @Hostname, Fabricante = @Fabricante, SO = @SO, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, DataColeta = @DataColeta, PartNumber = @PartNumber
-                    WHEN NOT MATCHED THEN
-                        INSERT (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber)
-                        VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber);";
+                // SQLite uses INSERT OR REPLACE (REPLACE INTO) or UPSERT syntax (INSERT ... ON CONFLICT DO UPDATE)
+                // UPSERT is preferred for preserving data not in the new insert if needed, but here we update everything on match.
+                // Or "INSERT OR REPLACE INTO" which replaces the whole row (deleting old one).
+                // Let's use INSERT INTO ... ON CONFLICT(MAC) DO UPDATE SET ...
 
-                using (var cmd = new SqlCommand(mergeQuery, connection))
+                string upsertQuery = @"
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber)
+                    ON CONFLICT(MAC) DO UPDATE SET
+                        IP = excluded.IP,
+                        Processador = excluded.Processador,
+                        ProcessadorFabricante = excluded.ProcessadorFabricante,
+                        ProcessadorCore = excluded.ProcessadorCore,
+                        ProcessadorThread = excluded.ProcessadorThread,
+                        ProcessadorClock = excluded.ProcessadorClock,
+                        Ram = excluded.Ram,
+                        RamTipo = excluded.RamTipo,
+                        RamVelocidade = excluded.RamVelocidade,
+                        RamVoltagem = excluded.RamVoltagem,
+                        RamPorModule = excluded.RamPorModule,
+                        Hostname = excluded.Hostname,
+                        Fabricante = excluded.Fabricante,
+                        SO = excluded.SO,
+                        ArmazenamentoC = excluded.ArmazenamentoC,
+                        ArmazenamentoCTotal = excluded.ArmazenamentoCTotal,
+                        ArmazenamentoCLivre = excluded.ArmazenamentoCLivre,
+                        ArmazenamentoD = excluded.ArmazenamentoD,
+                        ArmazenamentoDTotal = excluded.ArmazenamentoDTotal,
+                        ArmazenamentoDLivre = excluded.ArmazenamentoDLivre,
+                        ConsumoCPU = excluded.ConsumoCPU,
+                        DataColeta = excluded.DataColeta,
+                        PartNumber = excluded.PartNumber;
+                ";
+
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.Add("@MAC", SqlDbType.NVarChar).Value = hardwareInfo.MAC ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@IP", SqlDbType.NVarChar).Value = computadorIp;
-                    cmd.Parameters.Add("@Processador", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Nome ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ProcessadorFabricante", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Fabricante ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ProcessadorCore", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ProcessadorThread", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.Threads.ToString() ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ProcessadorClock", SqlDbType.NVarChar).Value = hardwareInfo.Processador?.ClockSpeed ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@Ram", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.RamTotal ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@RamTipo", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Tipo ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@RamVelocidade", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@RamVoltagem", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.Voltagem ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@RamPorModule", SqlDbType.NVarChar).Value = hardwareInfo.Ram?.PorModulo ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@Hostname", SqlDbType.NVarChar).Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@Fabricante", SqlDbType.NVarChar).Value = hardwareInfo.Fabricante ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@SO", SqlDbType.NVarChar).Value = hardwareInfo.SO ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoC", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveC?.Letra ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoCTotal", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveC?.TotalGB ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoCLivre", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveC?.LivreGB ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoD", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveD?.Letra ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoDTotal", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveD?.TotalGB ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ArmazenamentoDLivre", SqlDbType.NVarChar).Value = hardwareInfo.Armazenamento?.DriveD?.LivreGB ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@ConsumoCPU", SqlDbType.NVarChar).Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value;
-                    cmd.Parameters.Add("@DataColeta", SqlDbType.DateTime).Value = DateTime.Now;
-                    cmd.Parameters.Add("@PartNumber", SqlDbType.NVarChar).Value = hardwareInfo.PartNumber ?? (object)DBNull.Value;
+                    cmd.CommandText = upsertQuery;
+
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? (object)DBNull.Value; cmd.Parameters.Add(p1);
+                    var p2 = cmd.CreateParameter(); p2.ParameterName = "@IP"; p2.Value = computadorIp; cmd.Parameters.Add(p2);
+                    var p3 = cmd.CreateParameter(); p3.ParameterName = "@Processador"; p3.Value = hardwareInfo.Processador?.Nome ?? (object)DBNull.Value; cmd.Parameters.Add(p3);
+                    var p4 = cmd.CreateParameter(); p4.ParameterName = "@ProcessadorFabricante"; p4.Value = hardwareInfo.Processador?.Fabricante ?? (object)DBNull.Value; cmd.Parameters.Add(p4);
+                    var p5 = cmd.CreateParameter(); p5.ParameterName = "@ProcessadorCore"; p5.Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p5);
+                    var p6 = cmd.CreateParameter(); p6.ParameterName = "@ProcessadorThread"; p6.Value = hardwareInfo.Processador?.Threads.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p6);
+                    var p7 = cmd.CreateParameter(); p7.ParameterName = "@ProcessadorClock"; p7.Value = hardwareInfo.Processador?.ClockSpeed ?? (object)DBNull.Value; cmd.Parameters.Add(p7);
+                    var p8 = cmd.CreateParameter(); p8.ParameterName = "@Ram"; p8.Value = hardwareInfo.Ram?.RamTotal ?? (object)DBNull.Value; cmd.Parameters.Add(p8);
+                    var p9 = cmd.CreateParameter(); p9.ParameterName = "@RamTipo"; p9.Value = hardwareInfo.Ram?.Tipo ?? (object)DBNull.Value; cmd.Parameters.Add(p9);
+                    var p10 = cmd.CreateParameter(); p10.ParameterName = "@RamVelocidade"; p10.Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value; cmd.Parameters.Add(p10);
+                    var p11 = cmd.CreateParameter(); p11.ParameterName = "@RamVoltagem"; p11.Value = hardwareInfo.Ram?.Voltagem ?? (object)DBNull.Value; cmd.Parameters.Add(p11);
+                    var p12 = cmd.CreateParameter(); p12.ParameterName = "@RamPorModule"; p12.Value = hardwareInfo.Ram?.PorModulo ?? (object)DBNull.Value; cmd.Parameters.Add(p12);
+                    var p13 = cmd.CreateParameter(); p13.ParameterName = "@Hostname"; p13.Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value; cmd.Parameters.Add(p13);
+                    var p14 = cmd.CreateParameter(); p14.ParameterName = "@Fabricante"; p14.Value = hardwareInfo.Fabricante ?? (object)DBNull.Value; cmd.Parameters.Add(p14);
+                    var p15 = cmd.CreateParameter(); p15.ParameterName = "@SO"; p15.Value = hardwareInfo.SO ?? (object)DBNull.Value; cmd.Parameters.Add(p15);
+                    var p16 = cmd.CreateParameter(); p16.ParameterName = "@ArmazenamentoC"; p16.Value = hardwareInfo.Armazenamento?.DriveC?.Letra ?? (object)DBNull.Value; cmd.Parameters.Add(p16);
+                    var p17 = cmd.CreateParameter(); p17.ParameterName = "@ArmazenamentoCTotal"; p17.Value = hardwareInfo.Armazenamento?.DriveC?.TotalGB ?? (object)DBNull.Value; cmd.Parameters.Add(p17);
+                    var p18 = cmd.CreateParameter(); p18.ParameterName = "@ArmazenamentoCLivre"; p18.Value = hardwareInfo.Armazenamento?.DriveC?.LivreGB ?? (object)DBNull.Value; cmd.Parameters.Add(p18);
+                    var p19 = cmd.CreateParameter(); p19.ParameterName = "@ArmazenamentoD"; p19.Value = hardwareInfo.Armazenamento?.DriveD?.Letra ?? (object)DBNull.Value; cmd.Parameters.Add(p19);
+                    var p20 = cmd.CreateParameter(); p20.ParameterName = "@ArmazenamentoDTotal"; p20.Value = hardwareInfo.Armazenamento?.DriveD?.TotalGB ?? (object)DBNull.Value; cmd.Parameters.Add(p20);
+                    var p21 = cmd.CreateParameter(); p21.ParameterName = "@ArmazenamentoDLivre"; p21.Value = hardwareInfo.Armazenamento?.DriveD?.LivreGB ?? (object)DBNull.Value; cmd.Parameters.Add(p21);
+                    var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value; cmd.Parameters.Add(p22);
+                    var p23 = cmd.CreateParameter(); p23.ParameterName = "@DataColeta"; p23.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p23);
+                    var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = hardwareInfo.PartNumber ?? (object)DBNull.Value; cmd.Parameters.Add(p24);
+
                     cmd.ExecuteNonQuery();
                 }
             }

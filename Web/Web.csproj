@@ -11,15 +11,21 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.0.4" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
     <PackageReference Include="EPPlus" Version="7.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="schema_sqlite.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -1,63 +1,75 @@
 using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Threading.Tasks;
 using Web.Models;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System;
 
 namespace Web.Services
 {
     public class UserService
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
-        public UserService(IConfiguration configuration)
+        public UserService(IDatabaseService databaseService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
         }
 
         public async Task<User> FindByLoginAsync(string login)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Login = @Login", connection);
-                command.Parameters.AddWithValue("@Login", login);
-
-                using (var reader = await command.ExecuteReaderAsync())
+                // Note: IDbConnection doesn't have OpenAsync, use Open
+                connection.Open();
+                using (var command = connection.CreateCommand())
                 {
-                    if (await reader.ReadAsync())
+                    command.CommandText = "SELECT * FROM Usuarios WHERE Login = @Login";
+                    var p = command.CreateParameter(); p.ParameterName = "@Login"; p.Value = login; command.Parameters.Add(p);
+
+                    using (var reader = command.ExecuteReader())
                     {
-                        return new User
+                        if (reader.Read())
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                            Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                            Login = reader.GetString(reader.GetOrdinal("Login")),
-                            PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
-                            Role = reader.GetString(reader.GetOrdinal("Role")),
-                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
-                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
-                        };
+                            return new User
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                Nome = reader["Nome"].ToString(),
+                                Login = reader["Login"].ToString(),
+                                PasswordHash = reader["PasswordHash"].ToString(),
+                                Role = reader["Role"].ToString(),
+                                IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null
+                            };
+                        }
                     }
                 }
             }
-            return null;
+            return await Task.FromResult<User>(null);
         }
 
         public async Task CreateAsync(User user)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF, @IsCoordinator)", connection);
-                command.Parameters.AddWithValue("@Nome", user.Nome);
-                command.Parameters.AddWithValue("@Login", user.Login);
-                command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
-                command.Parameters.AddWithValue("@Role", user.Role);
-                command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
-                command.Parameters.AddWithValue("@IsCoordinator", user.IsCoordinator);
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF, @IsCoordinator)";
 
-                await command.ExecuteNonQueryAsync();
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@Nome"; p1.Value = user.Nome; command.Parameters.Add(p1);
+                    var p2 = command.CreateParameter(); p2.ParameterName = "@Login"; p2.Value = user.Login; command.Parameters.Add(p2);
+                    var p3 = command.CreateParameter(); p3.ParameterName = "@PasswordHash"; p3.Value = user.PasswordHash; command.Parameters.Add(p3);
+                    var p4 = command.CreateParameter(); p4.ParameterName = "@Role"; p4.Value = user.Role; command.Parameters.Add(p4);
+                    var p5 = command.CreateParameter(); p5.ParameterName = "@ColaboradorCPF"; p5.Value = (object)user.ColaboradorCPF ?? DBNull.Value; command.Parameters.Add(p5);
+                    var p6 = command.CreateParameter(); p6.ParameterName = "@IsCoordinator"; p6.Value = user.IsCoordinator ? 1 : 0; command.Parameters.Add(p6);
+
+                    command.ExecuteNonQuery();
+                }
             }
+            await Task.CompletedTask;
         }
 
         public async Task<UserIndexViewModel> GetAllUsersWithColaboradoresAsync(string sortOrder, string searchString, List<string> currentRoles, int pageNumber, int pageSize)
@@ -72,9 +84,9 @@ namespace Web.Services
                 CurrentRoles = currentRoles ?? new List<string>()
             };
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
+                connection.Open();
 
                 viewModel.Roles = await GetDistinctUserValuesAsync(connection, "Role");
 
@@ -103,13 +115,15 @@ namespace Web.Services
                 string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
                 string countSql = $"SELECT COUNT(u.Id) {baseSql} {whereSql}";
 
-                using (var countCommand = new SqlCommand(countSql, connection))
+                using (var countCommand = connection.CreateCommand())
                 {
+                    countCommand.CommandText = countSql;
                     foreach (var p in parameters)
                     {
-                        countCommand.Parameters.AddWithValue(p.Key, p.Value);
+                        var param = countCommand.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; countCommand.Parameters.Add(param);
                     }
-                    viewModel.TotalCount = (int)await countCommand.ExecuteScalarAsync();
+                    var result = countCommand.ExecuteScalar();
+                    viewModel.TotalCount = result != DBNull.Value ? Convert.ToInt32(result) : 0;
                 }
 
                 string orderBySql;
@@ -135,33 +149,34 @@ namespace Web.Services
                         break;
                 }
 
-                string sql = $"SELECT u.*, c.Nome as ColaboradorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-                using (var command = new SqlCommand(sql, connection))
+                string sql = $"SELECT u.*, c.Nome as ColaboradorNome {baseSql} {whereSql} {orderBySql} LIMIT @pageSize OFFSET @offset";
+                using (var command = connection.CreateCommand())
                 {
+                    command.CommandText = sql;
                     foreach (var p in parameters)
                     {
-                        command.Parameters.AddWithValue(p.Key, p.Value);
+                        var param = command.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; command.Parameters.Add(param);
                     }
-                    command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
-                    command.Parameters.AddWithValue("@pageSize", pageSize);
+                    var pOffset = command.CreateParameter(); pOffset.ParameterName = "@offset"; pOffset.Value = (pageNumber - 1) * pageSize; command.Parameters.Add(pOffset);
+                    var pPageSize = command.CreateParameter(); pPageSize.ParameterName = "@pageSize"; pPageSize.Value = pageSize; command.Parameters.Add(pPageSize);
 
-                    using (var reader = await command.ExecuteReaderAsync())
+                    using (var reader = command.ExecuteReader())
                     {
-                        while (await reader.ReadAsync())
+                        while (reader.Read())
                         {
                             var user = new User
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                                Login = reader.GetString(reader.GetOrdinal("Login")),
-                                Role = reader.GetString(reader.GetOrdinal("Role")),
-                                IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
-                                ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF")),
+                                Id = Convert.ToInt32(reader["Id"]),
+                                Nome = reader["Nome"].ToString(),
+                                Login = reader["Login"].ToString(),
+                                Role = reader["Role"].ToString(),
+                                IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
                                 Colaborador = new Colaborador()
                             };
-                            if (!reader.IsDBNull(reader.GetOrdinal("ColaboradorNome")))
+                            if (reader["ColaboradorNome"] != DBNull.Value)
                             {
-                                user.Colaborador.Nome = reader.GetString(reader.GetOrdinal("ColaboradorNome"));
+                                user.Colaborador.Nome = reader["ColaboradorNome"].ToString();
                             }
                             viewModel.Users.Add(user);
                         }
@@ -171,55 +186,59 @@ namespace Web.Services
             return viewModel;
         }
 
-        private async Task<List<string>> GetDistinctUserValuesAsync(SqlConnection connection, string columnName)
+        private async Task<List<string>> GetDistinctUserValuesAsync(IDbConnection connection, string columnName)
         {
             var values = new List<string>();
-            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Usuarios WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            using (var command = connection.CreateCommand())
             {
-                using (var reader = await command.ExecuteReaderAsync())
+                command.CommandText = $"SELECT DISTINCT {columnName} FROM Usuarios WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+                using (var reader = command.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        values.Add(reader.GetString(0));
+                        values.Add(reader[0].ToString());
                     }
                 }
             }
-            return values;
+            return await Task.FromResult(values);
         }
 
         public async Task<User> FindByIdAsync(int id)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Usuarios WHERE Id = @Id", connection);
-                command.Parameters.AddWithValue("@Id", id);
-
-                using (var reader = await command.ExecuteReaderAsync())
+                connection.Open();
+                using (var command = connection.CreateCommand())
                 {
-                    if (await reader.ReadAsync())
+                    command.CommandText = "SELECT * FROM Usuarios WHERE Id = @Id";
+                    var p = command.CreateParameter(); p.ParameterName = "@Id"; p.Value = id; command.Parameters.Add(p);
+
+                    using (var reader = command.ExecuteReader())
                     {
-                        return new User
+                        if (reader.Read())
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                            Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                            Login = reader.GetString(reader.GetOrdinal("Login")),
-                            PasswordHash = reader.GetString(reader.GetOrdinal("PasswordHash")),
-                            Role = reader.GetString(reader.GetOrdinal("Role")),
-                            IsCoordinator = reader.GetBoolean(reader.GetOrdinal("IsCoordinator")),
-                            ColaboradorCPF = reader.IsDBNull(reader.GetOrdinal("ColaboradorCPF")) ? null : reader.GetString(reader.GetOrdinal("ColaboradorCPF"))
-                        };
+                            return new User
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                Nome = reader["Nome"].ToString(),
+                                Login = reader["Login"].ToString(),
+                                PasswordHash = reader["PasswordHash"].ToString(),
+                                Role = reader["Role"].ToString(),
+                                IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null
+                            };
+                        }
                     }
                 }
             }
-            return null;
+            return await Task.FromResult<User>(null);
         }
 
         public async Task UpdateAsync(User user)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
+                connection.Open();
                 var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, ColaboradorCPF = @ColaboradorCPF, IsCoordinator = @IsCoordinator");
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
@@ -227,57 +246,69 @@ namespace Web.Services
                 }
                 query.Append(" WHERE Id = @Id");
 
-                var command = new SqlCommand(query.ToString(), connection);
-
-                command.Parameters.AddWithValue("@Nome", user.Nome);
-                command.Parameters.AddWithValue("@Login", user.Login);
-                command.Parameters.AddWithValue("@Role", user.Role);
-                command.Parameters.AddWithValue("@ColaboradorCPF", (object)user.ColaboradorCPF ?? System.DBNull.Value);
-                command.Parameters.AddWithValue("@IsCoordinator", user.IsCoordinator);
-                command.Parameters.AddWithValue("@Id", user.Id);
-                if (!string.IsNullOrEmpty(user.PasswordHash))
+                using (var command = connection.CreateCommand())
                 {
-                    command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
-                }
+                    command.CommandText = query.ToString();
 
-                await command.ExecuteNonQueryAsync();
+                    var p1 = command.CreateParameter(); p1.ParameterName = "@Nome"; p1.Value = user.Nome; command.Parameters.Add(p1);
+                    var p2 = command.CreateParameter(); p2.ParameterName = "@Login"; p2.Value = user.Login; command.Parameters.Add(p2);
+                    var p3 = command.CreateParameter(); p3.ParameterName = "@Role"; p3.Value = user.Role; command.Parameters.Add(p3);
+                    var p4 = command.CreateParameter(); p4.ParameterName = "@ColaboradorCPF"; p4.Value = (object)user.ColaboradorCPF ?? DBNull.Value; command.Parameters.Add(p4);
+                    var p5 = command.CreateParameter(); p5.ParameterName = "@IsCoordinator"; p5.Value = user.IsCoordinator ? 1 : 0; command.Parameters.Add(p5);
+                    var p6 = command.CreateParameter(); p6.ParameterName = "@Id"; p6.Value = user.Id; command.Parameters.Add(p6);
+
+                    if (!string.IsNullOrEmpty(user.PasswordHash))
+                    {
+                        var p7 = command.CreateParameter(); p7.ParameterName = "@PasswordHash"; p7.Value = user.PasswordHash; command.Parameters.Add(p7);
+                    }
+
+                    command.ExecuteNonQuery();
+                }
             }
+            await Task.CompletedTask;
         }
 
         public async Task DeleteAsync(int id)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("DELETE FROM Usuarios WHERE Id = @Id", connection);
-                command.Parameters.AddWithValue("@Id", id);
-                await command.ExecuteNonQueryAsync();
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "DELETE FROM Usuarios WHERE Id = @Id";
+                    var p = command.CreateParameter(); p.ParameterName = "@Id"; p.Value = id; command.Parameters.Add(p);
+                    command.ExecuteNonQuery();
+                }
             }
+            await Task.CompletedTask;
         }
 
         public async Task<IEnumerable<Colaborador>> GetAllColaboradoresAsync()
         {
             var colaboradores = new List<Colaborador>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
-                var command = new SqlCommand("SELECT * FROM Colaboradores", connection);
-                using (var reader = await command.ExecuteReaderAsync())
+                connection.Open();
+                using (var command = connection.CreateCommand())
                 {
-                    while (await reader.ReadAsync())
+                    command.CommandText = "SELECT * FROM Colaboradores";
+                    using (var reader = command.ExecuteReader())
                     {
-                        var colaborador = new Colaborador
+                        while (reader.Read())
                         {
-                            CPF = reader.GetString(reader.GetOrdinal("CPF")),
-                            Nome = reader.GetString(reader.GetOrdinal("Nome")),
-                            Email = reader.IsDBNull(reader.GetOrdinal("Email")) ? null : reader.GetString(reader.GetOrdinal("Email")),
-                            SenhaEmail = reader.IsDBNull(reader.GetOrdinal("SenhaEmail")) ? null : reader.GetString(reader.GetOrdinal("SenhaEmail"))
-                        };
-                        colaboradores.Add(colaborador);
+                            var colaborador = new Colaborador
+                            {
+                                CPF = reader["CPF"].ToString(),
+                                Nome = reader["Nome"].ToString(),
+                                Email = reader["Email"] != DBNull.Value ? reader["Email"].ToString() : null,
+                                SenhaEmail = reader["SenhaEmail"] != DBNull.Value ? reader["SenhaEmail"].ToString() : null
+                            };
+                            colaboradores.Add(colaborador);
+                        }
                     }
                 }
             }
-            return colaboradores;
+            return await Task.FromResult(colaboradores);
         }
     }
 }

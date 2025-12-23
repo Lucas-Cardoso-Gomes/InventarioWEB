@@ -1,64 +1,65 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Web.Models;
+using System.Data;
 
 namespace Web.Services
 {
     public class PersistentLogService
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
-        public PersistentLogService(IConfiguration configuration)
+        public PersistentLogService(IDatabaseService databaseService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
         }
 
         public Tuple<List<PersistentLog>, int> GetLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber, int pageSize)
         {
             var logs = new List<PersistentLog>();
             int totalRecords = 0;
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string whereClause = "WHERE 1=1";
+                var parameters = new List<Action<IDbCommand>>();
+
                 if (!string.IsNullOrEmpty(entityTypeFilter))
                 {
                     whereClause += " AND EntityType = @EntityType";
+                    parameters.Add(cmd => {
+                        var p = cmd.CreateParameter(); p.ParameterName = "@EntityType"; p.Value = entityTypeFilter; cmd.Parameters.Add(p);
+                    });
                 }
                 if (!string.IsNullOrEmpty(actionTypeFilter))
                 {
                     whereClause += " AND ActionType = @ActionType";
+                    parameters.Add(cmd => {
+                        var p = cmd.CreateParameter(); p.ParameterName = "@ActionType"; p.Value = actionTypeFilter; cmd.Parameters.Add(p);
+                    });
                 }
 
                 string countSql = $"SELECT COUNT(*) FROM PersistentLogs {whereClause}";
-                using (SqlCommand countCmd = new SqlCommand(countSql, connection))
+                using (var countCmd = connection.CreateCommand())
                 {
-                    if (!string.IsNullOrEmpty(entityTypeFilter))
-                    {
-                        countCmd.Parameters.AddWithValue("@EntityType", entityTypeFilter);
-                    }
-                    if (!string.IsNullOrEmpty(actionTypeFilter))
-                    {
-                        countCmd.Parameters.AddWithValue("@ActionType", actionTypeFilter);
-                    }
-                    totalRecords = (int)countCmd.ExecuteScalar();
+                    countCmd.CommandText = countSql;
+                    foreach (var paramAction in parameters) paramAction(countCmd);
+                    var result = countCmd.ExecuteScalar();
+                    totalRecords = result != DBNull.Value ? Convert.ToInt32(result) : 0;
                 }
 
-                string sql = $"SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM PersistentLogs {whereClause} ORDER BY Timestamp DESC OFFSET {(pageNumber - 1) * pageSize} ROWS FETCH NEXT {pageSize} ROWS ONLY";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                string sql = $"SELECT Id, Timestamp, EntityType, ActionType, PerformedBy, Details FROM PersistentLogs {whereClause} ORDER BY Timestamp DESC LIMIT @PageSize OFFSET @Offset";
+                using (var cmd = connection.CreateCommand())
                 {
-                    if (!string.IsNullOrEmpty(entityTypeFilter))
-                    {
-                        cmd.Parameters.AddWithValue("@EntityType", entityTypeFilter);
-                    }
-                    if (!string.IsNullOrEmpty(actionTypeFilter))
-                    {
-                        cmd.Parameters.AddWithValue("@ActionType", actionTypeFilter);
-                    }
+                    cmd.CommandText = sql;
+                    foreach (var paramAction in parameters) paramAction(cmd);
 
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    var pSize = cmd.CreateParameter(); pSize.ParameterName = "@PageSize"; pSize.Value = pageSize; cmd.Parameters.Add(pSize);
+                    var pOffset = cmd.CreateParameter(); pOffset.ParameterName = "@Offset"; pOffset.Value = (pageNumber - 1) * pageSize; cmd.Parameters.Add(pOffset);
+
+                    using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {

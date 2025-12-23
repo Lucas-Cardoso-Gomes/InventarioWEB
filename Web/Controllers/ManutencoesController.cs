@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Web.Models;
 using Web.Services;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using System.Data;
+using Microsoft.Data.Sqlite;
 
 namespace Web.Controllers
 {
@@ -14,12 +15,12 @@ namespace Web.Controllers
     public class ManutencoesController : Controller
     {
         private readonly ManutencaoService _manutencaoService;
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
-        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, IDatabaseService databaseService)
         {
             _manutencaoService = manutencaoService;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
         }
 
         public IActionResult Index(string partNumber, string colaborador, string hostname)
@@ -65,12 +66,13 @@ namespace Web.Controllers
         private List<Computador> GetComputadores()
         {
             var computadores = new List<Computador>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT MAC, Hostname FROM Computadores ORDER BY Hostname";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
+                    command.CommandText = sql;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -90,12 +92,13 @@ namespace Web.Controllers
         private List<Web.Models.Monitor> GetMonitores()
         {
             var monitores = new List<Web.Models.Monitor>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT PartNumber, Modelo FROM Monitores ORDER BY Modelo";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
+                    command.CommandText = sql;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -115,12 +118,13 @@ namespace Web.Controllers
         private List<Periferico> GetPerifericos()
         {
             var perifericos = new List<Periferico>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT PartNumber, Tipo FROM Perifericos ORDER BY Tipo";
-                using (var command = new SqlCommand(sql, connection))
+                using (var command = connection.CreateCommand())
                 {
+                    command.CommandText = sql;
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
