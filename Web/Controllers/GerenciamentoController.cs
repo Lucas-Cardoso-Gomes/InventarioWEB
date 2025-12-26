@@ -49,7 +49,7 @@ namespace Web.Controllers
 
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
                     
@@ -148,7 +148,7 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
                     string sql = "DELETE FROM Logs"; // TRUNCATE is not standard SQL, SQLite uses DELETE FROM
@@ -214,7 +214,7 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
                     string sql = "DELETE FROM PersistentLogs";

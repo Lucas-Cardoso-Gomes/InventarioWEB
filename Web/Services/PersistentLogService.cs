@@ -20,7 +20,7 @@ namespace Web.Services
         {
             var logs = new List<PersistentLog>();
             int totalRecords = 0;
-            using (var connection = _databaseService.CreateConnection())
+            using (var connection = _databaseService.CreateLogsConnection())
             {
                 connection.Open();
                 string whereClause = "WHERE 1=1";

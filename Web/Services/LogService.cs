@@ -22,7 +22,7 @@ namespace Web.Services
         {
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
 

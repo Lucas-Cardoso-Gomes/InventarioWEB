@@ -29,6 +29,7 @@ namespace Web.Services
                 {
                     await sourceConnection.OpenAsync();
 
+                    // Migrate Main Database
                     using (var destConnection = _destinationDb.CreateConnection())
                     {
                         destConnection.Open();
@@ -77,19 +78,13 @@ namespace Web.Services
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Manutencoes",
                                     "Id, ComputadorMAC, MonitorPartNumber, PerifericoPartNumber, DataManutencaoHardware, DataManutencaoSoftware, ManutencaoExterna, Data, Historico", identityInsert: true);
 
-                                await MigrateTableAsync(sourceConnection, destConnection, transaction, "PersistentLogs",
-                                    "Id, Timestamp, EntityType, ActionType, PerformedBy, Details", identityInsert: true);
-
-                                await MigrateTableAsync(sourceConnection, destConnection, transaction, "Logs",
-                                    "Id, Timestamp, Level, Message, Source", identityInsert: true);
-
                                 transaction.Commit();
-                                _logger.LogInformation("Migration completed successfully.");
+                                _logger.LogInformation("Main Database Migration completed successfully.");
                             }
                             catch (Exception ex)
                             {
                                 transaction.Rollback();
-                                _logger.LogError(ex, "Error during migration transaction. Rolling back.");
+                                _logger.LogError(ex, "Error during migration transaction (Main DB). Rolling back.");
                                 throw;
                             }
                         }
@@ -99,6 +94,32 @@ namespace Web.Services
                         {
                             cmd.CommandText = "PRAGMA foreign_keys = ON;";
                             cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    // Migrate Logs Database
+                    using (var logsConnection = _destinationDb.CreateLogsConnection())
+                    {
+                        logsConnection.Open();
+                        using (var transaction = logsConnection.BeginTransaction())
+                        {
+                            try
+                            {
+                                await MigrateTableAsync(sourceConnection, logsConnection, transaction, "PersistentLogs",
+                                    "Id, Timestamp, EntityType, ActionType, PerformedBy, Details", identityInsert: true);
+
+                                await MigrateTableAsync(sourceConnection, logsConnection, transaction, "Logs",
+                                    "Id, Timestamp, Level, Message, Source", identityInsert: true);
+
+                                transaction.Commit();
+                                _logger.LogInformation("Logs Database Migration completed successfully.");
+                            }
+                            catch (Exception ex)
+                            {
+                                transaction.Rollback();
+                                _logger.LogError(ex, "Error during migration transaction (Logs DB). Rolling back.");
+                                throw;
+                            }
                         }
                     }
                 }

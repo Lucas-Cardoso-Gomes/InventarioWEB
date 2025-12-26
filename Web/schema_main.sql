@@ -99,23 +99,6 @@ CREATE TABLE IF NOT EXISTS Manutencoes (
     FOREIGN KEY (PerifericoPartNumber) REFERENCES Perifericos(PartNumber)
 );
 
-CREATE TABLE IF NOT EXISTS PersistentLogs (
-    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    Timestamp TEXT NOT NULL,
-    EntityType TEXT NOT NULL,
-    ActionType TEXT NOT NULL,
-    PerformedBy TEXT NOT NULL,
-    Details TEXT
-);
-
-CREATE TABLE IF NOT EXISTS Logs (
-    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    Timestamp TEXT NOT NULL,
-    Level TEXT NOT NULL,
-    Message TEXT NOT NULL,
-    Source TEXT
-);
-
 CREATE TABLE IF NOT EXISTS Chamados (
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     AdminCPF TEXT,
