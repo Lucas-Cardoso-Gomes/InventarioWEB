@@ -10,3 +10,5 @@ Web/secrets.txt
 Web/appsettings.Production.json
 Web/secrets.json
 /jules-scratch
+Web/ColetadosLogs.db
+Web/Coletados.db
