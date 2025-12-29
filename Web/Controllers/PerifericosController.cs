@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -9,19 +9,23 @@ using Microsoft.Extensions.Logging;
 using Web.Models;
 using Web.Services;
 using System.Security.Claims;
+using System.Data;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class PerifericosController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<PerifericosController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public PerifericosController(IConfiguration configuration, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
+        public PerifericosController(IDatabaseService databaseService, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Perifericos
@@ -31,7 +35,7 @@ namespace Web.Controllers
             var perifericos = new List<Periferico>();
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
 
@@ -62,13 +66,17 @@ namespace Web.Controllers
                         sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
                     }
 
-                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sqlBuilder.ToString();
                         foreach(var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                            var param = cmd.CreateParameter();
+                            param.ParameterName = p.Key;
+                            param.Value = p.Value;
+                            cmd.Parameters.Add(param);
                         }
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
@@ -104,25 +112,27 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Periferico periferico)
+        public async Task<IActionResult> Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
-                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Create", User.Identity.Name, null, periferico);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -149,7 +159,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Periferico periferico)
+        public async Task<IActionResult> Edit(string id, Periferico periferico)
         {
             if (id != periferico.PartNumber) return NotFound();
 
@@ -157,19 +167,22 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    var oldPeriferico = FindPerifericoById(id);
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@PartNumber", periferico.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)periferico.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tipo", periferico.Tipo);
-                            cmd.Parameters.AddWithValue("@DataEntrega", (object)periferico.DataEntrega ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Update", User.Identity.Name, oldPeriferico, periferico);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -195,23 +208,25 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
                 var periferico = FindPerifericoById(id);
                 if (periferico != null)
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "DELETE FROM Perifericos WHERE PartNumber = @PartNumber";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@PartNumber", id);
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Delete", User.Identity.Name, periferico, null);
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -226,14 +241,15 @@ namespace Web.Controllers
         private Periferico FindPerifericoById(string id)
         {
             Periferico periferico = null;
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("@PartNumber", id);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    cmd.CommandText = sql;
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
+                    using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
                         {
@@ -255,13 +271,14 @@ namespace Web.Controllers
         private List<Colaborador> GetColaboradores()
         {
             var colaboradores = new List<Colaborador>();
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                using (var cmd = connection.CreateCommand())
                 {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    cmd.CommandText = sql;
+                    using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {

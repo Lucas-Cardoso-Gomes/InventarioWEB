@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using System.Data;
+using Microsoft.Data.Sqlite;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,29 +16,32 @@ using System.IO;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using System.Linq;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
     public class ChamadosController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<ChamadosController> _logger;
         private readonly IEmailService _emailService;
         private readonly IHubContext<NotificationHub> _notificationHubContext;
         private readonly IHubContext<ChatHub> _chatHubContext;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ChamadosController(IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> notificationHubContext, IHubContext<ChatHub> chatHubContext, IWebHostEnvironment hostingEnvironment)
+        public ChamadosController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> notificationHubContext, IHubContext<ChatHub> chatHubContext, IWebHostEnvironment hostingEnvironment, PersistentLogService persistentLogService)
         {
+            _databaseService = databaseService;
             _configuration = configuration;
-            _connectionString = _configuration.GetConnectionString("DefaultConnection");
             _logger = logger;
             _emailService = emailService;
             _notificationHubContext = notificationHubContext;
             _chatHubContext = chatHubContext;
             _hostingEnvironment = hostingEnvironment;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(List<string> statuses, List<string> selectedAdmins, List<string> selectedColaboradores, List<string> selectedServicos, string searchText, DateTime? startDate, DateTime? endDate)
@@ -63,7 +67,7 @@ namespace Web.Controllers
 
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     var sqlBuilder = new System.Text.StringBuilder(@"SELECT c.*,
@@ -145,13 +149,13 @@ namespace Web.Controllers
                     if (startDate.HasValue)
                     {
                         whereClauses.Add("c.DataCriacao >= @StartDate");
-                        parameters.Add("@StartDate", startDate.Value.Date);
+                        parameters.Add("@StartDate", startDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
                     }
 
                     if (endDate.HasValue)
                     {
                         whereClauses.Add("c.DataCriacao < @EndDate");
-                        parameters.Add("@EndDate", endDate.Value.Date.AddDays(1));
+                        parameters.Add("@EndDate", endDate.Value.Date.AddDays(1).ToString("yyyy-MM-dd HH:mm:ss"));
                     }
 
                     if (whereClauses.Any())
@@ -159,14 +163,18 @@ namespace Web.Controllers
                         sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
                     }
 
-                    using (SqlCommand cmd = new SqlCommand(sqlBuilder.ToString(), connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sqlBuilder.ToString();
                         foreach(var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                            var param = cmd.CreateParameter();
+                            param.ParameterName = p.Key;
+                            param.Value = p.Value;
+                            cmd.Parameters.Add(param);
                         }
 
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
@@ -208,34 +216,34 @@ namespace Web.Controllers
             if (startDate.HasValue)
             {
                 whereClauses.Add("c.DataCriacao >= @StartDate");
-                parameters.Add("@StartDate", startDate.Value);
+                parameters.Add("@StartDate", startDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
             }
             if (endDate.HasValue)
             {
                 whereClauses.Add("c.DataCriacao <= @EndDate");
-                parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1));
+                parameters.Add("@EndDate", endDate.Value.AddDays(1).AddTicks(-1).ToString("yyyy-MM-dd HH:mm:ss"));
             }
             if (year.HasValue)
             {
-                whereClauses.Add("YEAR(c.DataCriacao) = @Year");
-                parameters.Add("@Year", year.Value);
+                whereClauses.Add("strftime('%Y', c.DataCriacao) = @Year");
+                parameters.Add("@Year", year.Value.ToString());
             }
             if (month.HasValue)
             {
-                whereClauses.Add("MONTH(c.DataCriacao) = @Month");
-                parameters.Add("@Month", month.Value);
+                whereClauses.Add("strftime('%m', c.DataCriacao) = @Month");
+                parameters.Add("@Month", month.Value.ToString("D2"));
             }
             if (day.HasValue)
             {
-                whereClauses.Add("DAY(c.DataCriacao) = @Day");
-                parameters.Add("@Day", day.Value);
+                whereClauses.Add("strftime('%d', c.DataCriacao) = @Day");
+                parameters.Add("@Day", day.Value.ToString("D2"));
             }
 
             string whereSql = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
 
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
-                await connection.OpenAsync();
+                connection.Open();
 
                 // Cards
                 viewModel.TotalChamados = await GetTotalChamadosAsync(connection, whereSql, parameters);
@@ -263,105 +271,141 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        private async Task<int> GetTotalChamadosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<int> GetTotalChamadosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var sql = $"SELECT COUNT(*) FROM Chamados c " + whereSql;
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                return (int)await cmd.ExecuteScalarAsync();
+                var result = cmd.ExecuteScalar();
+                return result != DBNull.Value ? Convert.ToInt32(result) : 0;
             }
         }
 
-        private async Task<int> GetCountByStatusAsync(SqlConnection connection, string status, string whereSql, Dictionary<string, object> parameters)
+        private async Task<int> GetCountByStatusAsync(IDbConnection connection, string status, string whereSql, Dictionary<string, object> parameters)
         {
             var sql = $"SELECT COUNT(*) FROM Chamados c WHERE c.Status = @Status " + whereSql.Replace("WHERE", "AND");
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
-                cmd.Parameters.AddWithValue("@Status", status);
+                cmd.CommandText = sql;
+                var paramStatus = cmd.CreateParameter();
+                paramStatus.ParameterName = "@Status";
+                paramStatus.Value = status;
+                cmd.Parameters.Add(paramStatus);
+
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                return (int)await cmd.ExecuteScalarAsync();
+                var result = cmd.ExecuteScalar();
+                return result != DBNull.Value ? Convert.ToInt32(result) : 0;
             }
         }
 
-        private async Task<List<ChartData>> GetTop10ServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetTop10ServicosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            var sql = $"SELECT TOP 10 c.Servico, COUNT(*) as Count FROM Chamados c {whereSql} GROUP BY c.Servico ORDER BY Count DESC";
-            using (var cmd = new SqlCommand(sql, connection))
+            var sql = $"SELECT c.Servico, COUNT(*) as Count FROM Chamados c {whereSql} GROUP BY c.Servico ORDER BY Count DESC LIMIT 10";
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Servico"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetChamadosPorMesAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetChamadosPorMesAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            var sql = $@"SELECT FORMAT(c.DataCriacao, 'MMMM', 'pt-BR') as Mes, COUNT(*) as Count
+            // SQLite specific date formatting
+            var sql = $@"SELECT strftime('%Y-%m', c.DataCriacao) as Mes, COUNT(*) as Count
                            FROM Chamados c
                            {whereSql}
-                           GROUP BY FORMAT(c.DataCriacao, 'MMMM', 'pt-BR'), MONTH(c.DataCriacao)
-                           ORDER BY MONTH(c.DataCriacao)";
-            using (var cmd = new SqlCommand(sql, connection))
+                           GROUP BY strftime('%Y-%m', c.DataCriacao)
+                           ORDER BY Mes";
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Mes"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Mes"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetChamadosPorDiaDaSemanaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetChamadosPorDiaDaSemanaAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            string sql = $@"SELECT FORMAT(c.DataCriacao, 'dddd', 'pt-BR') as DiaDaSemana, COUNT(*) as Count
+            // SQLite strftime '%w' returns 0-6 where 0 is Sunday
+            string sql = $@"SELECT case strftime('%w', c.DataCriacao)
+                                when '0' then 'Domingo'
+                                when '1' then 'Segunda'
+                                when '2' then 'Terça'
+                                when '3' then 'Quarta'
+                                when '4' then 'Quinta'
+                                when '5' then 'Sexta'
+                                when '6' then 'Sábado'
+                           end as DiaDaSemana, COUNT(*) as Count
                            FROM Chamados c
                            {whereSql}
-                           GROUP BY FORMAT(c.DataCriacao, 'dddd', 'pt-BR')
-                           ORDER BY MIN(DATEPART(weekday, c.DataCriacao))";
-            using (var cmd = new SqlCommand(sql, connection))
+                           GROUP BY strftime('%w', c.DataCriacao)
+                           ORDER BY strftime('%w', c.DataCriacao)";
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["DiaDaSemana"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["DiaDaSemana"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetChamadosPorFilialAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetChamadosPorFilialAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
             string sql = $@"SELECT co.Filial, COUNT(c.ID) as Count
@@ -370,89 +414,106 @@ namespace Web.Controllers
                            {whereSql}
                            GROUP BY co.Filial
                            ORDER BY Count DESC";
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Filial"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Filial"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetPrioridadeServicosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetPrioridadeServicosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
             var sql = $"SELECT c.Prioridade, COUNT(*) as Count FROM Chamados c {whereSql} GROUP BY c.Prioridade";
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Prioridade"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Prioridade"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetTop10UsuariosAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetTop10UsuariosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            string sql = $@"SELECT TOP 10 co.Nome, COUNT(c.ID) as Count
+            string sql = $@"SELECT co.Nome, COUNT(c.ID) as Count
                            FROM Chamados c
                            JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
                            {whereSql}
                            GROUP BY co.Nome
-                           ORDER BY Count DESC";
-            using (var cmd = new SqlCommand(sql, connection))
+                           ORDER BY Count DESC
+                           LIMIT 10";
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Nome"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Nome"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
             return data;
         }
 
-        private async Task<List<ChartData>> GetHorarioMedioAberturaAsync(SqlConnection connection, string whereSql, Dictionary<string, object> parameters)
+        private async Task<List<ChartData>> GetHorarioMedioAberturaAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            string sql = $@"SELECT CAST(DATEPART(hour, c.DataCriacao) AS NVARCHAR(2)) + ':00' as Hour, COUNT(*) as Count
+            string sql = $@"SELECT strftime('%H', c.DataCriacao) || ':00' as Hour, COUNT(*) as Count
                            FROM Chamados c
                            {whereSql}
-                           GROUP BY DATEPART(hour, c.DataCriacao)
-                           ORDER BY DATEPART(hour, c.DataCriacao)";
-            using (var cmd = new SqlCommand(sql, connection))
+                           GROUP BY strftime('%H', c.DataCriacao)
+                           ORDER BY strftime('%H', c.DataCriacao)";
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 foreach (var p in parameters)
                 {
-                    cmd.Parameters.AddWithValue(p.Key, p.Value);
+                    var param = cmd.CreateParameter();
+                    param.ParameterName = p.Key;
+                    param.Value = p.Value;
+                    cmd.Parameters.Add(param);
                 }
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (await reader.ReadAsync())
+                    while (reader.Read())
                     {
-                        data.Add(new ChartData { Label = reader["Hour"].ToString(), Value = (int)reader["Count"] });
+                        data.Add(new ChartData { Label = reader["Hour"].ToString(), Value = Convert.ToInt32(reader["Count"]) });
                     }
                 }
             }
@@ -492,26 +553,38 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
+                        // SQLite: use select last_insert_rowid() instead of OUTPUT
                         string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
-                                       OUTPUT INSERTED.ID
-                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                                       VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade);
+                                       SELECT last_insert_rowid();";
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@AdminCPF", adminCpfValue);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
-                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
-                            cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
-                            cmd.Parameters.AddWithValue("@DataCriacao", DateTime.Now);
-                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
-                            cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
-                            chamado.ID = (int)await cmd.ExecuteScalarAsync();
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = adminCpfValue; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = chamado.Servico; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = chamado.Descricao; cmd.Parameters.Add(p4);
+                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataCriacao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p5);
+                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = chamado.Status; cmd.Parameters.Add(p6);
+                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = chamado.Prioridade; cmd.Parameters.Add(p7);
+
+                            var result = cmd.ExecuteScalar();
+                            chamado.ID = Convert.ToInt32(result);
                         }
                     }
 
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Criado", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "CREATE",
+                        "Chamado",
+                        $"Created ticket ID: {chamado.ID}",
+                        $"ID: {chamado.ID}, Service: {chamado.Servico}, Priority: {chamado.Prioridade}, User: {chamado.ColaboradorCPF}"
+                    );
 
                     return RedirectToAction(nameof(Index));
                 }
@@ -534,12 +607,13 @@ namespace Web.Controllers
             var colaboradores = new List<Colaborador>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sql;
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -566,15 +640,16 @@ namespace Web.Controllers
             var admins = new List<Colaborador>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = @"SELECT DISTINCT a.CPF, a.Nome
                                    FROM Colaboradores a
                                    INNER JOIN Chamados c ON a.CPF = c.AdminCPF
                                    ORDER BY a.Nome";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sql;
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -661,7 +736,7 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
 
@@ -675,21 +750,31 @@ namespace Web.Controllers
                                        Prioridade = @Prioridade
                                        WHERE ID = @ID";
 
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@AdminCPF", User.FindFirstValue("ColaboradorCPF"));
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", chamado.ColaboradorCPF);
-                            cmd.Parameters.AddWithValue("@Servico", chamado.Servico);
-                            cmd.Parameters.AddWithValue("@Descricao", chamado.Descricao);
-                            cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                            cmd.Parameters.AddWithValue("@Status", chamado.Status);
-                            cmd.Parameters.AddWithValue("@Prioridade", chamado.Prioridade);
-                            cmd.Parameters.AddWithValue("@ID", id);
-                            await cmd.ExecuteNonQueryAsync();
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = User.FindFirstValue("ColaboradorCPF"); cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = chamado.Servico; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = chamado.Descricao; cmd.Parameters.Add(p4);
+                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataAlteracao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p5);
+                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = chamado.Status; cmd.Parameters.Add(p6);
+                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = chamado.Prioridade; cmd.Parameters.Add(p7);
+                            var p8 = cmd.CreateParameter(); p8.ParameterName = "@ID"; p8.Value = id; cmd.Parameters.Add(p8);
+
+                            cmd.ExecuteNonQuery();
                         }
                     }
 
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Editado", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "EDIT",
+                        "Chamado",
+                        $"Updated ticket ID: {id}",
+                        $"ID: {id}, Service: {chamado.Servico}, Priority: {chamado.Prioridade}, Status: {chamado.Status}"
+                    );
                 }
                 catch (Exception ex)
                 {
@@ -709,7 +794,7 @@ namespace Web.Controllers
             Chamado chamado = null;
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = @"SELECT c.*,
@@ -720,10 +805,11 @@ namespace Web.Controllers
                                    LEFT JOIN Colaboradores a ON c.AdminCPF = a.CPF
                                    INNER JOIN Colaboradores co ON c.ColaboradorCPF = co.CPF
                                    WHERE c.ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ID", id);
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ID"; p1.Value = id; cmd.Parameters.Add(p1);
+                        using (var reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
                             {
@@ -780,13 +866,14 @@ namespace Web.Controllers
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "DELETE FROM Chamados WHERE ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ID"; p1.Value = id; cmd.Parameters.Add(p1);
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -809,17 +896,18 @@ namespace Web.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     var adminCpf = User.FindFirstValue("ColaboradorCPF");
                     connection.Open();
                     string sql = "UPDATE Chamados SET Status = 'Aberto', AdminCPF = @AdminCPF, DataAlteracao = @DataAlteracao WHERE ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
-                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                        cmd.Parameters.AddWithValue("@ID", id);
-                        await cmd.ExecuteNonQueryAsync();
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = (object)adminCpf ?? DBNull.Value; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@DataAlteracao"; p2.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@ID"; p3.Value = id; cmd.Parameters.Add(p3);
+                        cmd.ExecuteNonQuery();
                     }
                 }
 
@@ -827,6 +915,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Reaberto", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "REOPEN",
+                        "Chamado",
+                        $"Reopened ticket ID: {id}",
+                        $"ID: {id}, Status: Aberto"
+                    );
                 }
             }
             catch (Exception ex)
@@ -837,7 +933,7 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-                [HttpPost]
+        [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> WorkingTicket(int id)
@@ -845,17 +941,18 @@ namespace Web.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     var adminCpf = User.FindFirstValue("ColaboradorCPF");
                     connection.Open();
                     string sql = "UPDATE Chamados SET Status = 'Em Andamento', AdminCPF = @AdminCPF, DataAlteracao = @DataAlteracao WHERE ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@AdminCPF", (object)adminCpf ?? DBNull.Value);
-                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                        cmd.Parameters.AddWithValue("@ID", id);
-                        await cmd.ExecuteNonQueryAsync();
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = (object)adminCpf ?? DBNull.Value; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@DataAlteracao"; p2.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@ID"; p3.Value = id; cmd.Parameters.Add(p3);
+                        cmd.ExecuteNonQuery();
                     }
                 }
 
@@ -863,6 +960,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Em Andamento", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "WORK_IN_PROGRESS",
+                        "Chamado",
+                        $"Set ticket ID: {id} to 'Em Andamento'",
+                        $"ID: {id}, Status: Em Andamento"
+                    );
                 }
             }
             catch (Exception ex)
@@ -881,15 +986,16 @@ namespace Web.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "UPDATE Chamados SET Status = 'Fechado', DataAlteracao = @DataAlteracao WHERE ID = @ID";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                        cmd.Parameters.AddWithValue("@ID", id);
-                        await cmd.ExecuteNonQueryAsync();
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@DataAlteracao"; p1.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ID"; p2.Value = id; cmd.Parameters.Add(p2);
+                        cmd.ExecuteNonQuery();
                     }
                 }
 
@@ -897,6 +1003,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Fechado", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "CLOSE",
+                        "Chamado",
+                        $"Closed ticket ID: {id}",
+                        $"ID: {id}, Status: Fechado"
+                    );
                 }
             }
             catch (Exception ex)
@@ -915,12 +1029,13 @@ namespace Web.Controllers
             var servicos = new List<string>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "SELECT DISTINCT Servico FROM Chamados ORDER BY Servico";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sql;
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -944,12 +1059,13 @@ namespace Web.Controllers
     var servicos = new List<string>();
     try
     {
-        using (var connection = new SqlConnection(_connectionString))
+        using (var connection = _databaseService.CreateConnection())
         {
             connection.Open();
             string sql = "SELECT DISTINCT Servico FROM Chamados ORDER BY Servico";
-            using (var cmd = new SqlCommand(sql, connection))
+            using (var cmd = connection.CreateCommand())
             {
+                cmd.CommandText = sql;
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -972,7 +1088,7 @@ namespace Web.Controllers
             var conversas = new List<ChamadoConversa>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = @"SELECT cc.*, c.Nome as UsuarioNome
@@ -980,9 +1096,10 @@ namespace Web.Controllers
                                    JOIN Colaboradores c ON cc.UsuarioCPF = c.CPF
                                    WHERE cc.ChamadoID = @ChamadoID
                                    ORDER BY cc.DataCriacao";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -1013,13 +1130,14 @@ namespace Web.Controllers
             var anexos = new List<ChamadoAnexo>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "SELECT * FROM ChamadoAnexos WHERE ChamadoID = @ChamadoID ORDER BY DataUpload";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -1070,18 +1188,19 @@ namespace Web.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
                     var sql = @"INSERT INTO ChamadoAnexos (ChamadoID, NomeArquivo, CaminhoArquivo, DataUpload)
                                 VALUES (@ChamadoID, @NomeArquivo, @CaminhoArquivo, @DataUpload)";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ChamadoID", ChamadoID);
-                        cmd.Parameters.AddWithValue("@NomeArquivo", file.FileName);
-                        cmd.Parameters.AddWithValue("@CaminhoArquivo", dbPath);
-                        cmd.Parameters.AddWithValue("@DataUpload", DateTime.Now);
-                        await cmd.ExecuteNonQueryAsync();
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = ChamadoID; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@NomeArquivo"; p2.Value = file.FileName; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@CaminhoArquivo"; p3.Value = dbPath; cmd.Parameters.Add(p3);
+                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataUpload"; p4.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p4);
+                        cmd.ExecuteNonQuery();
                     }
                 }
 
@@ -1110,33 +1229,27 @@ namespace Web.Controllers
 
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
                     var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao)
-                                OUTPUT INSERTED.ID, INSERTED.DataCriacao
-                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao)";
-                    using (var cmd = new SqlCommand(sql, connection))
+                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao);
+                                SELECT last_insert_rowid();";
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
-                        cmd.Parameters.AddWithValue("@UsuarioCPF", userCpf);
-                        cmd.Parameters.AddWithValue("@Mensagem", message);
-                        cmd.Parameters.AddWithValue("@DataCriacao", timestamp);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@UsuarioCPF"; p2.Value = userCpf; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Mensagem"; p3.Value = message; cmd.Parameters.Add(p3);
+                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataCriacao"; p4.Value = timestamp.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p4);
 
-                        using (var reader = await cmd.ExecuteReaderAsync())
-                        {
-                            if (await reader.ReadAsync())
-                            {
-                                var newId = reader.GetInt32(0);
-                                var newTimestamp = reader.GetDateTime(1);
+                        var result = cmd.ExecuteScalar();
+                        var newId = Convert.ToInt32(result);
 
-                                await _chatHubContext.Clients.Group(chamadoId.ToString()).SendAsync("ReceiveMessage", userName, message, newTimestamp.ToString("o"));
-                                return Ok(new { id = newId, timestamp = newTimestamp });
-                            }
-                        }
+                        await _chatHubContext.Clients.Group(chamadoId.ToString()).SendAsync("ReceiveMessage", userName, message, timestamp.ToString("o"));
+                        return Ok(new { id = newId, timestamp = timestamp });
                     }
                 }
-                return StatusCode(500, "Falha ao salvar a mensagem.");
             }
             catch (Exception ex)
             {
@@ -1154,16 +1267,17 @@ namespace Web.Controllers
                 string colaboradorEmail = null;
                 try
                 {
-                    using (var connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
-                        await connection.OpenAsync();
+                        connection.Open();
                         string sql = "SELECT Email, Nome FROM Colaboradores WHERE CPF = @CPF";
-                        using (var cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@CPF", chamado.ColaboradorCPF);
-                            using (var reader = await cmd.ExecuteReaderAsync())
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p1);
+                            using (var reader = cmd.ExecuteReader())
                             {
-                                if (await reader.ReadAsync())
+                                if (reader.Read())
                                 {
                                     colaboradorEmail = reader["Email"]?.ToString();
                                     if (string.IsNullOrEmpty(chamado.ColaboradorNome))

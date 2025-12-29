@@ -8,6 +8,9 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection;
+using System.Data;
+using Microsoft.Data.Sqlite;
 
 namespace Web.Controllers
 {
@@ -18,13 +21,15 @@ namespace Web.Controllers
         private readonly ILogger<GerenciamentoController> _logger;
         private readonly IConfiguration _configuration;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IDatabaseService _databaseService;
         
-        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration, PersistentLogService persistentLogService)
+        public GerenciamentoController(IServiceScopeFactory scopeFactory, ILogger<GerenciamentoController> logger, IConfiguration configuration, PersistentLogService persistentLogService, IDatabaseService databaseService)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
             _configuration = configuration;
             _persistentLogService = persistentLogService;
+            _databaseService = databaseService;
         }
 
         // GET: /Gerenciamento/Logs
@@ -44,7 +49,7 @@ namespace Web.Controllers
 
             try
             {
-                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
                     
@@ -74,32 +79,55 @@ namespace Web.Controllers
 
                     // Get total count for pagination
                     string countSql = $"SELECT COUNT(*) FROM Logs {whereSql}";
-                    using (var countCommand = new System.Data.SqlClient.SqlCommand(countSql, connection))
+                    using (var countCommand = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
-                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                        countCommand.CommandText = countSql;
+                        foreach (var p in parameters) {
+                             var param = countCommand.CreateParameter();
+                             param.ParameterName = p.Key;
+                             param.Value = p.Value;
+                             countCommand.Parameters.Add(param);
+                        }
+                        var result = countCommand.ExecuteScalar();
+                        viewModel.TotalCount = result != DBNull.Value ? Convert.ToInt32(result) : 0;
                     }
 
                     // Get paginated logs
-                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC LIMIT @pageSize OFFSET @offset";
+                    using (var command = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) command.Parameters.AddWithValue(p.Key, p.Value);
-                        command.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
-                        command.Parameters.AddWithValue("@pageSize", pageSize);
+                        command.CommandText = sql;
+                        foreach (var p in parameters) {
+                             var param = command.CreateParameter();
+                             param.ParameterName = p.Key;
+                             param.Value = p.Value;
+                             command.Parameters.Add(param);
+                        }
+                        var pOffset = command.CreateParameter(); pOffset.ParameterName = "@offset"; pOffset.Value = (pageNumber - 1) * pageSize; command.Parameters.Add(pOffset);
+                        var pPageSize = command.CreateParameter(); pPageSize.ParameterName = "@pageSize"; pPageSize.Value = pageSize; command.Parameters.Add(pPageSize);
 
                         using (var reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                viewModel.Logs.Add(new Log
+                                var log = new Log();
+                                log.Id = Convert.ToInt32(reader["Id"]);
+
+                                var timestampObj = reader["Timestamp"];
+                                if (timestampObj != DBNull.Value && DateTime.TryParse(timestampObj.ToString(), out DateTime dt))
                                 {
-                                    Id = reader.GetInt32(0),
-                                    Timestamp = reader.GetDateTime(1),
-                                    Level = reader.GetString(2),
-                                    Message = reader.GetString(3),
-                                    Source = reader.IsDBNull(4) ? null : reader.GetString(4)
-                                });
+                                    log.Timestamp = dt;
+                                }
+                                else
+                                {
+                                    log.Timestamp = DateTime.MinValue;
+                                }
+
+                                log.Level = reader["Level"] != DBNull.Value ? reader["Level"].ToString() : string.Empty;
+                                log.Message = reader["Message"] != DBNull.Value ? reader["Message"].ToString() : string.Empty;
+                                log.Source = reader["Source"] != DBNull.Value ? reader["Source"].ToString() : null;
+
+                                viewModel.Logs.Add(log);
                             }
                         }
                     }
@@ -120,12 +148,13 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
-                    string sql = "TRUNCATE TABLE Logs";
-                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    string sql = "DELETE FROM Logs"; // TRUNCATE is not standard SQL, SQLite uses DELETE FROM
+                    using (var command = connection.CreateCommand())
                     {
+                        command.CommandText = sql;
                         command.ExecuteNonQuery();
                     }
                 }
@@ -140,12 +169,13 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Logs));
         }
 
-        private List<string> GetDistinctLogValues(System.Data.SqlClient.SqlConnection connection, string columnName)
+        private List<string> GetDistinctLogValues(IDbConnection connection, string columnName)
         {
             var values = new List<string>();
             string sql = $"SELECT DISTINCT {columnName} FROM Logs WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
-            using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = sql;
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -184,12 +214,13 @@ namespace Web.Controllers
         {
             try
             {
-                using (var connection = new System.Data.SqlClient.SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
-                    string sql = "TRUNCATE TABLE PersistentLogs";
-                    using (var command = new System.Data.SqlClient.SqlCommand(sql, connection))
+                    string sql = "DELETE FROM PersistentLogs";
+                    using (var command = connection.CreateCommand())
                     {
+                        command.CommandText = sql;
                         command.ExecuteNonQuery();
                     }
                 }

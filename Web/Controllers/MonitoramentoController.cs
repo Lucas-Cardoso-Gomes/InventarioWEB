@@ -3,25 +3,26 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Linq;
 using Web.Services;
 using Microsoft.Extensions.Hosting;
+using System.Data;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin")]
     public class MonitoramentoController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<MonitoramentoController> _logger;
         private readonly PingService _pingService;
 
-        public MonitoramentoController(IConfiguration configuration, ILogger<MonitoramentoController> logger, IEnumerable<IHostedService> hostedServices)
+        public MonitoramentoController(IDatabaseService databaseService, ILogger<MonitoramentoController> logger, IEnumerable<IHostedService> hostedServices)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
             _pingService = hostedServices.OfType<PingService>().FirstOrDefault();
         }
@@ -32,17 +33,20 @@ namespace Web.Controllers
             var tiposDeDispositivo = new List<string>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
 
                     // Get all device types for the filter
-                    var tipoCommand = new SqlCommand("SELECT DISTINCT Tipo FROM Rede ORDER BY Tipo", connection);
-                    using (var reader = tipoCommand.ExecuteReader())
+                    using (var tipoCommand = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        tipoCommand.CommandText = "SELECT DISTINCT Tipo FROM Rede ORDER BY Tipo";
+                        using (var reader = tipoCommand.ExecuteReader())
                         {
-                            tiposDeDispositivo.Add(reader["Tipo"].ToString());
+                            while (reader.Read())
+                            {
+                                tiposDeDispositivo.Add(reader["Tipo"].ToString());
+                            }
                         }
                     }
 
@@ -52,33 +56,49 @@ namespace Web.Controllers
                     {
                         query += " WHERE Tipo = @Tipo";
                     }
-                    var command = new SqlCommand(query, connection);
-                    if (!string.IsNullOrEmpty(tipo))
+                    using (var command = connection.CreateCommand())
                     {
-                        command.Parameters.AddWithValue("@Tipo", tipo);
-                    }
-
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
+                        command.CommandText = query;
+                        if (!string.IsNullOrEmpty(tipo))
                         {
-                            redes.Add(new Rede
+                            var p = command.CreateParameter(); p.ParameterName = "@Tipo"; p.Value = tipo; command.Parameters.Add(p);
+                        }
+
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
                             {
-                                Id = (int)reader["Id"],
-                                Tipo = reader["Tipo"].ToString(),
-                                IP = reader["IP"].ToString(),
-                                MAC = reader["MAC"].ToString(),
-                                Nome = reader["Nome"].ToString(),
-                                DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
-                            });
+                                redes.Add(new Rede
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    Tipo = reader["Tipo"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    MAC = reader["MAC"].ToString(),
+                                    Nome = reader["Nome"].ToString(),
+                                    DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    Observacao = reader["Observacao"].ToString()
+                                });
+                            }
                         }
                     }
                 }
 
                 // Sort the list in-memory using System.Version for correct IP sorting
-                redes = redes.OrderBy(r => Version.Parse(r.IP)).ToList();
+                // Note: IP parsing might fail if IPs are not strictly valid versions (e.g. empty or weird format)
+                // Using a safer parse or TryParse would be better, but assuming valid IPs for now or handling exception
+                 redes = redes.OrderBy<Rede, long>(r =>
+                 {
+                     if (System.Net.IPAddress.TryParse(r.IP, out var ip))
+                     {
+                         var bytes = ip.GetAddressBytes();
+                         if (bytes.Length == 4)
+                         {
+                              return (long)BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+                         }
+                     }
+                      return 0L;
+                 }).ToList();
 
                 if (_pingService != null)
                 {
@@ -125,15 +145,18 @@ namespace Web.Controllers
             try
             {
                 var redes = new List<Rede>();
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT Id, IP FROM Rede", connection);
-                    using (var reader = command.ExecuteReader())
+                    using (var command = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        command.CommandText = "SELECT Id, IP FROM Rede";
+                        using (var reader = command.ExecuteReader())
                         {
-                            redes.Add(new Rede { Id = (int)reader["Id"], IP = reader["IP"].ToString() });
+                            while (reader.Read())
+                            {
+                                redes.Add(new Rede { Id = Convert.ToInt32(reader["Id"]), IP = reader["IP"].ToString() });
+                            }
                         }
                     }
                 }

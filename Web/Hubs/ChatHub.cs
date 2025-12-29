@@ -4,19 +4,21 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Web.Models;
+using Web.Services;
+using System.Data;
 
 namespace Web.Hubs
 {
     public class ChatHub : Hub
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(IConfiguration configuration, ILogger<ChatHub> logger)
+        public ChatHub(IDatabaseService databaseService, ILogger<ChatHub> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
         }
 
@@ -33,18 +35,19 @@ namespace Web.Hubs
 
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
                     var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao)
                                 VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao)";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@ChamadoID", chamadoId);
-                        cmd.Parameters.AddWithValue("@UsuarioCPF", userCpf);
-                        cmd.Parameters.AddWithValue("@Mensagem", message);
-                        cmd.Parameters.AddWithValue("@DataCriacao", timestamp);
-                        await cmd.ExecuteNonQueryAsync();
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@UsuarioCPF"; p2.Value = userCpf; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Mensagem"; p3.Value = message; cmd.Parameters.Add(p3);
+                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataCriacao"; p4.Value = timestamp.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p4);
+                        cmd.ExecuteNonQuery();
                     }
                 }
 

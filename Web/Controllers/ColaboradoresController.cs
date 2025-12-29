@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using System.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -19,13 +20,15 @@ namespace Web.Controllers
     [Authorize(Roles = "Admin,Coordenador")]
     public class ColaboradoresController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<ColaboradoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ColaboradoresController(IConfiguration configuration, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
+        public ColaboradoresController(IDatabaseService databaseService, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         private string SanitizeCpf(string cpf)
@@ -63,7 +66,7 @@ namespace Web.Controllers
 
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
 
@@ -109,10 +112,17 @@ namespace Web.Controllers
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
                     string countSql = $"SELECT COUNT(c.CPF) {baseSql} {whereSql}";
-                    using (var countCommand = new SqlCommand(countSql, connection))
+                    using (var countCommand = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) countCommand.Parameters.AddWithValue(p.Key, p.Value);
-                        viewModel.TotalCount = (int)countCommand.ExecuteScalar();
+                        countCommand.CommandText = countSql;
+                        foreach (var p in parameters) {
+                             var param = countCommand.CreateParameter();
+                             param.ParameterName = p.Key;
+                             param.Value = p.Value;
+                             countCommand.Parameters.Add(param);
+                        }
+                        var result = countCommand.ExecuteScalar();
+                        viewModel.TotalCount = result != DBNull.Value ? Convert.ToInt32(result) : 0;
                     }
 
                     string orderBySql;
@@ -128,14 +138,21 @@ namespace Web.Controllers
                         default: orderBySql = "ORDER BY c.Nome"; break;
                     }
 
-                    string sql = $"SELECT c.*, co.Nome as CoordenadorNome {baseSql} {whereSql} {orderBySql} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    string sql = $"SELECT c.*, co.Nome as CoordenadorNome {baseSql} {whereSql} {orderBySql} LIMIT @pageSize OFFSET @offset";
+                    using (var cmd = connection.CreateCommand())
                     {
-                        foreach (var p in parameters) cmd.Parameters.AddWithValue(p.Key, p.Value);
-                        cmd.Parameters.AddWithValue("@offset", (pageNumber - 1) * pageSize);
-                        cmd.Parameters.AddWithValue("@pageSize", pageSize);
+                        cmd.CommandText = sql;
+                        foreach (var p in parameters) {
+                             var param = cmd.CreateParameter();
+                             param.ParameterName = p.Key;
+                             param.Value = p.Value;
+                             cmd.Parameters.Add(param);
+                        }
+                        var pOffset = cmd.CreateParameter(); pOffset.ParameterName = "@offset"; pOffset.Value = (pageNumber - 1) * pageSize; cmd.Parameters.Add(pOffset);
+                        var pPageSize = cmd.CreateParameter(); pPageSize.ParameterName = "@pageSize"; pPageSize.Value = pageSize; cmd.Parameters.Add(pPageSize);
 
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
@@ -146,9 +163,9 @@ namespace Web.Controllers
                                     Email = reader["Email"].ToString(),
                                     Filial = reader["Filial"].ToString(),
                                     Setor = reader["Setor"].ToString(),
-                                    DataInclusao = reader["DataInclusao"] as DateTime?,
-                                    DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                    CoordenadorNome = reader["CoordenadorNome"] as string
+                                    DataInclusao = reader["DataInclusao"] != DBNull.Value ? Convert.ToDateTime(reader["DataInclusao"]) : (DateTime?)null,
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    CoordenadorNome = reader["CoordenadorNome"] != DBNull.Value ? reader["CoordenadorNome"].ToString() : null
                                 });
                             }
                         }
@@ -176,7 +193,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Colaborador colaborador)
+        public async Task<IActionResult> Create(Colaborador colaborador)
         {
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
             colaborador.CoordenadorCPF = SanitizeCpf(colaborador.CoordenadorCPF);
@@ -185,18 +202,22 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorCPF) 
                                        VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorCPF)";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
+                            cmd.CommandText = sql;
                             AddColaboradorParameters(cmd, colaborador);
-                            cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
+                            var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataInclusao"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Create", User.Identity.Name, null, colaborador);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -224,7 +245,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Colaborador colaborador)
+        public async Task<IActionResult> Edit(string id, Colaborador colaborador)
         {
             var sanitizedId = SanitizeCpf(id);
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
@@ -236,7 +257,9 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    var oldColaborador = FindColaboradorById(sanitizedId);
+
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = @"UPDATE Colaboradores SET 
@@ -246,13 +269,17 @@ namespace Web.Controllers
                                        Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
                                        Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF
                                        WHERE CPF = @CPF";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
+                            cmd.CommandText = sql;
                             AddColaboradorParameters(cmd, colaborador);
-                            cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
+                            var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataAlteracao"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Update", User.Identity.Name, oldColaborador, colaborador);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -279,7 +306,7 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             var sanitizedId = SanitizeCpf(id);
             try
@@ -287,16 +314,18 @@ namespace Web.Controllers
                 var colaborador = FindColaboradorById(sanitizedId);
                 if (colaborador != null)
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@CPF", sanitizedId);
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = sanitizedId; cmd.Parameters.Add(p1);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Delete", User.Identity.Name, colaborador, null);
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -309,13 +338,13 @@ namespace Web.Controllers
             }
         }
 
-        private Colaborador FindColaboradorById(string id, SqlConnection connection = null, SqlTransaction transaction = null)
+        private Colaborador FindColaboradorById(string id, IDbConnection connection = null, IDbTransaction transaction = null)
         {
             Colaborador colaborador = null;
             bool ownConnection = false;
             if (connection == null)
             {
-                connection = new SqlConnection(_connectionString);
+                connection = _databaseService.CreateConnection();
                 ownConnection = true;
             }
 
@@ -327,9 +356,11 @@ namespace Web.Controllers
                 }
 
                 string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF";
-                using (var cmd = new SqlCommand(sql, connection, transaction))
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("@CPF", id);
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = sql;
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = id; cmd.Parameters.Add(p1);
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
@@ -386,12 +417,13 @@ namespace Web.Controllers
             var coordenadores = new List<Colaborador>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
                     string sql = "SELECT c.CPF, c.Nome FROM Colaboradores c INNER JOIN Usuarios u ON c.CPF = u.ColaboradorCPF WHERE u.Role = 'Coordenador' OR u.IsCoordinator = 1 ORDER BY c.Nome";
-                    using (var cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sql;
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -479,9 +511,9 @@ namespace Web.Controllers
                 int adicionados = 0;
                 int atualizados = 0;
 
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
                     using (var transaction = connection.BeginTransaction())
                     {
                         try
@@ -492,6 +524,7 @@ namespace Web.Controllers
 
                                 if (existente != null)
                                 {
+                                    // Consider adding logging for bulk updates here if needed, but it might be too verbose.
                                     string updateSql = @"UPDATE Colaboradores SET 
                                                        Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
                                                        EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 
@@ -499,11 +532,13 @@ namespace Web.Controllers
                                                        Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
                                                        Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF
                                                        WHERE CPF = @CPF";
-                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = updateSql;
                                         AddColaboradorParameters(cmd, colaborador);
-                                        cmd.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataAlteracao"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
+                                        cmd.ExecuteNonQuery();
                                     }
                                     atualizados++;
                                 }
@@ -511,11 +546,13 @@ namespace Web.Controllers
                                 {
                                     string insertSql = @"INSERT INTO Colaboradores (CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, CoordenadorCPF) 
                                                        VALUES (@CPF, @Nome, @Email, @SenhaEmail, @Teams, @SenhaTeams, @EDespacho, @SenhaEDespacho, @Genius, @SenhaGenius, @Ibrooker, @SenhaIbrooker, @Adicional, @SenhaAdicional, @Filial, @Setor, @Smartphone, @TelefoneFixo, @Ramal, @Alarme, @Videoporteiro, @Obs, @DataInclusao, @CoordenadorCPF)";
-                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = insertSql;
                                         AddColaboradorParameters(cmd, colaborador);
-                                        cmd.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataInclusao"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
+                                        cmd.ExecuteNonQuery();
                                     }
                                     adicionados++;
                                 }
@@ -541,11 +578,12 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private List<string> GetDistinctColaboradorValues(SqlConnection connection, string columnName)
+        private List<string> GetDistinctColaboradorValues(IDbConnection connection, string columnName)
         {
             var values = new List<string>();
-            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Colaboradores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = $"SELECT DISTINCT {columnName} FROM Colaboradores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -557,31 +595,31 @@ namespace Web.Controllers
             return values;
         }
 
-        private void AddColaboradorParameters(SqlCommand cmd, Colaborador colaborador)
+        private void AddColaboradorParameters(IDbCommand cmd, Colaborador colaborador)
         {
-            cmd.Parameters.AddWithValue("@CPF", colaborador.CPF);
-            cmd.Parameters.AddWithValue("@Nome", colaborador.Nome);
-            cmd.Parameters.AddWithValue("@Email", (object)colaborador.Email ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaEmail", (object)colaborador.SenhaEmail ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Teams", (object)colaborador.Teams ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaTeams", (object)colaborador.SenhaTeams ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@EDespacho", (object)colaborador.EDespacho ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaEDespacho", (object)colaborador.SenhaEDespacho ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Genius", (object)colaborador.Genius ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaGenius", (object)colaborador.SenhaGenius ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Ibrooker", (object)colaborador.Ibrooker ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaIbrooker", (object)colaborador.SenhaIbrooker ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Adicional", (object)colaborador.Adicional ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@SenhaAdicional", (object)colaborador.SenhaAdicional ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Filial", (object)colaborador.Filial ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Setor", (object)colaborador.Setor ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Smartphone", (object)colaborador.Smartphone ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@TelefoneFixo", (object)colaborador.TelefoneFixo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Ramal", (object)colaborador.Ramal ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Alarme", (object)colaborador.Alarme ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Videoporteiro", (object)colaborador.Videoporteiro ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Obs", (object)colaborador.Obs ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@CoordenadorCPF", (object)colaborador.CoordenadorCPF ?? DBNull.Value);
+            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = colaborador.CPF; cmd.Parameters.Add(p1);
+            var p2 = cmd.CreateParameter(); p2.ParameterName = "@Nome"; p2.Value = colaborador.Nome; cmd.Parameters.Add(p2);
+            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Email"; p3.Value = (object)colaborador.Email ?? DBNull.Value; cmd.Parameters.Add(p3);
+            var p4 = cmd.CreateParameter(); p4.ParameterName = "@SenhaEmail"; p4.Value = (object)colaborador.SenhaEmail ?? DBNull.Value; cmd.Parameters.Add(p4);
+            var p5 = cmd.CreateParameter(); p5.ParameterName = "@Teams"; p5.Value = (object)colaborador.Teams ?? DBNull.Value; cmd.Parameters.Add(p5);
+            var p6 = cmd.CreateParameter(); p6.ParameterName = "@SenhaTeams"; p6.Value = (object)colaborador.SenhaTeams ?? DBNull.Value; cmd.Parameters.Add(p6);
+            var p7 = cmd.CreateParameter(); p7.ParameterName = "@EDespacho"; p7.Value = (object)colaborador.EDespacho ?? DBNull.Value; cmd.Parameters.Add(p7);
+            var p8 = cmd.CreateParameter(); p8.ParameterName = "@SenhaEDespacho"; p8.Value = (object)colaborador.SenhaEDespacho ?? DBNull.Value; cmd.Parameters.Add(p8);
+            var p9 = cmd.CreateParameter(); p9.ParameterName = "@Genius"; p9.Value = (object)colaborador.Genius ?? DBNull.Value; cmd.Parameters.Add(p9);
+            var p10 = cmd.CreateParameter(); p10.ParameterName = "@SenhaGenius"; p10.Value = (object)colaborador.SenhaGenius ?? DBNull.Value; cmd.Parameters.Add(p10);
+            var p11 = cmd.CreateParameter(); p11.ParameterName = "@Ibrooker"; p11.Value = (object)colaborador.Ibrooker ?? DBNull.Value; cmd.Parameters.Add(p11);
+            var p12 = cmd.CreateParameter(); p12.ParameterName = "@SenhaIbrooker"; p12.Value = (object)colaborador.SenhaIbrooker ?? DBNull.Value; cmd.Parameters.Add(p12);
+            var p13 = cmd.CreateParameter(); p13.ParameterName = "@Adicional"; p13.Value = (object)colaborador.Adicional ?? DBNull.Value; cmd.Parameters.Add(p13);
+            var p14 = cmd.CreateParameter(); p14.ParameterName = "@SenhaAdicional"; p14.Value = (object)colaborador.SenhaAdicional ?? DBNull.Value; cmd.Parameters.Add(p14);
+            var p15 = cmd.CreateParameter(); p15.ParameterName = "@Filial"; p15.Value = (object)colaborador.Filial ?? DBNull.Value; cmd.Parameters.Add(p15);
+            var p16 = cmd.CreateParameter(); p16.ParameterName = "@Setor"; p16.Value = (object)colaborador.Setor ?? DBNull.Value; cmd.Parameters.Add(p16);
+            var p17 = cmd.CreateParameter(); p17.ParameterName = "@Smartphone"; p17.Value = (object)colaborador.Smartphone ?? DBNull.Value; cmd.Parameters.Add(p17);
+            var p18 = cmd.CreateParameter(); p18.ParameterName = "@TelefoneFixo"; p18.Value = (object)colaborador.TelefoneFixo ?? DBNull.Value; cmd.Parameters.Add(p18);
+            var p19 = cmd.CreateParameter(); p19.ParameterName = "@Ramal"; p19.Value = (object)colaborador.Ramal ?? DBNull.Value; cmd.Parameters.Add(p19);
+            var p20 = cmd.CreateParameter(); p20.ParameterName = "@Alarme"; p20.Value = (object)colaborador.Alarme ?? DBNull.Value; cmd.Parameters.Add(p20);
+            var p21 = cmd.CreateParameter(); p21.ParameterName = "@Videoporteiro"; p21.Value = (object)colaborador.Videoporteiro ?? DBNull.Value; cmd.Parameters.Add(p21);
+            var p22 = cmd.CreateParameter(); p22.ParameterName = "@Obs"; p22.Value = (object)colaborador.Obs ?? DBNull.Value; cmd.Parameters.Add(p22);
+            var p23 = cmd.CreateParameter(); p23.ParameterName = "@CoordenadorCPF"; p23.Value = (object)colaborador.CoordenadorCPF ?? DBNull.Value; cmd.Parameters.Add(p23);
         }
     }
 }

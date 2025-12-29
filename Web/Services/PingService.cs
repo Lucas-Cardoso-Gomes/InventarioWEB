@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +10,7 @@ using Web.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.Concurrent;
+using System.Data;
 
 namespace Web.Services
 {
@@ -19,16 +20,16 @@ namespace Web.Services
         private readonly IConfiguration _configuration;
         private readonly int _numberOfPingsToStore;
         private readonly ConcurrentDictionary<string, PingStatusInfo> _pingStatuses = new ConcurrentDictionary<string, PingStatusInfo>();
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
 
         public DateTime StartTime { get; private set; }
 
-        public PingService(ILogger<PingService> logger, IConfiguration configuration)
+        public PingService(ILogger<PingService> logger, IConfiguration configuration, IDatabaseService databaseService)
         {
             _logger = logger;
             _configuration = configuration;
             _numberOfPingsToStore = _configuration.GetValue<int>("Monitoring:NumberOfPings", 240);
-            _connectionString = _configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             StartTime = DateTime.UtcNow;
         }
 
@@ -52,40 +53,45 @@ namespace Web.Services
                     foreach (var ip in ipsToPing)
                     {
                         var ping = new Ping();
-                        var reply = await ping.SendPingAsync(ip, 1000); // 1 second timeout
+                        // Ping send async might throw if address is invalid or not reachable in a way ping doesn't handle gracefully
+                        try {
+                            var reply = await ping.SendPingAsync(ip, 1000); // 1 second timeout
 
-                        var currentPingStatus = reply.Status == IPStatus.Success;
+                            var currentPingStatus = reply.Status == IPStatus.Success;
 
-                        _pingStatuses.AddOrUpdate(ip, new PingStatusInfo(), (key, existingStatus) =>
-                        {
-                            var lastPing = existingStatus.LastPingStatus;
-                            var newStatus = "Gray"; // Default status
-
-                            if (currentPingStatus && lastPing == true)
+                            _pingStatuses.AddOrUpdate(ip, new PingStatusInfo(), (key, existingStatus) =>
                             {
-                                newStatus = "Green";
-                            }
-                            else if (currentPingStatus == false && lastPing == false)
-                            {
-                                newStatus = "Red";
-                            }
-                            else
-                            {
-                                newStatus = "Yellow";
-                            }
+                                var lastPing = existingStatus.LastPingStatus;
+                                var newStatus = "Gray"; // Default status
 
-                            existingStatus.Status = newStatus;
-                            existingStatus.LastPingStatus = currentPingStatus;
+                                if (currentPingStatus && lastPing == true)
+                                {
+                                    newStatus = "Green";
+                                }
+                                else if (currentPingStatus == false && lastPing == false)
+                                {
+                                    newStatus = "Red";
+                                }
+                                else
+                                {
+                                    newStatus = "Yellow";
+                                }
 
-                            var pingResult = new PingResult { Success = currentPingStatus, Latency = reply.RoundtripTime };
-                            existingStatus.History.Insert(0, pingResult);
+                                existingStatus.Status = newStatus;
+                                existingStatus.LastPingStatus = currentPingStatus;
 
-                            if (existingStatus.History.Count > _numberOfPingsToStore)
-                            {
-                                existingStatus.History = existingStatus.History.Take(_numberOfPingsToStore).ToList();
-                            }
-                            return existingStatus;
-                        });
+                                var pingResult = new PingResult { Success = currentPingStatus, Latency = reply.RoundtripTime };
+                                existingStatus.History.Insert(0, pingResult);
+
+                                if (existingStatus.History.Count > _numberOfPingsToStore)
+                                {
+                                    existingStatus.History = existingStatus.History.Take(_numberOfPingsToStore).ToList();
+                                }
+                                return existingStatus;
+                            });
+                        } catch (Exception pingEx) {
+                             _logger.LogWarning(pingEx, "Failed to ping {IP}", ip);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -101,18 +107,21 @@ namespace Web.Services
         {
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync(stoppingToken);
-                    var command = new SqlCommand("SELECT IP FROM Rede", connection);
-                    using (var reader = await command.ExecuteReaderAsync(stoppingToken))
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
                     {
-                        while (await reader.ReadAsync(stoppingToken))
+                        command.CommandText = "SELECT IP FROM Rede";
+                        using (var reader = command.ExecuteReader())
                         {
-                            var ip = reader["IP"].ToString();
-                            if (!string.IsNullOrEmpty(ip))
+                            while (reader.Read())
                             {
-                                _pingStatuses.TryAdd(ip, new PingStatusInfo { Status = "Gray", LastPingStatus = null });
+                                var ip = reader["IP"].ToString();
+                                if (!string.IsNullOrEmpty(ip))
+                                {
+                                    _pingStatuses.TryAdd(ip, new PingStatusInfo { Status = "Gray", LastPingStatus = null });
+                                }
                             }
                         }
                     }
@@ -123,6 +132,7 @@ namespace Web.Services
             {
                 _logger.LogError(ex, "Failed to load devices from database.");
             }
+            await Task.CompletedTask;
         }
     }
 }

@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
+builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
@@ -33,6 +34,7 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PersistentLogService>();
 builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddScoped<SmartphoneService>();
+builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddHostedService<PingService>();
 
 // // Configuração do Kestrel para escutar em todas as interfaces de rede
@@ -44,6 +46,12 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+    dbService.InitializeDatabase();
+}
 
 // Configure o pipeline HTTP
 if (!app.Environment.IsDevelopment())

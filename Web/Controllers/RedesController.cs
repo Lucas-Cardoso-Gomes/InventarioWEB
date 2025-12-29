@@ -3,24 +3,27 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Web.Services;
+using System.Data;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin")]
     public class RedesController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<RedesController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public RedesController(IConfiguration configuration, ILogger<RedesController> logger, PersistentLogService persistentLogService)
+        public RedesController(IDatabaseService databaseService, ILogger<RedesController> logger, PersistentLogService persistentLogService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index()
@@ -28,31 +31,46 @@ namespace Web.Controllers
             var redes = new List<Rede>();
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT * FROM Rede", connection);
-                    using (var reader = command.ExecuteReader())
+                    using (var command = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        command.CommandText = "SELECT * FROM Rede";
+                        using (var reader = command.ExecuteReader())
                         {
-                            redes.Add(new Rede
+                            while (reader.Read())
                             {
-                                Id = (int)reader["Id"],
-                                Tipo = reader["Tipo"].ToString(),
-                                IP = reader["IP"].ToString(),
-                                MAC = reader["MAC"].ToString(),
-                                Nome = reader["Nome"].ToString(),
-                                DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
-                            });
+                                redes.Add(new Rede
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    Tipo = reader["Tipo"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    MAC = reader["MAC"].ToString(),
+                                    Nome = reader["Nome"].ToString(),
+                                    DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    Observacao = reader["Observacao"].ToString()
+                                });
+                            }
                         }
                     }
                 }
 
                 // Sort the list in-memory using System.Version for correct IP sorting
-                var redesOrdenadas = redes.OrderBy(r => Version.Parse(r.IP)).ToList();
+                // As before, this is risky if IPs are malformed
+                var redesOrdenadas = redes.OrderBy<Rede, long>(r =>
+                {
+                     if (System.Net.IPAddress.TryParse(r.IP, out var ip))
+                     {
+                         var bytes = ip.GetAddressBytes();
+                         if (bytes.Length == 4)
+                         {
+                             return (long)BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
+                         }
+                     }
+                     return 0L;
+                }).ToList();
                 return View(redesOrdenadas);
             }
             catch (Exception ex)
@@ -70,7 +88,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Rede rede)
+        public async Task<IActionResult> Create(Rede rede)
         {
             _logger.LogInformation("Create POST action called for network asset.");
             if (ModelState.IsValid)
@@ -78,20 +96,32 @@ namespace Web.Controllers
                 _logger.LogInformation("ModelState is valid. Attempting to save to the database.");
                 try
                 {
-                    using (var connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        var command = new SqlCommand("INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)", connection);
-                        command.Parameters.AddWithValue("@Tipo", rede.Tipo);
-                        command.Parameters.AddWithValue("@IP", rede.IP);
-                        command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@DataInclusao", DateTime.Now);
-                        command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = "INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)";
 
-                        _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
-                        command.ExecuteNonQuery();
-                        _logger.LogInformation("INSERT command executed successfully.");
+                            var p1 = command.CreateParameter(); p1.ParameterName = "@Tipo"; p1.Value = rede.Tipo; command.Parameters.Add(p1);
+                            var p2 = command.CreateParameter(); p2.ParameterName = "@IP"; p2.Value = rede.IP; command.Parameters.Add(p2);
+                            var p3 = command.CreateParameter(); p3.ParameterName = "@MAC"; p3.Value = (object)rede.MAC ?? DBNull.Value; command.Parameters.Add(p3);
+                            var p4 = command.CreateParameter(); p4.ParameterName = "@Nome"; p4.Value = rede.Nome; command.Parameters.Add(p4);
+                            var p5 = command.CreateParameter(); p5.ParameterName = "@DataInclusao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p5);
+                            var p6 = command.CreateParameter(); p6.ParameterName = "@Observacao"; p6.Value = (object)rede.Observacao ?? DBNull.Value; command.Parameters.Add(p6);
+
+                            _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
+                            command.ExecuteNonQuery();
+                            _logger.LogInformation("INSERT command executed successfully.");
+
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "CREATE",
+                                "Rede",
+                                $"Created network asset: {rede.Nome}, IP: {rede.IP}",
+                                $"Tipo: {rede.Tipo}, IP: {rede.IP}, MAC: {rede.MAC}"
+                            );
+                        }
                     }
                     return RedirectToAction(nameof(Index));
                 }
@@ -129,7 +159,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, Rede rede)
+        public async Task<IActionResult> Edit(int id, Rede rede)
         {
             if (id != rede.Id)
             {
@@ -142,21 +172,33 @@ namespace Web.Controllers
                 _logger.LogInformation("ModelState is valid. Attempting to update the database.");
                 try
                 {
-                    using (var connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        var command = new SqlCommand("UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id", connection);
-                        command.Parameters.AddWithValue("@Id", rede.Id);
-                        command.Parameters.AddWithValue("@Tipo", rede.Tipo);
-                        command.Parameters.AddWithValue("@IP", rede.IP);
-                        command.Parameters.AddWithValue("@MAC", (object)rede.MAC ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@Nome", rede.Nome);
-                        command.Parameters.AddWithValue("@DataAlteracao", DateTime.Now);
-                        command.Parameters.AddWithValue("@Observacao", (object)rede.Observacao ?? DBNull.Value);
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = "UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id";
 
-                        _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
-                        command.ExecuteNonQuery();
-                        _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
+                            var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = rede.Id; command.Parameters.Add(p1);
+                            var p2 = command.CreateParameter(); p2.ParameterName = "@Tipo"; p2.Value = rede.Tipo; command.Parameters.Add(p2);
+                            var p3 = command.CreateParameter(); p3.ParameterName = "@IP"; p3.Value = rede.IP; command.Parameters.Add(p3);
+                            var p4 = command.CreateParameter(); p4.ParameterName = "@MAC"; p4.Value = (object)rede.MAC ?? DBNull.Value; command.Parameters.Add(p4);
+                            var p5 = command.CreateParameter(); p5.ParameterName = "@Nome"; p5.Value = rede.Nome; command.Parameters.Add(p5);
+                            var p6 = command.CreateParameter(); p6.ParameterName = "@DataAlteracao"; p6.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p6);
+                            var p7 = command.CreateParameter(); p7.ParameterName = "@Observacao"; p7.Value = (object)rede.Observacao ?? DBNull.Value; command.Parameters.Add(p7);
+
+                            _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
+                            command.ExecuteNonQuery();
+                            _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
+
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "EDIT",
+                                "Rede",
+                                $"Updated network asset: {rede.Nome}, IP: {rede.IP}",
+                                $"ID: {rede.Id}, Tipo: {rede.Tipo}, IP: {rede.IP}"
+                            );
+                        }
                     }
                     return RedirectToAction(nameof(Index));
                 }
@@ -194,16 +236,31 @@ namespace Web.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                var rede = FindRedeById(id);
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var command = new SqlCommand("DELETE FROM Rede WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@Id", id);
-                    command.ExecuteNonQuery();
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = "DELETE FROM Rede WHERE Id = @Id";
+                        var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = id; command.Parameters.Add(p1);
+                        command.ExecuteNonQuery();
+
+                        if (rede != null)
+                        {
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "DELETE",
+                                "Rede",
+                                $"Deleted network asset: {rede.Nome}",
+                                $"ID: {id}, Name: {rede.Nome}, IP: {rede.IP}"
+                            );
+                        }
+                    }
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -220,26 +277,29 @@ namespace Web.Controllers
             Rede rede = null;
             try
             {
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var command = new SqlCommand("SELECT * FROM Rede WHERE Id = @Id", connection);
-                    command.Parameters.AddWithValue("@Id", id);
-                    using (var reader = command.ExecuteReader())
+                    using (var command = connection.CreateCommand())
                     {
-                        if (reader.Read())
+                        command.CommandText = "SELECT * FROM Rede WHERE Id = @Id";
+                        var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = id; command.Parameters.Add(p1);
+                        using (var reader = command.ExecuteReader())
                         {
-                            rede = new Rede
+                            if (reader.Read())
                             {
-                                Id = (int)reader["Id"],
-                                Tipo = reader["Tipo"].ToString(),
-                                IP = reader["IP"].ToString(),
-                                MAC = reader["MAC"].ToString(),
-                                Nome = reader["Nome"].ToString(),
-                                DataInclusao = (DateTime)reader["DataInclusao"],
-                                DataAlteracao = reader["DataAlteracao"] as DateTime?,
-                                Observacao = reader["Observacao"].ToString()
-                            };
+                                rede = new Rede
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    Tipo = reader["Tipo"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    MAC = reader["MAC"].ToString(),
+                                    Nome = reader["Nome"].ToString(),
+                                    DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
+                                    DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
+                                    Observacao = reader["Observacao"].ToString()
+                                };
+                            }
                         }
                     }
                 }

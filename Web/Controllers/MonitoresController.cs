@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Linq;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,21 +14,23 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using OfficeOpenXml;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
+using System.Data;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class MonitoresController : Controller
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<MonitoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public MonitoresController(IConfiguration configuration, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
+        public MonitoresController(IDatabaseService databaseService, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
@@ -43,7 +45,7 @@ namespace Web.Controllers
 
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
 
@@ -89,22 +91,26 @@ namespace Web.Controllers
 
                     string sql = $"SELECT m.*, c.Nome as ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores c ON m.ColaboradorCPF = c.CPF {whereSql}";
 
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
+                        cmd.CommandText = sql;
                         foreach (var p in parameters)
                         {
-                            cmd.Parameters.AddWithValue(p.Key, p.Value);
+                            var param = cmd.CreateParameter();
+                            param.ParameterName = p.Key;
+                            param.Value = p.Value;
+                            cmd.Parameters.Add(param);
                         }
 
-                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
                                 viewModel.Monitores.Add(new Monitor
                                 {
                                     PartNumber = reader["PartNumber"].ToString(),
-                                    ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                    ColaboradorNome = reader["ColaboradorNome"] as string,
+                                    ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                    ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                     Marca = reader["Marca"].ToString(),
                                     Modelo = reader["Modelo"].ToString(),
                                     Tamanho = reader["Tamanho"].ToString()
@@ -171,17 +177,20 @@ namespace Web.Controllers
                 int atualizados = 0;
                 var invalidCpfs = new List<string>();
 
-                using (var connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateConnection())
                 {
-                    await connection.OpenAsync();
+                    connection.Open();
 
                     var colaboradoresCpf = new HashSet<string>();
-                    using (var cmd = new SqlCommand("SELECT CPF FROM Colaboradores", connection))
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (await reader.ReadAsync())
+                        cmd.CommandText = "SELECT CPF FROM Colaboradores";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            colaboradoresCpf.Add(reader.GetString(0));
+                            while (reader.Read())
+                            {
+                                colaboradoresCpf.Add(reader.GetString(0));
+                            }
                         }
                     }
 
@@ -204,10 +213,12 @@ namespace Web.Controllers
                                     string updateSql = @"UPDATE Monitores SET
                                                        ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho
                                                        WHERE PartNumber = @PartNumber";
-                                    using (var cmd = new SqlCommand(updateSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = updateSql;
                                         AddMonitorParameters(cmd, monitor);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        cmd.ExecuteNonQuery();
                                     }
                                     atualizados++;
                                 }
@@ -215,10 +226,12 @@ namespace Web.Controllers
                                 {
                                     string insertSql = @"INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho)
                                                        VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
-                                    using (var cmd = new SqlCommand(insertSql, connection, transaction))
+                                    using (var cmd = connection.CreateCommand())
                                     {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = insertSql;
                                         AddMonitorParameters(cmd, monitor);
-                                        await cmd.ExecuteNonQueryAsync();
+                                        cmd.ExecuteNonQuery();
                                     }
                                     adicionados++;
                                 }
@@ -248,24 +261,26 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private void AddMonitorParameters(SqlCommand cmd, Monitor monitor)
+        private void AddMonitorParameters(IDbCommand cmd, Monitor monitor)
         {
-            cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
+            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = monitor.PartNumber; cmd.Parameters.Add(p1);
+            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)monitor.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Marca"; p3.Value = (object)monitor.Marca ?? DBNull.Value; cmd.Parameters.Add(p3);
+            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Modelo"; p4.Value = (object)monitor.Modelo ?? DBNull.Value; cmd.Parameters.Add(p4);
+            var p5 = cmd.CreateParameter(); p5.ParameterName = "@Tamanho"; p5.Value = (object)monitor.Tamanho ?? DBNull.Value; cmd.Parameters.Add(p5);
         }
 
-        private Monitor FindMonitorById(string id, SqlConnection connection, SqlTransaction transaction)
+        private Monitor FindMonitorById(string id, IDbConnection connection, IDbTransaction transaction)
         {
             Monitor monitor = null;
             try
             {
                 string sql = "SELECT * FROM Monitores WHERE PartNumber = @PartNumber";
-                using (var cmd = new SqlCommand(sql, connection, transaction))
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("@PartNumber", id);
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = sql;
+                    var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = id; cmd.Parameters.Add(p);
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
@@ -273,7 +288,7 @@ namespace Web.Controllers
                             monitor = new Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
                                 Tamanho = reader["Tamanho"].ToString()
@@ -290,11 +305,12 @@ namespace Web.Controllers
             return monitor;
         }
 
-        private List<string> GetDistinctMonitorValues(SqlConnection connection, string columnName)
+        private List<string> GetDistinctMonitorValues(IDbConnection connection, string columnName)
         {
             var values = new List<string>();
-            using (var command = new SqlCommand($"SELECT DISTINCT {columnName} FROM Monitores WHERE {columnName} IS NOT NULL ORDER BY {columnName}", connection))
+            using (var command = connection.CreateCommand())
             {
+                command.CommandText = $"SELECT DISTINCT {columnName} FROM Monitores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -318,26 +334,24 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Monitor monitor)
+        public async Task<IActionResult> Create(Monitor monitor)
         {
             if (ModelState.IsValid)
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho) VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            AddMonitorParameters(cmd, monitor);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Create", User.Identity.Name, null, monitor);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -365,7 +379,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Monitor monitor)
+        public async Task<IActionResult> Edit(string id, Monitor monitor)
         {
             if (id != monitor.PartNumber) return NotFound();
 
@@ -373,20 +387,19 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (SqlConnection connection = new SqlConnection(_connectionString))
+                    var oldMonitor = FindMonitorById(id);
+                    using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
                         string sql = "UPDATE Monitores SET ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
-                        using (SqlCommand cmd = new SqlCommand(sql, connection))
+                        using (var cmd = connection.CreateCommand())
                         {
-                            cmd.Parameters.AddWithValue("@PartNumber", monitor.PartNumber);
-                            cmd.Parameters.AddWithValue("@ColaboradorCPF", (object)monitor.ColaboradorCPF ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Marca", (object)monitor.Marca ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Modelo", (object)monitor.Modelo ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Tamanho", (object)monitor.Tamanho ?? DBNull.Value);
+                            cmd.CommandText = sql;
+                            AddMonitorParameters(cmd, monitor);
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Update", User.Identity.Name, oldMonitor, monitor);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -413,19 +426,25 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                var monitor = FindMonitorById(id);
+                if (monitor != null)
                 {
-                    connection.Open();
-                    string sql = "DELETE FROM Monitores WHERE PartNumber = @PartNumber";
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var connection = _databaseService.CreateConnection())
                     {
-                        cmd.Parameters.AddWithValue("@PartNumber", id);
-                        cmd.ExecuteNonQuery();
+                        connection.Open();
+                        string sql = "DELETE FROM Monitores WHERE PartNumber = @PartNumber";
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = id; cmd.Parameters.Add(p);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Delete", User.Identity.Name, monitor, null);
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -440,22 +459,23 @@ namespace Web.Controllers
         private Monitor FindMonitorById(string id)
         {
             Monitor monitor = null;
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT m.*, c.Nome AS ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores c ON m.ColaboradorCPF = c.CPF WHERE m.PartNumber = @PartNumber";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                using (var cmd = connection.CreateCommand())
                 {
-                    cmd.Parameters.AddWithValue("@PartNumber", id);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    cmd.CommandText = sql;
+                    var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = id; cmd.Parameters.Add(p);
+                    using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())
                         {
                             monitor = new Monitor
                             {
                                 PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                ColaboradorNome = reader["ColaboradorNome"] as string,
+                                ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
+                                ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
                                 Tamanho = reader["Tamanho"].ToString()
@@ -470,13 +490,14 @@ namespace Web.Controllers
         private List<Colaborador> GetColaboradores()
         {
             var colaboradores = new List<Colaborador>();
-            using (SqlConnection connection = new SqlConnection(_connectionString))
+            using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
                 string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (SqlCommand cmd = new SqlCommand(sql, connection))
+                using (var cmd = connection.CreateCommand())
                 {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    cmd.CommandText = sql;
+                    using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {

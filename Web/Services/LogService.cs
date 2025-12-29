@@ -1,19 +1,20 @@
 using System;
-using System.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Web.Models;
+using System.Data;
 
 namespace Web.Services
 {
     public class LogService
     {
-        private readonly string _connectionString;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<LogService> _logger;
 
-        public LogService(IConfiguration configuration, ILogger<LogService> logger)
+        public LogService(IDatabaseService databaseService, ILogger<LogService> logger)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _databaseService = databaseService;
             _logger = logger;
         }
 
@@ -21,18 +22,19 @@ namespace Web.Services
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(_connectionString))
+                using (var connection = _databaseService.CreateLogsConnection())
                 {
                     connection.Open();
 
                     string sql = "INSERT INTO Logs (Timestamp, Level, Message, Source) VALUES (@Timestamp, @Level, @Message, @Source)";
 
-                    using (SqlCommand cmd = new SqlCommand(sql, connection))
+                    using (var cmd = connection.CreateCommand())
                     {
-                        cmd.Parameters.AddWithValue("@Timestamp", DateTime.Now);
-                        cmd.Parameters.AddWithValue("@Level", level);
-                        cmd.Parameters.AddWithValue("@Message", message);
-                        cmd.Parameters.AddWithValue("@Source", (object)source ?? DBNull.Value);
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@Timestamp"; p1.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@Level"; p2.Value = level; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Message"; p3.Value = message; cmd.Parameters.Add(p3);
+                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@Source"; p4.Value = (object)source ?? DBNull.Value; cmd.Parameters.Add(p4);
 
                         cmd.ExecuteNonQuery();
                     }
