@@ -21,6 +21,7 @@ namespace Web.Services
         private readonly LogService _logService;
         private readonly IDatabaseService _databaseService;
         private readonly string _solicitarInformacoes;
+        private readonly string _encryptionKey;
 
         public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService, IDatabaseService databaseService)
         {
@@ -29,6 +30,12 @@ namespace Web.Services
             _logService = logService;
             _databaseService = databaseService;
             _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
+            _encryptionKey = _configuration.GetSection("Autenticacao")["EncryptionKey"];
+
+            if (string.IsNullOrEmpty(_encryptionKey))
+            {
+                throw new Exception("EncryptionKey is missing in configuration.");
+            }
         }
 
         public async Task ColetarDadosAsync(string computadorIp, Action<string> onResult)
@@ -56,10 +63,24 @@ namespace Web.Services
                     using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
                     using (var reader = new StreamReader(stream, Encoding.UTF8))
                     {
-                        await writer.WriteLineAsync(_solicitarInformacoes);
+                        await writer.WriteLineAsync(EncryptionHelper.Encrypt(_solicitarInformacoes, _encryptionKey));
                         onResult($"Solicitação enviada para: {computadorIp}");
 
-                        string resposta = await reader.ReadToEndAsync();
+                        // Use ReadLineAsync to avoid hanging
+                        string encryptedResponse = await reader.ReadLineAsync();
+                        string resposta;
+
+                        try
+                        {
+                            resposta = EncryptionHelper.Decrypt(encryptedResponse.Trim(), _encryptionKey);
+                        }
+                        catch (Exception ex)
+                        {
+                            string msg = $"Erro ao descriptografar resposta de {computadorIp}: {ex.Message}";
+                             _logService.AddLog("Error", msg, "Coleta");
+                             onResult(msg);
+                             return;
+                        }
 
                         HardwareInfo hardwareInfo;
                         try
@@ -68,7 +89,7 @@ namespace Web.Services
                         }
                         catch (JsonException jsonEx)
                         {
-                            string message = $"Erro de JSON ao coletar dados de {computadorIp}: {jsonEx.Message}. Resposta recebida: '{resposta}'";
+                            string message = $"Erro de JSON ao coletar dados de {computadorIp}: {jsonEx.Message}. Resposta recebida (Decrypted): '{resposta}'";
                             _logService.AddLog("Error", message, "Coleta");
                             onResult(message);
                             return;
