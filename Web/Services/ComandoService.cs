@@ -14,6 +14,7 @@ namespace Web.Services
         private readonly ILogger<ComandoService> _logger;
         private readonly LogService _logService;
         private readonly string _realizarComandos;
+        private readonly string _encryptionKey;
 
         public ComandoService(IConfiguration configuration, ILogger<ComandoService> logger, LogService logService)
         {
@@ -21,6 +22,12 @@ namespace Web.Services
             _logger = logger;
             _logService = logService;
             _realizarComandos = _configuration.GetSection("Autenticacao")["RealizarComandos"];
+            _encryptionKey = _configuration.GetSection("Autenticacao")["EncryptionKey"];
+
+            if (string.IsNullOrEmpty(_encryptionKey))
+            {
+                throw new Exception("EncryptionKey is missing in configuration.");
+            }
         }
 
         public async Task<string> EnviarComandoAsync(string computadorIp, string comando)
@@ -46,11 +53,29 @@ namespace Web.Services
                     using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
                     using (var reader = new StreamReader(stream, Encoding.UTF8))
                     {
-                        await writer.WriteLineAsync(_realizarComandos);
-                        await writer.WriteLineAsync(comando);
+                        await writer.WriteLineAsync(EncryptionHelper.Encrypt(_realizarComandos, _encryptionKey));
+                        await writer.WriteLineAsync(EncryptionHelper.Encrypt(comando, _encryptionKey));
 
-                        string resposta = await reader.ReadToEndAsync();
-                        resposta = resposta.Trim();
+                        // Using ReadLineAsync because the server sends a single line of Base64 encrypted response.
+                        // ReadToEndAsync hangs if the server keeps the connection open.
+                        string encryptedResponse = await reader.ReadLineAsync();
+                        string resposta;
+                        try
+                        {
+                            if (!string.IsNullOrWhiteSpace(encryptedResponse))
+                            {
+                                resposta = EncryptionHelper.Decrypt(encryptedResponse.Trim(), _encryptionKey);
+                            }
+                            else
+                            {
+                                resposta = "";
+                            }
+                        }
+                        catch (Exception)
+                        {
+                             // If decryption fails, maybe return raw or error
+                             resposta = "Error: Could not decrypt response.";
+                        }
 
                         string successMessage = $"Resultado de '{comando}' em {computadorIp}: {resposta}";
                         _logService.AddLog("Info", successMessage, "Comandos");

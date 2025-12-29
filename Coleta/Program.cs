@@ -24,6 +24,13 @@ namespace coleta
 
             string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
             string realizarComandos = config["Autenticacao:RealizarComandos"];
+            string encryptionKey = config["Autenticacao:EncryptionKey"];
+
+            if (string.IsNullOrEmpty(encryptionKey))
+            {
+                Console.WriteLine("[ERROR] 'EncryptionKey' not found in appsettings. Terminating.");
+                return;
+            }
 
             Console.Clear();
 
@@ -48,15 +55,27 @@ namespace coleta
                             string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
                             Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
 
-                            string autenticacao = reader.ReadLine();
-                            if (autenticacao == null)
+                            string encryptedAuth = reader.ReadLine();
+                            if (encryptedAuth == null)
                             {
                                 Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
                                 continue;
                             }
 
+                            string autenticacao;
+                            try
+                            {
+                                autenticacao = EncryptionHelper.Decrypt(encryptedAuth, encryptionKey);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] Falha na descriptografia da autenticação: {ex.Message}");
+                                writer.WriteLine(EncryptionHelper.Encrypt("Authentication Failed", encryptionKey));
+                                continue;
+                            }
+
                             autenticacao = autenticacao.Trim();
-                            Console.WriteLine($"[DEBUG] Autênticação recebida: '{autenticacao}'");
+                            Console.WriteLine($"[DEBUG] Autênticação recebida (Decrypted): '{autenticacao}'");
 
                             if (autenticacao == solicitarInformacoes)
                             {
@@ -74,15 +93,27 @@ namespace coleta
                                 };
 
                                 string resposta = JsonSerializer.Serialize(hardwareInfo);
-                                writer.WriteLine(resposta);
+                                writer.WriteLine(EncryptionHelper.Encrypt(resposta, encryptionKey));
                                 Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
                             }
                             else if (autenticacao == realizarComandos)
                             {
-                                string comandoRemoto = reader.ReadLine();
-                                if (comandoRemoto == null)
+                                string encryptedCommand = reader.ReadLine();
+                                if (encryptedCommand == null)
                                 {
                                     Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
+                                    continue;
+                                }
+
+                                string comandoRemoto;
+                                try
+                                {
+                                    comandoRemoto = EncryptionHelper.Decrypt(encryptedCommand, encryptionKey);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[ERROR] Falha na descriptografia do comando: {ex.Message}");
+                                    writer.WriteLine(EncryptionHelper.Encrypt("Command Decryption Failed", encryptionKey));
                                     continue;
                                 }
 
@@ -96,17 +127,26 @@ namespace coleta
                                         byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
                                         string base64String = Convert.ToBase64String(screenshotBytes);
 
-                                        // Envia o tamanho primeiro e depois os dados para garantir a integridade
-                                        writer.WriteLine(base64String.Length);
-                                        writer.Write(base64String);
+                                        // Encrypt the screenshot data
+                                        // Since the original protocol sent length then raw base64,
+                                        // we will just send the encrypted base64 string as a single line or similarly.
+                                        // To preserve "length then content" logic if client expects it, we can encrypt the content.
+                                        // However, encryption adds IV and padding, changing length.
+                                        // Simpler: Encrypt the whole base64 string and send it as a line.
+
+                                        string encryptedScreenshot = EncryptionHelper.Encrypt(base64String, encryptionKey);
+
+                                        // The client expects a single response line for decryption.
+                                        // We remove the length prefix because the new protocol is line-based encrypted Base64.
+                                        writer.WriteLine(encryptedScreenshot);
                                         await writer.FlushAsync();
 
-                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
+                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso (Encrypted size: {encryptedScreenshot.Length}).");
                                     }
                                     catch (Exception ex)
                                     {
                                         Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
-                                        writer.WriteLine($"Error: {ex.Message}");
+                                        writer.WriteLine(EncryptionHelper.Encrypt($"Error: {ex.Message}", encryptionKey));
                                     }
                                 }
                                 else if (comandoRemoto.StartsWith("mouse_event"))
@@ -118,18 +158,18 @@ namespace coleta
                                     int deltaY = int.Parse(parts[4]);
 
                                     RemoteControl.HandleMouseEvent(type, x, y, deltaY);
-                                    writer.WriteLine("Mouse event handled.");
+                                    writer.WriteLine(EncryptionHelper.Encrypt("Mouse event handled.", encryptionKey));
                                 }
                                 else if (comandoRemoto.StartsWith("set_clipboard"))
                                 {
                                     var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
                                     RemoteControl.SetClipboardText(text);
-                                    writer.WriteLine("Clipboard set.");
+                                    writer.WriteLine(EncryptionHelper.Encrypt("Clipboard set.", encryptionKey));
                                 }
                                 else if (comandoRemoto == "get_clipboard")
                                 {
                                     var text = RemoteControl.GetClipboardText();
-                                    writer.WriteLine(text);
+                                    writer.WriteLine(EncryptionHelper.Encrypt(text, encryptionKey));
                                 }
                                 else if (comandoRemoto.StartsWith("keyboard_event"))
                                 {
@@ -147,7 +187,7 @@ namespace coleta
                                         {
                                             Console.WriteLine($"[WARN] Key not found in map: {key}");
                                         }
-                                        writer.WriteLine("Keyboard event handled.");
+                                        writer.WriteLine(EncryptionHelper.Encrypt("Keyboard event handled.", encryptionKey));
                                     }
                                 }
                                 else if (comandoRemoto == "send_ctrl_alt_del")
@@ -155,15 +195,25 @@ namespace coleta
                                     try
                                     {
                                         Process.Start("taskmgr.exe");
-                                        writer.WriteLine("Ctrl+Alt+Del sent.");
+                                        writer.WriteLine(EncryptionHelper.Encrypt("Ctrl+Alt+Del sent.", encryptionKey));
                                     }
                                     catch (Exception ex)
                                     {
-                                        writer.WriteLine($"Error: {ex.Message}");
+                                        writer.WriteLine(EncryptionHelper.Encrypt($"Error: {ex.Message}", encryptionKey));
                                     }
                                 }
                                 else if (comandoRemoto.StartsWith("upload_file"))
                                 {
+                                    // NOTE: File upload encryption is tricky with raw streams.
+                                    // For now, we will assume the file content stream is NOT encrypted,
+                                    // only the command.
+                                    // To encrypt file content, we would need to read encrypted chunks.
+                                    // Given constraints, we'll keep raw transfer for file content or
+                                    // explicitly wrap it.
+                                    // Let's implement basic protection: The command is encrypted, so an attacker
+                                    // cannot easily trigger this. But the payload is plain.
+                                    // TODO: Implement Encrypted File Stream if needed.
+
                                     var parts = comandoRemoto.Split(' ');
                                     var fileName = parts[1];
                                     var fileSize = long.Parse(parts[2]);
@@ -182,19 +232,19 @@ namespace coleta
                                             bytesRead += read;
                                         }
                                     }
-                                    writer.WriteLine("File uploaded successfully.");
+                                    writer.WriteLine(EncryptionHelper.Encrypt("File uploaded successfully.", encryptionKey));
                                 }
                                 else
                                 {
                                     string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
-                                    writer.WriteLine(resultadoComando);
+                                    writer.WriteLine(EncryptionHelper.Encrypt(resultadoComando, encryptionKey));
                                     Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
                                 }
                             }
                             else
                             {
                                 string resposta = "Código de Autenticação Incorreto!";
-                                writer.WriteLine(resposta);
+                                writer.WriteLine(EncryptionHelper.Encrypt(resposta, encryptionKey));
                                 Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacao}'");
                             }
                         }
