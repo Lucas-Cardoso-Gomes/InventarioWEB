@@ -4,6 +4,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Web.Models;
 using System.Data;
+using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace Web.Services
 {
@@ -14,6 +16,52 @@ namespace Web.Services
         public PersistentLogService(IDatabaseService databaseService)
         {
             _databaseService = databaseService;
+        }
+
+        public async Task LogChangeAsync(string entityType, string actionType, string performedBy, object oldValues, object newValues)
+        {
+            try
+            {
+                var detailsObj = new { OldValues = oldValues, NewValues = newValues };
+                string details = JsonSerializer.Serialize(detailsObj, new JsonSerializerOptions { WriteIndented = true });
+
+                await LogChangeAsync(performedBy, actionType, entityType, actionType, details);
+            }
+            catch (Exception)
+            {
+                // Fail silently
+            }
+        }
+
+        public async Task LogChangeAsync(string user, string action, string entity, string description, string details)
+        {
+            try
+            {
+                using (var connection = _databaseService.CreateLogsConnection())
+                {
+                    connection.Open();
+                    string sql = @"INSERT INTO PersistentLogs (Timestamp, EntityType, ActionType, PerformedBy, Details)
+                                   VALUES (@Timestamp, @EntityType, @ActionType, @PerformedBy, @Details)";
+
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@Timestamp"; p1.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@EntityType"; p2.Value = entity; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@ActionType"; p3.Value = action; cmd.Parameters.Add(p3);
+                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@PerformedBy"; p4.Value = user ?? "System"; cmd.Parameters.Add(p4);
+                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@Details"; p5.Value = details; cmd.Parameters.Add(p5);
+
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Fail silently or log to file/console, but don't break the main flow
+                // In a real scenario, you might want to log this failure
+            }
+            await Task.CompletedTask;
         }
 
         public Tuple<List<PersistentLog>, int> GetLogs(string entityTypeFilter, string actionTypeFilter, int pageNumber, int pageSize)

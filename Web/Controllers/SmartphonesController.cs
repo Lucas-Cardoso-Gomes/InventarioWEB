@@ -10,10 +10,12 @@ namespace Web.Controllers
     public class SmartphonesController : Controller
     {
         private readonly SmartphoneService _smartphoneService;
+        private readonly PersistentLogService _persistentLogService;
 
-        public SmartphonesController(SmartphoneService smartphoneService)
+        public SmartphonesController(SmartphoneService smartphoneService, PersistentLogService persistentLogService)
         {
             _smartphoneService = smartphoneService;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Smartphones
@@ -55,6 +57,15 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 await _smartphoneService.CreateAsync(smartphone);
+
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "CREATE",
+                    "Smartphone",
+                    $"Created smartphone: {smartphone.Modelo}",
+                    $"IMEI: {smartphone.IMEI1}, User: {smartphone.Usuario}"
+                );
+
                 return RedirectToAction(nameof(Index));
             }
             return View(smartphone);
@@ -92,6 +103,14 @@ namespace Web.Controllers
                 try
                 {
                     await _smartphoneService.UpdateAsync(smartphone);
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "EDIT",
+                        "Smartphone",
+                        $"Updated smartphone: {smartphone.Modelo}",
+                        $"ID: {smartphone.Id}, IMEI: {smartphone.IMEI1}"
+                    );
                 }
                 catch
                 {
@@ -126,7 +145,20 @@ namespace Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            var smartphone = await _smartphoneService.GetByIdAsync(id);
             await _smartphoneService.DeleteAsync(id);
+
+            if (smartphone != null)
+            {
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "DELETE",
+                    "Smartphone",
+                    $"Deleted smartphone: {smartphone.Modelo}",
+                    $"ID: {id}, IMEI: {smartphone.IMEI1}"
+                );
+            }
+
             return RedirectToAction(nameof(Index));
         }
     }

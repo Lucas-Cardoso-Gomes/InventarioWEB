@@ -19,11 +19,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<ExportarController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ExportarController(IDatabaseService databaseService, ILogger<ExportarController> logger)
+        public ExportarController(IDatabaseService databaseService, ILogger<ExportarController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index()
@@ -135,10 +137,11 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public IActionResult Export(ExportarViewModel viewModel)
+        public async Task<IActionResult> Export(ExportarViewModel viewModel)
         {
             var csvBuilder = new StringBuilder();
             string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            string exportDetails = "";
 
             using (var connection = _databaseService.CreateConnection())
             {
@@ -146,6 +149,7 @@ namespace Web.Controllers
 
                 if (viewModel.ExportMode == ExportMode.PorDispositivo)
                 {
+                    exportDetails = $"Exported by Device Type: {viewModel.DeviceType}";
                     fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
                     string sql = "";
                     var whereClauses = new List<string>();
@@ -302,6 +306,7 @@ namespace Web.Controllers
                 }
                 else if (viewModel.ExportMode == ExportMode.PorColaborador)
                 {
+                    exportDetails = $"Exported by Collaborator CPF: {viewModel.SelectedColaboradorCPF}";
                     fileName = $"export_colaborador_{viewModel.SelectedColaboradorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
 
                     // Computadores
@@ -405,6 +410,7 @@ namespace Web.Controllers
                 }
                 else if (viewModel.ExportMode == ExportMode.PorCoordenador)
                 {
+                    exportDetails = $"Exported by Coordinator CPF: {viewModel.CoordenadorCPF}";
                     fileName = $"export_coordenador_{viewModel.CoordenadorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
                     string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
                     csvBuilder.AppendLine(computerHeader);
@@ -435,6 +441,14 @@ namespace Web.Controllers
                     }
                 }
             }
+
+            await _persistentLogService.LogChangeAsync(
+                User.Identity.Name,
+                "EXPORT",
+                "Data",
+                "Exported data to CSV",
+                exportDetails
+            );
 
             return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
         }

@@ -30,8 +30,9 @@ namespace Web.Controllers
         private readonly IHubContext<ChatHub> _chatHubContext;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _hostingEnvironment;
+        private readonly PersistentLogService _persistentLogService;
 
-        public ChamadosController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> notificationHubContext, IHubContext<ChatHub> chatHubContext, IWebHostEnvironment hostingEnvironment)
+        public ChamadosController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ChamadosController> logger, IEmailService emailService, IHubContext<NotificationHub> notificationHubContext, IHubContext<ChatHub> chatHubContext, IWebHostEnvironment hostingEnvironment, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _configuration = configuration;
@@ -40,6 +41,7 @@ namespace Web.Controllers
             _notificationHubContext = notificationHubContext;
             _chatHubContext = chatHubContext;
             _hostingEnvironment = hostingEnvironment;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(List<string> statuses, List<string> selectedAdmins, List<string> selectedColaboradores, List<string> selectedServicos, string searchText, DateTime? startDate, DateTime? endDate)
@@ -576,6 +578,14 @@ namespace Web.Controllers
 
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Criado", userId));
 
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "CREATE",
+                        "Chamado",
+                        $"Created ticket ID: {chamado.ID}",
+                        $"ID: {chamado.ID}, Service: {chamado.Servico}, Priority: {chamado.Prioridade}, User: {chamado.ColaboradorCPF}"
+                    );
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -757,6 +767,14 @@ namespace Web.Controllers
                     }
 
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Editado", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "EDIT",
+                        "Chamado",
+                        $"Updated ticket ID: {id}",
+                        $"ID: {id}, Service: {chamado.Servico}, Priority: {chamado.Prioridade}, Status: {chamado.Status}"
+                    );
                 }
                 catch (Exception ex)
                 {
@@ -897,6 +915,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Reaberto", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "REOPEN",
+                        "Chamado",
+                        $"Reopened ticket ID: {id}",
+                        $"ID: {id}, Status: Aberto"
+                    );
                 }
             }
             catch (Exception ex)
@@ -934,6 +960,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Em Andamento", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "WORK_IN_PROGRESS",
+                        "Chamado",
+                        $"Set ticket ID: {id} to 'Em Andamento'",
+                        $"ID: {id}, Status: Em Andamento"
+                    );
                 }
             }
             catch (Exception ex)
@@ -969,6 +1003,14 @@ namespace Web.Controllers
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Fechado", userId));
+
+                    await _persistentLogService.LogChangeAsync(
+                        User.Identity.Name,
+                        "CLOSE",
+                        "Chamado",
+                        $"Closed ticket ID: {id}",
+                        $"ID: {id}, Status: Fechado"
+                    );
                 }
             }
             catch (Exception ex)

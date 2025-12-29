@@ -10,6 +10,7 @@ using Web.Models;
 using Web.Services;
 using System.Security.Claims;
 using System.Data;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -18,11 +19,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<PerifericosController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
         public PerifericosController(IDatabaseService databaseService, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         // GET: Perifericos
@@ -109,7 +112,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Periferico periferico)
+        public async Task<IActionResult> Create(Periferico periferico)
         {
             if (ModelState.IsValid)
             {
@@ -129,6 +132,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Create", User.Identity.Name, null, periferico);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -155,7 +159,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Periferico periferico)
+        public async Task<IActionResult> Edit(string id, Periferico periferico)
         {
             if (id != periferico.PartNumber) return NotFound();
 
@@ -163,6 +167,7 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var oldPeriferico = FindPerifericoById(id);
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
@@ -177,6 +182,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Update", User.Identity.Name, oldPeriferico, periferico);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -202,7 +208,7 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
@@ -220,6 +226,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Periferico", "Delete", User.Identity.Name, periferico, null);
                 }
                 return RedirectToAction(nameof(Index));
             }

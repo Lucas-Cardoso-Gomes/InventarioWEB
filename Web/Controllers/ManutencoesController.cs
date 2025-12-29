@@ -16,11 +16,13 @@ namespace Web.Controllers
     {
         private readonly ManutencaoService _manutencaoService;
         private readonly IDatabaseService _databaseService;
+        private readonly PersistentLogService _persistentLogService;
 
         public ManutencoesController(ManutencaoService manutencaoService, PersistentLogService persistentLogService, IDatabaseService databaseService)
         {
             _manutencaoService = manutencaoService;
             _databaseService = databaseService;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(string partNumber, string colaborador, string hostname)
@@ -50,11 +52,20 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Manutencao manutencao)
+        public async Task<IActionResult> Create(Manutencao manutencao)
         {
             if (ModelState.IsValid)
             {
                 _manutencaoService.AddManutencao(manutencao);
+
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "CREATE",
+                    "Manutencao",
+                    $"Created maintenance record for device",
+                    $"Computer: {manutencao.ComputadorMAC ?? "N/A"}, Monitor: {manutencao.MonitorPartNumber ?? "N/A"}, Periferico: {manutencao.PerifericoPartNumber ?? "N/A"}"
+                );
+
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
@@ -158,7 +169,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(int id, Manutencao manutencao)
+        public async Task<IActionResult> Edit(int id, Manutencao manutencao)
         {
             if (id != manutencao.Id)
             {
@@ -168,6 +179,15 @@ namespace Web.Controllers
             if (ModelState.IsValid)
             {
                 _manutencaoService.UpdateManutencao(manutencao);
+
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "EDIT",
+                    "Manutencao",
+                    $"Updated maintenance record ID: {manutencao.Id}",
+                    $"ID: {manutencao.Id}, Computer: {manutencao.ComputadorMAC ?? "N/A"}, Monitor: {manutencao.MonitorPartNumber ?? "N/A"}"
+                );
+
                 return RedirectToAction(nameof(Index));
             }
             ViewData["ComputadorMAC"] = new SelectList(GetComputadores().Select(c => new { Value = c.MAC, Text = $"{c.Hostname} ({c.MAC})" }), "Value", "Text", manutencao.ComputadorMAC);
@@ -190,10 +210,22 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var manutencao = _manutencaoService.GetManutencaoById(id);
             _manutencaoService.DeleteManutencao(id);
+
+            if (manutencao != null)
+            {
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "DELETE",
+                    "Manutencao",
+                    $"Deleted maintenance record ID: {id}",
+                    $"ID: {id}, Computer: {manutencao.ComputadorMAC ?? "N/A"}"
+                );
+            }
+
             return RedirectToAction(nameof(Index));
         }
     }

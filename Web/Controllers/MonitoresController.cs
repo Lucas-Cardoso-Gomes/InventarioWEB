@@ -24,11 +24,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<MonitoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
         public MonitoresController(IDatabaseService databaseService, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
@@ -332,7 +334,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Monitor monitor)
+        public async Task<IActionResult> Create(Monitor monitor)
         {
             if (ModelState.IsValid)
             {
@@ -349,6 +351,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Create", User.Identity.Name, null, monitor);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -376,7 +379,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Monitor monitor)
+        public async Task<IActionResult> Edit(string id, Monitor monitor)
         {
             if (id != monitor.PartNumber) return NotFound();
 
@@ -384,6 +387,7 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var oldMonitor = FindMonitorById(id);
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
@@ -395,6 +399,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Update", User.Identity.Name, oldMonitor, monitor);
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -421,20 +426,25 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                var monitor = FindMonitorById(id);
+                if (monitor != null)
                 {
-                    connection.Open();
-                    string sql = "DELETE FROM Monitores WHERE PartNumber = @PartNumber";
-                    using (var cmd = connection.CreateCommand())
+                    using (var connection = _databaseService.CreateConnection())
                     {
-                        cmd.CommandText = sql;
-                        var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = id; cmd.Parameters.Add(p);
-                        cmd.ExecuteNonQuery();
+                        connection.Open();
+                        string sql = "DELETE FROM Monitores WHERE PartNumber = @PartNumber";
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            var p = cmd.CreateParameter(); p.ParameterName = "@PartNumber"; p.Value = id; cmd.Parameters.Add(p);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    await _persistentLogService.LogChangeAsync("Monitor", "Delete", User.Identity.Name, monitor, null);
                 }
                 return RedirectToAction(nameof(Index));
             }

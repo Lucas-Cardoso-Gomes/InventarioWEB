@@ -16,11 +16,13 @@ namespace Web.Controllers
     {
         private readonly UserService _userService;
         private readonly IDatabaseService _databaseService;
+        private readonly PersistentLogService _persistentLogService;
 
         public UsersController(UserService userService, PersistentLogService persistentLogService, IDatabaseService databaseService)
         {
             _userService = userService;
             _databaseService = databaseService;
+            _persistentLogService = persistentLogService;
         }
 
         private async Task<List<Colaborador>> GetAllColaboradoresAsync()
@@ -104,6 +106,14 @@ namespace Web.Controllers
 
                 await _userService.CreateAsync(user);
 
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "CREATE",
+                    "Users",
+                    $"Created user: {user.Login} ({user.Nome})",
+                    $"Role: {user.Role}, CPF: {user.ColaboradorCPF}"
+                );
+
                 TempData["SuccessMessage"] = "Usuário criado com sucesso!";
 
                 return RedirectToAction(nameof(Index));
@@ -167,6 +177,14 @@ namespace Web.Controllers
 
                 await _userService.UpdateAsync(user);
 
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "EDIT",
+                    "Users",
+                    $"Updated user: {user.Login} ({user.Nome})",
+                    $"ID: {user.Id}, Role: {user.Role}"
+                );
+
                 TempData["SuccessMessage"] = "Usuário atualizado com sucesso!";
                 return RedirectToAction(nameof(Index));
             }
@@ -196,6 +214,15 @@ namespace Web.Controllers
             if (user != null)
             {
                 await _userService.DeleteAsync(id);
+
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "DELETE",
+                    "Users",
+                    $"Deleted user: {user.Login} ({user.Nome})",
+                    $"ID: {id}, Login: {user.Login}"
+                );
+
                 TempData["SuccessMessage"] = "Usuário excluído com sucesso!";
             }
             else

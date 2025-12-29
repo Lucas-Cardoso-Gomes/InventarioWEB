@@ -23,11 +23,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<ComputadoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
         public ComputadoresController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index(string sortOrder, string searchString,
@@ -499,7 +501,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(ComputadorViewModel viewModel)
+        public async Task<IActionResult> Create(ComputadorViewModel viewModel)
         {
             if (ModelState.IsValid)
             {
@@ -547,6 +549,9 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Computador", "Create", User.Identity.Name, null, viewModel);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -600,7 +605,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, ComputadorViewModel viewModel)
+        public async Task<IActionResult> Edit(string id, ComputadorViewModel viewModel)
         {
             if (id != viewModel.MAC) return NotFound();
 
@@ -608,6 +613,8 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var oldComputador = FindComputadorById(id);
+
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
@@ -648,6 +655,9 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Computador", "Update", User.Identity.Name, oldComputador, viewModel);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -672,20 +682,25 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             try
             {
-                using (var connection = _databaseService.CreateConnection())
+                var computador = FindComputadorById(id);
+                if (computador != null)
                 {
-                    connection.Open();
-                    string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
-                    using (var cmd = connection.CreateCommand())
+                    using (var connection = _databaseService.CreateConnection())
                     {
-                        cmd.CommandText = sql;
-                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = id; cmd.Parameters.Add(p1);
-                        cmd.ExecuteNonQuery();
+                        connection.Open();
+                        string sql = "DELETE FROM Computadores WHERE MAC = @MAC";
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = id; cmd.Parameters.Add(p1);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
+                    await _persistentLogService.LogChangeAsync("Computador", "Delete", User.Identity.Name, computador, null);
                 }
                 return RedirectToAction(nameof(Index));
             }

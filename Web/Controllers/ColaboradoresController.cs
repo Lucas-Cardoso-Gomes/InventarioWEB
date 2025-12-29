@@ -22,11 +22,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<ColaboradoresController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
         public ColaboradoresController(IDatabaseService databaseService, ILogger<ColaboradoresController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         private string SanitizeCpf(string cpf)
@@ -191,7 +193,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Create(Colaborador colaborador)
+        public async Task<IActionResult> Create(Colaborador colaborador)
         {
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
             colaborador.CoordenadorCPF = SanitizeCpf(colaborador.CoordenadorCPF);
@@ -213,6 +215,9 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Create", User.Identity.Name, null, colaborador);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -240,7 +245,7 @@ namespace Web.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult Edit(string id, Colaborador colaborador)
+        public async Task<IActionResult> Edit(string id, Colaborador colaborador)
         {
             var sanitizedId = SanitizeCpf(id);
             colaborador.CPF = SanitizeCpf(colaborador.CPF);
@@ -252,6 +257,8 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var oldColaborador = FindColaboradorById(sanitizedId);
+
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
@@ -270,6 +277,9 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Update", User.Identity.Name, oldColaborador, colaborador);
+
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
@@ -296,7 +306,7 @@ namespace Web.Controllers
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id)
         {
             var sanitizedId = SanitizeCpf(id);
             try
@@ -315,6 +325,7 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+                    await _persistentLogService.LogChangeAsync("Colaborador", "Delete", User.Identity.Name, colaborador, null);
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -513,6 +524,7 @@ namespace Web.Controllers
 
                                 if (existente != null)
                                 {
+                                    // Consider adding logging for bulk updates here if needed, but it might be too verbose.
                                     string updateSql = @"UPDATE Colaboradores SET 
                                                        Nome = @Nome, Email = @Email, SenhaEmail = @SenhaEmail, Teams = @Teams, SenhaTeams = @SenhaTeams, 
                                                        EDespacho = @EDespacho, SenhaEDespacho = @SenhaEDespacho, Genius = @Genius, SenhaGenius = @SenhaGenius, 

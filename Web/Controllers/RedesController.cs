@@ -17,11 +17,13 @@ namespace Web.Controllers
     {
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<RedesController> _logger;
+        private readonly PersistentLogService _persistentLogService;
 
         public RedesController(IDatabaseService databaseService, ILogger<RedesController> logger, PersistentLogService persistentLogService)
         {
             _databaseService = databaseService;
             _logger = logger;
+            _persistentLogService = persistentLogService;
         }
 
         public IActionResult Index()
@@ -86,7 +88,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(Rede rede)
+        public async Task<IActionResult> Create(Rede rede)
         {
             _logger.LogInformation("Create POST action called for network asset.");
             if (ModelState.IsValid)
@@ -111,6 +113,14 @@ namespace Web.Controllers
                             _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
                             command.ExecuteNonQuery();
                             _logger.LogInformation("INSERT command executed successfully.");
+
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "CREATE",
+                                "Rede",
+                                $"Created network asset: {rede.Nome}, IP: {rede.IP}",
+                                $"Tipo: {rede.Tipo}, IP: {rede.IP}, MAC: {rede.MAC}"
+                            );
                         }
                     }
                     return RedirectToAction(nameof(Index));
@@ -149,7 +159,7 @@ namespace Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, Rede rede)
+        public async Task<IActionResult> Edit(int id, Rede rede)
         {
             if (id != rede.Id)
             {
@@ -180,6 +190,14 @@ namespace Web.Controllers
                             _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
                             command.ExecuteNonQuery();
                             _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
+
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "EDIT",
+                                "Rede",
+                                $"Updated network asset: {rede.Nome}, IP: {rede.IP}",
+                                $"ID: {rede.Id}, Tipo: {rede.Tipo}, IP: {rede.IP}"
+                            );
                         }
                     }
                     return RedirectToAction(nameof(Index));
@@ -218,10 +236,11 @@ namespace Web.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public IActionResult DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
             {
+                var rede = FindRedeById(id);
                 using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
@@ -230,6 +249,17 @@ namespace Web.Controllers
                         command.CommandText = "DELETE FROM Rede WHERE Id = @Id";
                         var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = id; command.Parameters.Add(p1);
                         command.ExecuteNonQuery();
+
+                        if (rede != null)
+                        {
+                            await _persistentLogService.LogChangeAsync(
+                                User.Identity.Name,
+                                "DELETE",
+                                "Rede",
+                                $"Deleted network asset: {rede.Nome}",
+                                $"ID: {id}, Name: {rede.Nome}, IP: {rede.IP}"
+                            );
+                        }
                     }
                 }
                 return RedirectToAction(nameof(Index));
