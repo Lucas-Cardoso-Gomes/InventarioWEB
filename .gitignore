@@ -1,13 +1,10 @@
-/Web/appsettings.json
 /Web/bin
 /Web/obj
-/Coleta/appsettings.json
 /Coleta/bin
 /Coleta/obj
 InventarioWEB.rar
 Web/secrets.txt
 /Web/wwwroot/attachments
-Web/appsettings.Production.json
 Web/secrets.json
 /jules-scratch
 Web/ColetadosLogs.db
