@@ -22,7 +22,7 @@ namespace Web.Services
             _env = env;
         }
 
-        public Task SendEmailAsync(string to, string subject, string message)
+        public async Task SendEmailAsync(string to, string subject, string message)
         {
             if (_env.IsDevelopment())
             {
@@ -30,23 +30,25 @@ namespace Web.Services
                     (object s, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) => true;
             }
 
-            var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
+            using (var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.SmtpPort)
             {
                 Credentials = new NetworkCredential(_emailSettings.SmtpUser, _emailSettings.SmtpPass),
                 EnableSsl = true,
                 Timeout = 10000 // Adiciona um timeout de 10 segundos
-            };
-
-            var mailMessage = new MailMessage
+            })
             {
-                From = new MailAddress(_emailSettings.FromEmail),
-                Subject = subject,
-                Body = message,
-                IsBodyHtml = true,
-            };
-            mailMessage.To.Add(to);
-
-            return client.SendMailAsync(mailMessage);
+                using (var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(_emailSettings.FromEmail),
+                    Subject = subject,
+                    Body = message,
+                    IsBodyHtml = true,
+                })
+                {
+                    mailMessage.To.Add(to);
+                    await client.SendMailAsync(mailMessage);
+                }
+            }
         }
     }
 }

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Web.Models;
 using Web.Services;
@@ -31,10 +33,26 @@ namespace Web.Controllers
             {
                 var user = await _userService.FindByLoginAsync(model.Login);
 
-                // IMPORTANT: This is a simple string comparison.
-                // In a real application, use a secure password hashing library like BCrypt.
-                // Example: if (user != null && BCrypt.Net.BCrypt.Verify(model.Password, user.PasswordHash))
-                if (user != null && model.Password == user.PasswordHash) // Placeholder for real hash check
+                bool isValid = false;
+                if (user != null)
+                {
+                    // Check if password matches stored hash
+                    var inputHash = ComputeSha256Hash(model.Password);
+                    if (inputHash == user.PasswordHash)
+                    {
+                        isValid = true;
+                    }
+                    // Fallback for legacy plain text passwords (migrate on login)
+                    else if (model.Password == user.PasswordHash)
+                    {
+                        isValid = true;
+                        // Update to hash
+                        user.PasswordHash = inputHash;
+                        await _userService.UpdateAsync(user);
+                    }
+                }
+
+                if (isValid)
                 {
                     var claims = new List<Claim>
                     {
@@ -95,6 +113,20 @@ namespace Web.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction("Index", "Computadores");
+        }
+
+        private string ComputeSha256Hash(string rawData)
+        {
+            using (SHA256 sha256Hash = SHA256.Create())
+            {
+                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
+                StringBuilder builder = new StringBuilder();
+                for (int i = 0; i < bytes.Length; i++)
+                {
+                    builder.Append(bytes[i].ToString("x2"));
+                }
+                return builder.ToString();
+            }
         }
     }
 }
