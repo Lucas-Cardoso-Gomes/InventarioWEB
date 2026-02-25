@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Web.Models;
 using System.Data;
 using System.Threading.Tasks;
@@ -12,10 +13,12 @@ namespace Web.Services
     public class PersistentLogService
     {
         private readonly IDatabaseService _databaseService;
+        private readonly ILogger<PersistentLogService> _logger;
 
-        public PersistentLogService(IDatabaseService databaseService)
+        public PersistentLogService(IDatabaseService databaseService, ILogger<PersistentLogService> logger)
         {
             _databaseService = databaseService;
+            _logger = logger;
         }
 
         public async Task LogChangeAsync(string entityType, string actionType, string performedBy, object oldValues, object newValues)
@@ -27,9 +30,9 @@ namespace Web.Services
 
                 await LogChangeAsync(performedBy, actionType, entityType, actionType, details);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Fail silently
+                _logger.LogError(ex, "Failed to log change (overload 1). Entity: {EntityType}, Action: {ActionType}", entityType, actionType);
             }
         }
 
@@ -56,10 +59,9 @@ namespace Web.Services
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Fail silently or log to file/console, but don't break the main flow
-                // In a real scenario, you might want to log this failure
+                _logger.LogError(ex, "Failed to log change (overload 2). Entity: {Entity}, Action: {Action}", entity, action);
             }
             await Task.CompletedTask;
         }
