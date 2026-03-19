@@ -4,8 +4,23 @@ using Web.Models;
 using Web.Hubs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var assembly = Assembly.GetExecutingAssembly();
+
+var appSettingsStream = assembly.GetManifestResourceStream("Web.appsettings.json");
+if (appSettingsStream != null)
+{
+    builder.Configuration.AddJsonStream(appSettingsStream);
+}
+
+var appSettingsProdStream = assembly.GetManifestResourceStream("Web.appsettings.Production.json");
+if (appSettingsProdStream != null)
+{
+    builder.Configuration.AddJsonStream(appSettingsProdStream);
+}
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
@@ -36,13 +51,6 @@ builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddHostedService<PingService>();
-
-// Configuração do Kestrel para escutar apenas em HTTP (Porta 80)
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.ListenAnyIP(80); // HTTP
-    // serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // <-- HTTPS COMENTADO AQUI
-});
 
 var app = builder.Build();
 

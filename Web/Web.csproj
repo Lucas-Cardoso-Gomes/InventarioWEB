@@ -29,6 +29,15 @@
     <None Update="schema_logs.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    
+  </ItemGroup>
+  <ItemGroup>
+    <Content Remove="appsettings.json" />
+    <Content Remove="appsettings.Production.json" />
+    <Content Remove="appsettings.Development.json" />
+    
+    <EmbeddedResource Include="appsettings.json" />
+    <EmbeddedResource Include="appsettings.Production.json" />
   </ItemGroup>
 
 </Project>
