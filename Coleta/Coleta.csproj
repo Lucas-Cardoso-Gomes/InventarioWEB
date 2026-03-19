@@ -12,9 +12,8 @@
     <PackageReference Include="System.Management" Version="7.0.2" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0-rc.2.23479.6" />
   </ItemGroup>
-    <ItemGroup>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+  <ItemGroup>
+    <Content Remove="appsettings.json" />
+    <EmbeddedResource Include="appsettings.json" />
   </ItemGroup>
 </Project>

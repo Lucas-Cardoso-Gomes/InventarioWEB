@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Coleta.Models;
 using Coleta;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace coleta
 {
@@ -16,12 +17,26 @@ namespace coleta
     {
         static async Task Main()
         {
-            // Carregar configurações do appsettings.json
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-            IConfiguration config = builder.Build();
+// --- CÓDIGO NOVO: Lendo o JSON da memória (Embedded Resource) ---
+            var builder = new ConfigurationBuilder();
+            var assembly = Assembly.GetExecutingAssembly();
+            
+            // O nome do recurso geralmente segue o padrão: NamespaceProjeto.NomeDoArquivo
+            var appSettingsStream = assembly.GetManifestResourceStream("Coleta.appsettings.json");
+            
+            if (appSettingsStream != null)
+            {
+                builder.AddJsonStream(appSettingsStream);
+            }
+            else
+            {
+                Console.WriteLine("[ERROR] Falha de Segurança: Arquivo de configuração embutido não encontrado.");
+                return; // Encerra a execução caso falhe, para não rodar sem autenticação
+            }
 
+            IConfiguration config = builder.Build();
+            // -----------------------------------------------------------------
+            
             string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
             string realizarComandos = config["Autenticacao:RealizarComandos"];
 

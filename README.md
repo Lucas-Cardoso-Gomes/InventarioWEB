@@ -119,3 +119,7 @@ A aplicação Web recebe o JSON, atualiza seu banco de dados e exibe as informa�
 
 Comandos Remotos
 O fluxo para comandos remotos é semelhante, mas a aplicação Web envia o segredo RealizarComandos, seguido pelo comando a ser executado. O agente retorna a saída do comando.
+
+Copilar:
+dotnet publish Web/Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
