@@ -37,13 +37,12 @@ builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddHostedService<PingService>();
 
-// // Configuração do Kestrel para escutar em todas as interfaces de rede
+// Configuração do Kestrel para escutar apenas em HTTP (Porta 80)
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.ListenAnyIP(80); // HTTP
-    serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // HTTPS
+    // serverOptions.ListenAnyIP(443, listenOptions => listenOptions.UseHttps()); // <-- HTTPS COMENTADO AQUI
 });
-
 
 var app = builder.Build();
 
@@ -56,11 +55,11 @@ using (var scope = app.Services.CreateScope())
 // Configure o pipeline HTTP
 if (!app.Environment.IsDevelopment())
 {
-    // app.UseExceptionHandler("/Home/Error"); // Removido pois HomeController não existe mais
-    app.UseHsts();
+    // app.UseExceptionHandler("/Home/Error"); 
+    // app.UseHsts(); // <-- HSTS COMENTADO POIS EXIGE HTTPS
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // <-- REDIRECIONAMENTO HTTPS COMENTADO AQUI
 app.UseStaticFiles();
 
 app.UseRouting();
