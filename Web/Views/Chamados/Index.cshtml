@@ -1,0 +1,226 @@
+@model IEnumerable<Web.Models.Chamado>
+
+@{
+    ViewData["Title"] = "Chamados";
+}
+
+<h1>Chamados</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Abrir Novo Chamado</a>
+    @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH"))
+    {
+        <a asp-action="Dashboard" class="btn btn-info">Ver Dashboard</a>
+    }
+</p>
+
+@{
+    var selectedStatuses = ViewBag.SelectedStatuses as List<string> ?? new List<string> { "Aberto", "Em Andamento" };
+}
+
+<div class="card mb-4">
+    <div class="card-header">
+        Filtros de Status
+    </div>
+    <div class="card-body">
+        <form asp-action="Index" method="get" id="chamados-filter-form">
+            <div class="row">
+                <div class="col-md-3">
+                    <h5>Status</h5>
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Aberto" id="statusAberto" @(selectedStatuses.Contains("Aberto") ? "checked" : "")>
+                            <label class="form-check-label" for="statusAberto">Aberto</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Em Andamento" id="statusEmAndamento" @(selectedStatuses.Contains("Em Andamento") ? "checked" : "")>
+                            <label class="form-check-label" for="statusEmAndamento">Em Andamento</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="statuses" value="Fechado" id="statusFechado" @(selectedStatuses.Contains("Fechado") ? "checked" : "")>
+                            <label class="form-check-label" for="statusFechado">Fechado</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <h5>TIC</h5>
+                    @{
+                        var allAdmins = ViewBag.Admins as List<Web.Models.Colaborador> ?? new List<Web.Models.Colaborador>();
+                        var selectedAdmins = ViewBag.SelectedAdmins as List<string> ?? new List<string>();
+                    }
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        @foreach (var admin in allAdmins)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedAdmins" value="@admin.CPF" id="admin-@admin.CPF" @(selectedAdmins.Contains(admin.CPF) ? "checked" : "")>
+                                <label class="form-check-label" for="admin-@admin.CPF">@admin.Nome</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <h5>Colaborador</h5>
+                    @{
+                        var allColaboradores = ViewBag.Colaboradores as List<Web.Models.Colaborador> ?? new List<Web.Models.Colaborador>();
+                        var selectedColaboradores = ViewBag.SelectedColaboradores as List<string> ?? new List<string>();
+                    }
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        @foreach (var colab in allColaboradores)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedColaboradores" value="@colab.CPF" id="colab-@colab.CPF" @(selectedColaboradores.Contains(colab.CPF) ? "checked" : "")>
+                                <label class="form-check-label" for="colab-@colab.CPF">@colab.Nome</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <h5>Serviço</h5>
+                    @{
+                        var allServicos = ViewBag.Servicos as List<string> ?? new List<string>();
+                        var selectedServicos = ViewBag.SelectedServicos as List<string> ?? new List<string>();
+                    }
+                    <div class="border rounded p-2" style="height: 120px; overflow-y: auto;">
+                        @foreach (var servico in allServicos)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="selectedServicos" value="@servico" id="serv-@servico.Replace(" ", "")" @(selectedServicos.Contains(servico) ? "checked" : "")>
+                                <label class="form-check-label" for="serv-@servico.Replace(" ", "")">@servico</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-5">
+                    <h5>Pesquisa</h5>
+                    <input type="text" name="searchText" class="form-control" value="@ViewBag.SearchText" placeholder="Buscar por descrição ou serviço...">
+                </div>
+                <div class="col-md-3">
+                    <h5>Data Início</h5>
+                    <input type="date" name="startDate" class="form-control" value="@(ViewBag.StartDate?.ToString("yyyy-MM-dd"))">
+                </div>
+                <div class="col-md-3">
+                    <h5>Data Fim</h5>
+                    <input type="date" name="endDate" class="form-control" value="@(ViewBag.EndDate?.ToString("yyyy-MM-dd"))">
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a asp-action="Index" class="btn btn-secondary">Limpar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>
+                    @Html.DisplayNameFor(model => model.ID)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.AdminNome)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.ColaboradorNome)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.Servico)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.DataAlteracao)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.DataCriacao)
+                </th>
+                <th>
+                    @Html.DisplayNameFor(model => model.Status)
+                </th>
+                <th>
+                    Prioridade
+                </th>
+                <th>
+                    Ações
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.ID)</a>
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.AdminNome)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.ColaboradorNome)
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID">@Html.DisplayFor(modelItem => item.Servico)</a>
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.DataAlteracao)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.DataCriacao)
+                    </td>
+                    <td>
+                        @if (item.Status == "Aberto")
+                        {
+                            <span class="badge bg-success">@item.Status</span>
+                        }
+                        else if (item.Status == "Em Andamento")
+                        {
+                            <span class="badge bg-warning text-dark">@item.Status</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">@item.Status</span>
+                        }
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Prioridade)
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-info btn-sm">Chat</a>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
+                        }
+                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        @if (item.Status == "Aberto")
+                        {
+                            <form asp-action="WorkingTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-info btn-sm">Iniciar Atendimento</button>
+                            </form>
+                        }
+                        else
+                        @if (item.Status == "Em Andamento")
+                        {
+                            <form asp-action="CloseTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-success btn-sm">Fechar Chamado</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-danger btn-sm">Reabrir Chamado</button>
+                            </form>
+                        }
+                    }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="~/js/chamado-filter-persistence.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,315 @@
+@model Web.Models.ChamadoDashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard de Chamados";
+}
+
+<div class="container-fluid">
+    <div class="card mb-4">
+        <div class="card-header">
+            Filtros
+        </div>
+        <div class="card-body">
+            <form asp-action="Dashboard" method="get">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="startDate">Data Início</label>
+                        <input type="date" id="startDate" name="startDate" class="form-control" value="@(ViewBag.StartDate?.ToString("yyyy-MM-dd"))">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="endDate">Data Fim</label>
+                        <input type="date" id="endDate" name="endDate" class="form-control" value="@(ViewBag.EndDate?.ToString("yyyy-MM-dd"))">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="year">Ano</label>
+                        <input type="number" id="year" name="year" class="form-control" value="@ViewBag.Year">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="month">Mês</label>
+                        <input type="number" id="month" name="month" class="form-control" value="@ViewBag.Month">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="day">Dia</label>
+                        <input type="number" id="day" name="day" class="form-control" value="@ViewBag.Day">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <a asp-action="Dashboard" class="btn btn-secondary">Limpar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Total de Chamados</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.TotalChamados</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Chamados Abertos</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosAbertos</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Chamados Em Andamento</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosEmAndamento</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-secondary mb-3">
+                <div class="card-header">Chamados Fechados</div>
+                <div class="card-body">
+                    <h4 class="card-title">@Model.ChamadosFechados</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top 10 Serviços</div>
+                <div class="card-body">
+                    @if (Model.Top10Servicos.Any())
+                    {
+                        <canvas id="top10ServicosChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top 10 Usuários que Mais Abriram Chamados</div>
+                <div class="card-body">
+                    @if (Model.Top10Usuarios.Any())
+                    {
+                        <canvas id="top10UsuariosChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Top Dias da Semana de Abertura de Chamados</div>
+                <div class="card-body">
+                    @if (Model.ChamadosPorDiaDaSemana.Any())
+                    {
+                        <canvas id="chamadosPorDiaDaSemanaChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Horário Médio de Abertura de Chamados</div>
+                <div class="card-body">
+                    @if (Model.HorarioMedioAbertura.Any())
+                    {
+                        <canvas id="horarioMedioAberturaChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Prioridade dos Serviços</div>
+                <div class="card-body">
+                    @if (Model.PrioridadeServicos.Any())
+                    {
+                        <canvas id="prioridadeServicosChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Filiais que Mais Abrem Chamados</div>
+                <div class="card-body">
+                    @if (Model.ChamadosPorFilial.Any())
+                    {
+                        <canvas id="chamadosPorFilialChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">Chamados por Mês</div>
+                <div class="card-body">
+                    @if (Model.ChamadosPorMes.Any())
+                    {
+                        <canvas id="chamadosPorMesChart"></canvas>
+                    }
+                    else
+                    {
+                        <p>Não há dados para exibir.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Espera o DOM (a página) ser totalmente carregado
+        document.addEventListener("DOMContentLoaded", function () {
+
+            // --- Bloco de "Persistent Filters" removido ---
+            // Não é necessário, pois o ViewBag já está
+            // preenchendo os valores dos filtros no lado do servidor.
+
+            // Função auxiliar para criar gráficos
+            // (Isso evita repetir a lógica de verificação)
+            function criarGraficoSeCanvasExistir(canvasId, config) {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) { // Se o canvas existe na página...
+                    new Chart(canvas, config); // ...cria o gráfico
+                }
+                // Se não existir (porque o .Any() foi falso no HTML),
+                // nada acontece, o que é o correto.
+            }
+
+            // Top 10 Serviços
+            criarGraficoSeCanvasExistir('top10ServicosChart', {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Servicos.Select(d => d.Value))),
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Prioridade dos Serviços
+            criarGraficoSeCanvasExistir('prioridadeServicosChart', {
+                type: 'pie',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Label))),
+                    datasets: [{
+                        data: @Html.Raw(Json.Serialize(Model.PrioridadeServicos.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0']
+                    }]
+                }
+            });
+
+            // Chamados por Mês
+            criarGraficoSeCanvasExistir('chamadosPorMesChart', {
+                type: 'line',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.ChamadosPorMes.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.ChamadosPorMes.Select(d => d.Value))),
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Top 10 Usuários
+            criarGraficoSeCanvasExistir('top10UsuariosChart', {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados Abertos',
+                        data: @Html.Raw(Json.Serialize(Model.Top10Usuarios.Select(d => d.Value))),
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Horário Médio de Abertura
+            criarGraficoSeCanvasExistir('horarioMedioAberturaChart', {
+                type: 'line',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Número de Chamados',
+                        data: @Html.Raw(Json.Serialize(Model.HorarioMedioAbertura.Select(d => d.Value))),
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            // Chamados por Dia da Semana
+            criarGraficoSeCanvasExistir('chamadosPorDiaDaSemanaChart', {
+                type: 'bar',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Label))),
+                    datasets: [{
+                        label: 'Chamados Semanais', 
+                        data: @Html.Raw(Json.Serialize(Model.ChamadosPorDiaDaSemana.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
+                    }]
+                }
+            });
+
+            // Chamados por Filial
+            criarGraficoSeCanvasExistir('chamadosPorFilialChart', {
+                type: 'pie',
+                data: {
+                    labels: @Html.Raw(Json.Serialize(Model.ChamadosPorFilial.Select(d => d.Label))),
+                    datasets: [{
+                        data: @Html.Raw(Json.Serialize(Model.ChamadosPorFilial.Select(d => d.Value))),
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF']
+                    }]
+                }
+            });
+
+        });
+    </script>
+}

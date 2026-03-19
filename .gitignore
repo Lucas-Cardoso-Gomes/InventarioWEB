@@ -1,0 +1,12 @@
+/Web/bin
+/Web/obj
+/Coleta/bin
+/Coleta/obj
+InventarioWEB.rar
+Web/secrets.txt
+/Web/wwwroot/attachments
+Web/secrets.json
+/jules-scratch
+Web/ColetadosLogs.db
+Web/Coletados.db
+Web/ColetadosLogs.db-journal

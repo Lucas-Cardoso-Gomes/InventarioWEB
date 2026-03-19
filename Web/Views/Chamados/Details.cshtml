@@ -1,0 +1,155 @@
+@model Web.Models.Chamado
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+
+@{
+    ViewData["Title"] = "Detalhes do Chamado";
+}
+
+<h1>Detalhes do Chamado</h1>
+
+<div>
+    <h4>Chamado</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ID)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.ID)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.AdminNome)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.AdminNome)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ColaboradorNome)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.ColaboradorNome)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Servico)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Servico)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Descricao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Descricao)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Status)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Status)</dd>
+
+        <dt class="col-sm-2">Prioridade</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.Prioridade)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataCriacao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataCriacao)</dd>
+
+        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataAlteracao)</dt>
+        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataAlteracao)</dd>
+    </dl>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h3>Conversa</h3>
+        @if (Model.Status == "Fechado")
+        {
+            <div class="alert alert-info">O chat foi desativado pois este chamado está fechado.</div>
+        }
+        @await Html.PartialAsync("_Chat", Model.Conversas, new ViewDataDictionary(ViewData) { { "Status", Model.Status } })
+    </div>
+    <div class="col-md-4">
+        <h3>Anexos</h3>
+        <div id="anexos-list">
+            @foreach (var anexo in Model.Anexos)
+            {
+                <div>
+                    <a href="@Url.Content(anexo.CaminhoArquivo)" target="_blank">@anexo.NomeArquivo</a>
+                </div>
+            }
+        </div>
+        <hr />
+        @if (Model.Status != "Fechado")
+        {
+            <h4>Adicionar Anexo</h4>
+            <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+                <input type="hidden" name="ChamadoID" value="@Model.ID" />
+                <div class="form-group">
+                    <input type="file" name="file" id="file-input" class="form-control" />
+                </div>
+                <br>
+                <button type="submit" class="btn btn-primary">Adicionar</button>
+            </form>
+            <div id="upload-status" class="mt-2"></div>
+        }
+        else
+        {
+            <div class="alert alert-info">O upload de anexos foi desativado pois este chamado está fechado.</div>
+        }
+    </div>
+</div>
+
+<br>
+<div>
+    <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
+</div>
+
+@section Scripts {
+    <script src="~/js/signalr/dist/browser/signalr.js"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const uploadForm = document.getElementById('upload-anexo-form');
+        const fileInput = document.getElementById('file-input');
+        const uploadStatus = document.getElementById('upload-status');
+        const anexosList = document.getElementById('anexos-list');
+        const requestToken = uploadForm.dataset.requestToken;
+        const chamadoId = document.querySelector('input[name="ChamadoID"]').value;
+
+        const attachmentConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .build();
+
+        attachmentConnection.on("NewAttachment", function (fileName, filePath) {
+            if (document.querySelector(`a[href="${filePath}"]`)) {
+                return;
+            }
+            const newAnexo = `<div><a href="${filePath}" target="_blank">${fileName}</a></div>`;
+            anexosList.insertAdjacentHTML('beforeend', newAnexo);
+        });
+
+        attachmentConnection.start().then(function () {
+            attachmentConnection.invoke("JoinGroup", chamadoId).catch(function (err) {
+                return console.error(err.toString());
+            });
+        }).catch(function (err) {
+            return console.error(err.toString());
+        });
+
+        uploadForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData(uploadForm);
+            const file = fileInput.files[0];
+            if (!file) {
+                uploadStatus.innerHTML = '<div class="alert alert-danger">Por favor, selecione um arquivo.</div>';
+                return;
+            }
+            formData.append('file', file);
+
+            fetch('/Chamados/UploadAnexo', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': requestToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    uploadStatus.innerHTML = `<div class="alert alert-success">Upload do arquivo '${data.fileName}' concluído com sucesso.</div>`;
+                    //const newAnexo = `<div><a href="${data.filePath}" target="_blank">${data.fileName}</a></div>`;
+                    //anexosList.insertAdjacentHTML('beforeend', newAnexo);
+                    fileInput.value = '';
+                } else {
+                    uploadStatus.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Erro no upload:', error);
+                uploadStatus.innerHTML = '<div class="alert alert-danger">Ocorreu um erro durante o upload.</div>';
+            });
+        });
+    });
+    </script>
+}

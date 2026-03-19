@@ -1,0 +1,149 @@
+@model Web.Models.ManutencaoIndexViewModel
+
+@{
+    ViewData["Title"] = "Manutenções";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+@if (User.IsInRole("Admin"))
+{
+    <p>
+        <a asp-action="Create" class="btn btn-primary">Adicionar Nova Manutenção</a>
+    </p>
+}
+
+<div class="card mb-4">
+    <div class="card-header" id="filterHeader">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+                Filtros
+            </button>
+        </h5>
+    </div>
+    <div id="filterCollapse" class="collapse" aria-labelledby="filterHeader">
+        <form asp-action="Index" method="get" class="card-body" id="manutencoes-filter-form">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="partNumber" class="form-label">PartNumber (Computador, Monitor ou Periférico)</label>
+                    <input type="text" id="partNumber" name="partNumber" class="form-control" value="@Model.PartNumber">
+                </div>
+                <div class="col-md-4">
+                    <label for="colaborador" class="form-label">Nome do Colaborador</label>
+                    <input type="text" id="colaborador" name="colaborador" class="form-control" value="@Model.Colaborador">
+                </div>
+                <div class="col-md-4">
+                    <label for="hostname" class="form-label">Hostname</label>
+                    <input type="text" id="hostname" name="hostname" class="form-control" value="@Model.Hostname">
+                </div>
+            </div>
+            <div class="mt-3 text-end">
+                <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
+                <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<table class="table table-striped table-bordered">
+    <thead>
+        <tr>
+            <th>
+                Equipamento
+            </th>
+            <th>
+                Data Manutenção Hardware
+            </th>
+            <th>
+                Data Manutenção Software
+            </th>
+            <th>
+                Manutenção Externa
+            </th>
+            <th>
+                Data
+            </th>
+            <th>
+                Histórico
+            </th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.Manutencoes)
+        {
+            <tr>
+                <td>
+                    @if (item.Computador != null)
+                    {
+                        <span>@item.Computador.Hostname (@item.Computador.MAC)</span>
+                    }
+                    else if (item.Monitor != null)
+                    {
+                        <span>@item.Monitor.Modelo (@item.Monitor.PartNumber)</span>
+                    }
+                    else if (item.Periferico != null)
+                    {
+                        <span>@item.Periferico.Tipo (@item.Periferico.PartNumber)</span>
+                    }
+                </td>
+                <td class="@GetDateClass(item.DataManutencaoHardware)">
+                    @Html.DisplayFor(modelItem => item.DataManutencaoHardware)
+                </td>
+                <td class="@GetDateClass(item.DataManutencaoSoftware)">
+                    @Html.DisplayFor(modelItem => item.DataManutencaoSoftware)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.ManutencaoExterna)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Data)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Historico)
+                </td>
+                <td>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-warning btn-sm">Editar</a>
+                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-danger btn-sm">Excluir</a>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@functions {
+    public string GetDateClass(DateTime? date)
+    {
+        if (!date.HasValue)
+        {
+            return "";
+        }
+
+        var today = DateTime.Today;
+        var months = (today.Year - date.Value.Year) * 12 + today.Month - date.Value.Month;
+        if (today.Day < date.Value.Day)
+        {
+            months--;
+        }
+
+        if (months >= 12)
+        {
+            return "table-danger"; // red
+        }
+        else if (months >= 6)
+        {
+            return "table-warning"; // yellow
+        }
+        else
+        {
+            return ""; // normal
+        }
+    }
+}
+
+@section Scripts {
+    <script src="~/js/manutencao-filter-persistence.js" asp-append-version="true"></script>
+}
