@@ -265,7 +265,7 @@ namespace Web.Controllers
                 string[] faixas;
                 if (model.IpRange == "all")
                 {
-                    faixas = new string[] { "10.0.0.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                    faixas = new string[] { "10.0.0.", "10.0.1.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
                 }
                 else
                 {
@@ -362,7 +362,7 @@ namespace Web.Controllers
                 string[] faixas;
                 if (model.IpRange == "all")
                 {
-                    faixas = new string[] { "10.0.0.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                    faixas = new string[] { "10.0.0.", "10.0.1.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
                 }
                 else
                 {
