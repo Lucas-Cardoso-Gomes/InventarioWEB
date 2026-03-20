@@ -2,7 +2,7 @@
 
 O **Inventário WEB** é uma solução completa de infraestrutura desenhada para gerenciamento de ativos de TI, monitoramento de hardware e suporte remoto centralizado. A arquitetura é dividida em dois componentes principais: um painel de administração Web central e um Agente de Endpoint distribuído nas máquinas clientes.
 
-## 🏗️ Arquitetura do Sistema
+## Arquitetura do Sistema
 
 ### 1. Painel Web (Servidor)
 Desenvolvido em **ASP.NET Core MVC (.NET 8)**, atua como o painel central de governança.
@@ -16,7 +16,7 @@ Aplicação console em **.NET 8** projetada para rodar em segundo plano nas esta
 * **Telemetria:** Coleta dados em tempo real (Consumo de CPU, RAM, OS, MAC Address, Fabricante e Armazenamento via WMI).
 * **Remote Control:** Permite a injeção remota de eventos de teclado, mouse, captura de tela, manipulação de clipboard e execução de processos invisíveis.
 
-## ✨ Principais Funcionalidades
+## Principais Funcionalidades
 
 - **Gestão de Ativos:** Cadastro e acompanhamento de Computadores, Smartphones, Periféricos e Redes.
 - **Help Desk Integrado:** Sistema de abertura de chamados (tickets) com chat em tempo real via WebSockets.
@@ -24,7 +24,7 @@ Aplicação console em **.NET 8** projetada para rodar em segundo plano nas esta
 - **Log e Auditoria:** Rastreabilidade persistente de ações realizadas pelos administradores e relatórios exportáveis.
 - **Deploy Facilitado:** Publicação em formato *Self-Contained* e *Single-File*, não exigindo a instalação do runtime do .NET nas estações alvo ou servidores legados.
 
-## 🚀 Guia de Implantação e Compilação
+## Guia de Implantação e Compilação
 
 Como o sistema lida com dados confidenciais, a configuração exige compilação direta do código-fonte para embutir as credenciais de forma segura.
 
@@ -41,5 +41,5 @@ dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true 
 
 Importante sobre o Agente: Para garantir a comunicação entre o Painel Web e os agentes nas estações de trabalho, é mandatório criar uma Regra de Entrada no Firewall do Windows liberando a porta TCP 27275 nas máquinas clientes (preferencialmente via GPO do Active Directory).
 
-### 🛡️ Segurança e Governança
+### Segurança e Governança
 Este software possui capacidades de acesso remoto administrativo profundo (Envio de arquivos, Keystrokes, Screen Capture). Devido à sua natureza, sistemas de antivírus corporativos e o Windows Defender podem classificar o Agente (Coleta.exe) como um falso positivo. O executável deve ser incluído na lista de exclusão/confiança (Allowlist) da política de segurança de endpoints da sua infraestrutura.
