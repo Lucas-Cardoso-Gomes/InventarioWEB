@@ -1,54 +1,35 @@
 @echo off
-title Instalacao do Coleta
-echo Iniciando a copia e configuracao do aplicativo...
-echo.
+:: =====================================================================
+:: Script de Instalação Silenciosa - Coleta de Inventário
+:: Recomendado: Executar via GPO de Inicialização (Configurações do Computador)
+:: =====================================================================
 
-:: 1. Define as variaveis de diretorio e arquivo
-set "PASTA_ORIGEM=%~dp0"
 set "PASTA_DESTINO=C:\Coleta"
 set "NOME_EXE=coleta.exe"
 set "CAMINHO_COMPLETO=%PASTA_DESTINO%\%NOME_EXE%"
 
-:: 2. Cria a pasta destino no disco C (se ainda nao existir)
+:: 1. Cria o diretório de destino se não existir
 if not exist "%PASTA_DESTINO%" (
-    echo Criando diretorio %PASTA_DESTINO%...
     mkdir "%PASTA_DESTINO%"
 )
 
-:: 3. Copia todos os arquivos da pasta atual para C:\Coleta
-:: /E = Copia diretorios e subdiretorios, incluindo os vazios
-:: /Y = Suprime a confirmacao para sobrescrever arquivos (otimo para atualizar o app depois)
-:: /I = Se o destino nao existir e houver mais de um arquivo, assume que o destino deve ser uma pasta
-:: /Q = Modo silencioso, nao exibe os nomes dos arquivos copiados
-echo Copiando arquivos para o disco local...
-xcopy "%PASTA_ORIGEM%*" "%PASTA_DESTINO%\" /E /I /Y /Q
+:: 2. Copia os arquivos da origem (onde o .bat está) para o C:\Coleta
+:: /D = Copia apenas se o arquivo de origem for mais novo que o destino (Update)
+:: /Y = Suprime confirmação para sobrescrever
+:: /R = Sobrescreve arquivos somente-leitura
+:: /I = Se o destino não existir, presume que é uma pasta
+:: /Q = Modo silencioso
+xcopy "%~dp0*" "%PASTA_DESTINO%\" /D /Y /R /I /Q
 
-:: Verifica se a copia do executavel funcionou
-if not exist "%CAMINHO_COMPLETO%" (
-    echo.
-    echo ERRO: O executavel "%NOME_EXE%" nao foi encontrado na pasta de origem para ser copiado!
-    echo Instalacao abortada.
-    pause
-    exit /b
+:: 3. Verifica se o executável foi copiado com sucesso
+if exist "%CAMINHO_COMPLETO%" (
+    :: 4. Cria/Atualiza a tarefa agendada
+    :: /sc onlogon = Executa sempre que um usuário logar
+    :: /rl highest = Executa com privilégios máximos (Admin)
+    :: /ru "SYSTEM" = Garante que a tarefa tenha permissão de sistema
+    :: /f = Força a criação mesmo que a tarefa já exista
+    schtasks /create /tn "App_Coleta_Startup" /tr "\"%CAMINHO_COMPLETO%\"" /sc onlogon /rl highest /f /ru "SYSTEM"
 )
 
-:: 4. Cria a tarefa no Agendador do Windows apontando para o Disco C
-echo.
-echo Criando a tarefa agendada para iniciar com o Windows...
-schtasks /create /tn "App_Coleta_Startup" /tr "\"%CAMINHO_COMPLETO%\"" /sc onlogon /rl highest /f
-
-:: 5. Validacao final
-if %errorlevel% equ 0 (
-    echo.
-    echo Instalacao concluida com sucesso!
-    echo O aplicativo foi instalado em: %CAMINHO_COMPLETO%
-    echo E iniciara em segundo plano no proximo login do usuario.
-) else (
-    echo.
-    echo FALHA ao criar a tarefa no agendador!
-    echo IMPORTANTE: O prompt de comando foi aberto como Administrador?
-    echo Acesso negado e comum ao tentar gravar na raiz do C: sem privilegios.
-)
-
-echo.
-pause
+:: Finaliza o script sem interações
+exit /b
