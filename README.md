@@ -41,5 +41,14 @@ dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true 
 
 Importante sobre o Agente: Para garantir a comunicação entre o Painel Web e os agentes nas estações de trabalho, é mandatório criar uma Regra de Entrada no Firewall do Windows liberando a porta TCP 27275 nas máquinas clientes (preferencialmente via GPO do Active Directory).
 
+<<<<<<< Updated upstream
 ### Segurança e Governança
 Este software possui capacidades de acesso remoto administrativo profundo (Envio de arquivos, Keystrokes, Screen Capture). Devido à sua natureza, sistemas de antivírus corporativos e o Windows Defender podem classificar o Agente (Coleta.exe) como um falso positivo. O executável deve ser incluído na lista de exclusão/confiança (Allowlist) da política de segurança de endpoints da sua infraestrutura.
+=======
+### 🛡️ Segurança e Governança
+Este software possui capacidades de acesso remoto administrativo profundo (Envio de arquivos, Keystrokes, Screen Capture). Devido à sua natureza, sistemas de antivírus corporativos e o Windows Defender podem classificar o Agente (Coleta.exe) como um falso positivo. O executável deve ser incluído na lista de exclusão/confiança (Allowlist) da política de segurança de endpoints da sua infraestrutura.
+
+### Geração de Certificado
+
+Disponivel no repositório um gerador de certificado autoassinado, basta ajustar conforme dados do servidor que será instalado.
+>>>>>>> Stashed changes

@@ -11,3 +11,5 @@ Web/ColetadosLogs.db
 Web/Coletados.db
 Web/ColetadosLogs.db-journal
 Web/inventario_cert.pfx
+Web/Geração de certificado.bat
+Web/appsettings.Production.json
