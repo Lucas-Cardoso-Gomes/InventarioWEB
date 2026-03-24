@@ -16,3 +16,4 @@ Web/appsettings.Production.json
 Coleta/appsettings.json
 Web/appsettings.json
 Web/Geração de certificado.bat
+Web/inventario_seguro.pfx
