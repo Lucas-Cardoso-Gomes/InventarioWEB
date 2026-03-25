@@ -1,7 +1,11 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Security;
 using System.Diagnostics;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Management;
@@ -17,6 +21,20 @@ namespace coleta
     {
         static async Task Main()
         {
+            // Gerar um certificado auto-assinado em memória contornando o erro de chaves efêmeras no Windows
+            X509Certificate2 serverCertificate;
+            using (RSA rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("cn=ColetaAgent", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using (X509Certificate2 ephemeralCert = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(10)))
+                {
+                    // Exporta para PFX e re-importa para evitar o erro "platform does not support ephemeral keys"
+                    // Sem usar PersistKeySet e MachineKeySet para evitar o vazamento de chaves no disco rígido a cada inicialização
+                    byte[] pfxData = ephemeralCert.Export(X509ContentType.Pfx, "temp_password");
+                    serverCertificate = new X509Certificate2(pfxData, "temp_password");
+                }
+            }
+
 // --- CÓDIGO NOVO: Lendo o JSON da memória (Embedded Resource) ---
             var builder = new ConfigurationBuilder();
             var assembly = Assembly.GetExecutingAssembly();
@@ -46,6 +64,8 @@ namespace coleta
             {
                 int port = 27275;
                 TcpListener listener = new TcpListener(IPAddress.Any, port);
+                // Permite reuso da porta se estiver em estado TIME_WAIT
+                listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 listener.Start();
                 Console.WriteLine($"Aguardando solicitações na porta {port}...");
                 Console.WriteLine("Certifique-se de que a porta 27275 está liberada no firewall.");
@@ -56,12 +76,18 @@ namespace coleta
                     try
                     {
                         client = listener.AcceptTcpClient();
-                        using (NetworkStream stream = client.GetStream())
-                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+                        string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                        Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
+
+                        using (NetworkStream networkStream = client.GetStream())
+                        using (SslStream sslStream = new SslStream(networkStream, false))
                         {
-                            string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
-                            Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
+                            // Autenticar como servidor usando o certificado gerado em memória
+                            await sslStream.AuthenticateAsServerAsync(serverCertificate, clientCertificateRequired: false, checkCertificateRevocation: true);
+
+                            using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
+                            using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                            {
 
                             string autenticacao = reader.ReadLine();
                             if (autenticacao == null)
@@ -191,7 +217,7 @@ namespace coleta
                                         long bytesRead = 0;
                                         while (bytesRead < fileSize)
                                         {
-                                            var read = await stream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
+                                            var read = await sslStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
                                             if (read == 0) break;
                                             await fileStream.WriteAsync(buffer, 0, read);
                                             bytesRead += read;
@@ -211,6 +237,7 @@ namespace coleta
                                 string resposta = "Código de Autenticação Incorreto!";
                                 writer.WriteLine(resposta);
                                 Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacao}'");
+                            }
                             }
                         }
                     }

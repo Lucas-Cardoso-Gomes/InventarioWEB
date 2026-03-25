@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -42,19 +44,24 @@ namespace Web.Services
 
                     await connectTask;
 
-                    using (NetworkStream stream = client.GetStream())
-                    using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
-                    using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    using (NetworkStream networkStream = client.GetStream())
+                    using (SslStream sslStream = new SslStream(networkStream, false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null))
                     {
-                        await writer.WriteLineAsync(_realizarComandos);
-                        await writer.WriteLineAsync(comando);
+                        await sslStream.AuthenticateAsClientAsync("ColetaAgent");
 
-                        string resposta = await reader.ReadToEndAsync();
-                        resposta = resposta.Trim();
+                        using (var writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                        using (var reader = new StreamReader(sslStream, Encoding.UTF8))
+                        {
+                            await writer.WriteLineAsync(_realizarComandos);
+                            await writer.WriteLineAsync(comando);
 
-                        string successMessage = $"Resultado de '{comando}' em {computadorIp}: {resposta}";
-                        _logService.AddLog("Info", successMessage, "Comandos");
-                        return successMessage;
+                            string resposta = await reader.ReadToEndAsync();
+                            resposta = resposta.Trim();
+
+                            string successMessage = $"Resultado de '{comando}' em {computadorIp}: {resposta}";
+                            _logService.AddLog("Info", successMessage, "Comandos");
+                            return successMessage;
+                        }
                     }
                 }
             }
@@ -65,6 +72,11 @@ namespace Web.Services
                 _logService.AddLog("Error", errorMessage, "Comandos");
                 return errorMessage;
             }
+        }
+
+        private static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            return true;
         }
     }
 }

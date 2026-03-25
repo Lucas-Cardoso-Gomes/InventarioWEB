@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.Sqlite;
 using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -52,12 +54,16 @@ namespace Web.Services
                     await connectTask;
                     _logService.AddLog("Info", $"Conexão bem-sucedida com o IP: {computadorIp}", "Coleta");
 
-                    using (NetworkStream stream = client.GetStream())
-                    using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
-                    using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    using (NetworkStream networkStream = client.GetStream())
+                    using (SslStream sslStream = new SslStream(networkStream, false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null))
                     {
-                        await writer.WriteLineAsync(_solicitarInformacoes);
-                        onResult($"Solicitação enviada para: {computadorIp}");
+                        await sslStream.AuthenticateAsClientAsync("ColetaAgent");
+
+                        using (var writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                        using (var reader = new StreamReader(sslStream, Encoding.UTF8))
+                        {
+                            await writer.WriteLineAsync(_solicitarInformacoes);
+                            onResult($"Solicitação enviada para: {computadorIp}");
 
                         string resposta = await reader.ReadToEndAsync();
 
@@ -74,18 +80,19 @@ namespace Web.Services
                             return;
                         }
 
-                        if (hardwareInfo == null || hardwareInfo.MAC == null)
-                        {
-                            string message = $"Resposta JSON recebida, mas o MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
-                            _logService.AddLog("Error", message, "Coleta");
-                            onResult(message);
-                            return;
-                        }
+                            if (hardwareInfo == null || hardwareInfo.MAC == null)
+                            {
+                                string message = $"Resposta JSON recebida, mas o MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
+                                _logService.AddLog("Error", message, "Coleta");
+                                onResult(message);
+                                return;
+                            }
 
-                        SalvarDados(hardwareInfo, computadorIp);
-                        string successMessage = $"Dados de {computadorIp} (MAC: {hardwareInfo.MAC}) salvos com sucesso.";
-                        _logService.AddLog("Info", successMessage, "Coleta");
-                        onResult(successMessage);
+                            SalvarDados(hardwareInfo, computadorIp);
+                            string successMessage = $"Dados de {computadorIp} (MAC: {hardwareInfo.MAC}) salvos com sucesso.";
+                            _logService.AddLog("Info", successMessage, "Coleta");
+                            onResult(successMessage);
+                        }
                     }
                 }
             }
@@ -96,6 +103,12 @@ namespace Web.Services
                 _logService.AddLog("Error", errorMessage, "Coleta");
                 onResult(errorMessage);
             }
+        }
+
+        private static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            // Aceita qualquer certificado para fins de comunicação interna (autoassinado)
+            return true;
         }
 
         private void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)

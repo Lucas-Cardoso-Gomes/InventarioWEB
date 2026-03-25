@@ -20,7 +20,9 @@ namespace Web.Models
         [Display(Name = "Monitores")]
         Monitores,
         [Display(Name = "Periféricos")]
-        Perifericos
+        Perifericos,
+        [Display(Name = "Colaboradores")]
+        Colaboradores
     }
 
     public class ExportarViewModel

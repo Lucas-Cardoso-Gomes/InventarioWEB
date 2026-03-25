@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -44,23 +46,28 @@ namespace Web.Controllers
                 using (var tcpClient = new TcpClient())
                 {
                     await tcpClient.ConnectAsync(ip, 27275);
-                    using (var stream = tcpClient.GetStream())
-                    using (var reader = new StreamReader(stream, Encoding.UTF8))
-                    using (var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true })
+                    using (var networkStream = tcpClient.GetStream())
+                    using (var sslStream = new SslStream(networkStream, false, new RemoteCertificateValidationCallback(ValidateServerCertificate), null))
                     {
-                        var authKey = _configuration["Autenticacao:RealizarComandos"];
+                        await sslStream.AuthenticateAsClientAsync("ColetaAgent");
 
-                        await writer.WriteLineAsync(authKey);
-                        await writer.WriteLineAsync("take_screenshot");
-
-                        // Lógica robusta para ler a imagem com tamanho prefixado
-                        var sizeLine = await reader.ReadLineAsync();
-                        if (int.TryParse(sizeLine, out int size))
+                        using (var reader = new StreamReader(sslStream, Encoding.UTF8))
+                        using (var writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
                         {
-                            var buffer = new char[size];
-                            await reader.ReadBlockAsync(buffer, 0, size);
-                            var base64Image = new string(buffer);
-                            return Convert.FromBase64String(base64Image);
+                            var authKey = _configuration["Autenticacao:RealizarComandos"];
+
+                            await writer.WriteLineAsync(authKey);
+                            await writer.WriteLineAsync("take_screenshot");
+
+                            // Lógica robusta para ler a imagem com tamanho prefixado
+                            var sizeLine = await reader.ReadLineAsync();
+                            if (int.TryParse(sizeLine, out int size))
+                            {
+                                var buffer = new char[size];
+                                await reader.ReadBlockAsync(buffer, 0, size);
+                                var base64Image = new string(buffer);
+                                return Convert.FromBase64String(base64Image);
+                            }
                         }
                     }
                 }
@@ -70,6 +77,11 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Failed to get screenshot from IP: {IP}", ip);
             }
             return null;
+        }
+
+        private static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            return true;
         }
     }
 }

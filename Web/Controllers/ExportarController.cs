@@ -6,11 +6,12 @@ using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
 using Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Web.Services;
 using System.Data;
+using OfficeOpenXml;
+using System.IO;
 
 namespace Web.Controllers
 {
@@ -99,10 +100,31 @@ namespace Web.Controllers
         private List<Colaborador> GetColaboradores(IDbConnection connection)
         {
             var colaboradores = new List<Colaborador>();
-            string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
+            string sql = "SELECT CPF, Nome FROM Colaboradores";
+
+            if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
+            {
+                if (User.IsInRole("Coordenador") || User.IsInRole("Colaborador"))
+                {
+                    sql += " WHERE CoordenadorCPF = @userCpf OR CPF = @userCpf";
+                }
+            }
+
+            sql += " ORDER BY Nome";
+
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = sql;
+                
+                if (sql.Contains("@userCpf"))
+                {
+                    var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@userCpf";
+                    p.Value = userCpf ?? (object)DBNull.Value;
+                    cmd.Parameters.Add(p);
+                }
+
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -139,10 +161,13 @@ namespace Web.Controllers
         [HttpPost]
         public async Task<IActionResult> Export(ExportarViewModel viewModel)
         {
-            var csvBuilder = new StringBuilder();
-            string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.csv";
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            string fileName = $"export_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
             string exportDetails = "";
+            var userCpf = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            bool isRestricted = !User.IsInRole("Admin") && !User.IsInRole("Diretoria") && (User.IsInRole("Coordenador") || User.IsInRole("Colaborador"));
 
+            using (var package = new ExcelPackage())
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
@@ -150,7 +175,7 @@ namespace Web.Controllers
                 if (viewModel.ExportMode == ExportMode.PorDispositivo)
                 {
                     exportDetails = $"Exported by Device Type: {viewModel.DeviceType}";
-                    fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    fileName = $"export_{viewModel.DeviceType}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
                     string sql = "";
                     var whereClauses = new List<string>();
                     var parameters = new Dictionary<string, object>();
@@ -170,28 +195,28 @@ namespace Web.Controllers
                         }
                     };
 
+                    var worksheet = package.Workbook.Worksheets.Add("Dados");
+
                     switch (viewModel.DeviceType)
                     {
                         case DeviceType.Computadores:
-                            addInClause("Fabricante", viewModel.CurrentFabricantes);
-                            addInClause("SO", viewModel.CurrentSOs);
-                            addInClause("ProcessadorFabricante", viewModel.CurrentProcessadorFabricantes);
-                            addInClause("RamTipo", viewModel.CurrentRamTipos);
-                            addInClause("Processador", viewModel.CurrentProcessadores);
-                            addInClause("Ram", viewModel.CurrentRams);
+                            addInClause("c.Fabricante", viewModel.CurrentFabricantes);
+                            addInClause("c.SO", viewModel.CurrentSOs);
+                            addInClause("c.ProcessadorFabricante", viewModel.CurrentProcessadorFabricantes);
+                            addInClause("c.RamTipo", viewModel.CurrentRamTipos);
+                            addInClause("c.Processador", viewModel.CurrentProcessadores);
+                            addInClause("c.Ram", viewModel.CurrentRams);
 
-                            string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
-                            csvBuilder.AppendLine(computerHeader);
-                            // Need to select ColaboradorNome via JOIN? The original code selected ColaboradorNome but query was SELECT {computerHeader} FROM Computadores.
-                            // Computadores table doesn't have ColaboradorNome column. It seems the original code was bugged or relied on ViewModel mapping that isn't fully shown.
-                            // Assuming Computadores table has fields or we need to join.
-                            // Let's check Schema... Computadores has ColaboradorCPF.
-                            // The original code `reader[col]` implies columns exist in result set.
-                            // I should fix the query to include the join if ColaboradorNome is requested.
+                            if (isRestricted)
+                            {
+                                whereClauses.Add("(c.ColaboradorCPF = @userCpf OR col.CoordenadorCPF = @userCpf)");
+                                parameters.Add("@userCpf", userCpf);
+                            }
 
-                            // To be safe and minimal change, I will use LEFT JOIN to get ColaboradorNome if it is in the header list.
-                            // Original header has "ColaboradorNome".
-                            sql = $"SELECT c.*, col.Nome as ColaboradorNome FROM Computadores c LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF";
+                            string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                            for (int i = 0; i < computerHeader.Length; i++) worksheet.Cells[1, i + 1].Value = computerHeader[i];
+
+                            sql = $"SELECT c.* FROM Computadores c" + (isRestricted ? " LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF" : "");
 
                             if (whereClauses.Any())
                             {
@@ -208,31 +233,38 @@ namespace Web.Controllers
 
                                 using (var reader = cmd.ExecuteReader())
                                 {
+                                    int row = 2;
                                     while (reader.Read())
                                     {
-                                        var line = new List<string>();
-                                        foreach (var col in computerHeader.Split(','))
+                                        for (int i = 0; i < computerHeader.Length; i++)
                                         {
                                             try {
-                                                line.Add(reader[col].ToString());
+                                                worksheet.Cells[row, i + 1].Value = reader[computerHeader[i]].ToString();
                                             } catch {
-                                                line.Add(""); // Handle missing column gracefully
+                                                worksheet.Cells[row, i + 1].Value = "";
                                             }
                                         }
-                                        csvBuilder.AppendLine(string.Join(",", line));
+                                        row++;
                                     }
                                 }
                             }
                             break;
 
                         case DeviceType.Monitores:
-                            addInClause("Marca", viewModel.CurrentMarcas);
-                            addInClause("Tamanho", viewModel.CurrentTamanhos);
-                            addInClause("Modelo", viewModel.CurrentModelos);
+                            addInClause("m.Marca", viewModel.CurrentMarcas);
+                            addInClause("m.Tamanho", viewModel.CurrentTamanhos);
+                            addInClause("m.Modelo", viewModel.CurrentModelos);
 
-                            string monitorHeader = "PartNumber,ColaboradorNome,Marca,Modelo,Tamanho";
-                            csvBuilder.AppendLine(monitorHeader);
-                            sql = $"SELECT m.*, col.Nome as ColaboradorNome FROM Monitores m LEFT JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF";
+                            if (isRestricted)
+                            {
+                                whereClauses.Add("(m.ColaboradorCPF = @userCpf OR col.CoordenadorCPF = @userCpf)");
+                                parameters.Add("@userCpf", userCpf);
+                            }
+
+                            string[] monitorHeader = { "PartNumber", "ColaboradorCPF", "Marca", "Modelo", "Tamanho" };
+                            for (int i = 0; i < monitorHeader.Length; i++) worksheet.Cells[1, i + 1].Value = monitorHeader[i];
+
+                            sql = $"SELECT m.* FROM Monitores m" + (isRestricted ? " LEFT JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF" : "");
                             if (whereClauses.Any())
                             {
                                 sql += " WHERE " + string.Join(" AND ", whereClauses);
@@ -248,29 +280,36 @@ namespace Web.Controllers
 
                                 using (var reader = cmd.ExecuteReader())
                                 {
+                                    int row = 2;
                                     while (reader.Read())
                                     {
-                                        var line = new List<string>();
-                                        foreach (var col in monitorHeader.Split(','))
+                                        for (int i = 0; i < monitorHeader.Length; i++)
                                         {
                                             try {
-                                                line.Add(reader[col].ToString());
+                                                worksheet.Cells[row, i + 1].Value = reader[monitorHeader[i]].ToString();
                                             } catch {
-                                                line.Add("");
+                                                worksheet.Cells[row, i + 1].Value = "";
                                             }
                                         }
-                                        csvBuilder.AppendLine(string.Join(",", line));
+                                        row++;
                                     }
                                 }
                             }
                             break;
 
                         case DeviceType.Perifericos:
-                            addInClause("Tipo", viewModel.CurrentTiposPeriferico);
+                            addInClause("p.Tipo", viewModel.CurrentTiposPeriferico);
 
-                            string perifericoHeader = "PartNumber,ColaboradorNome,Tipo,DataEntrega";
-                            csvBuilder.AppendLine(perifericoHeader);
-                            sql = $"SELECT p.*, col.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF";
+                            if (isRestricted)
+                            {
+                                whereClauses.Add("(p.ColaboradorCPF = @userCpf OR col.CoordenadorCPF = @userCpf)");
+                                parameters.Add("@userCpf", userCpf);
+                            }
+
+                            string[] perifericoHeader = { "PartNumber", "ColaboradorCPF", "Tipo", "DataEntrega" };
+                            for (int i = 0; i < perifericoHeader.Length; i++) worksheet.Cells[1, i + 1].Value = perifericoHeader[i];
+
+                            sql = $"SELECT p.* FROM Perifericos p" + (isRestricted ? " LEFT JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF" : "");
                             if (whereClauses.Any())
                             {
                                 sql += " WHERE " + string.Join(" AND ", whereClauses);
@@ -286,18 +325,60 @@ namespace Web.Controllers
 
                                 using (var reader = cmd.ExecuteReader())
                                 {
+                                    int row = 2;
                                     while (reader.Read())
                                     {
-                                        var line = new List<string>();
-                                        foreach (var col in perifericoHeader.Split(','))
+                                        for (int i = 0; i < perifericoHeader.Length; i++)
                                         {
                                             try {
-                                                line.Add(reader[col].ToString());
+                                                if (perifericoHeader[i] == "DataEntrega" && reader[perifericoHeader[i]] != DBNull.Value)
+                                                    worksheet.Cells[row, i + 1].Value = Convert.ToDateTime(reader[perifericoHeader[i]]).ToString("yyyy-MM-dd HH:mm:ss");
+                                                else
+                                                    worksheet.Cells[row, i + 1].Value = reader[perifericoHeader[i]].ToString();
                                             } catch {
-                                                line.Add("");
+                                                worksheet.Cells[row, i + 1].Value = "";
                                             }
                                         }
-                                        csvBuilder.AppendLine(string.Join(",", line));
+                                        row++;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case DeviceType.Colaboradores:
+                            string[] colabHeader = { "CPF", "Nome", "Email", "SenhaEmail", "Teams", "SenhaTeams", "EDespacho", "SenhaEDespacho", "Genius", "SenhaGenius", "Ibrooker", "SenhaIbrooker", "Adicional", "SenhaAdicional", "Filial", "Setor", "Smartphone", "TelefoneFixo", "Ramal", "Alarme", "Videoporteiro", "Obs", "CoordenadorCPF" };
+                            for (int i = 0; i < colabHeader.Length; i++) worksheet.Cells[1, i + 1].Value = colabHeader[i];
+
+                            sql = $"SELECT * FROM Colaboradores";
+
+                            if (isRestricted)
+                            {
+                                sql += " WHERE CoordenadorCPF = @userCpf OR CPF = @userCpf";
+                                parameters.Add("@userCpf", userCpf);
+                            }
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+                                foreach (var p in parameters)
+                                {
+                                    var param = cmd.CreateParameter(); param.ParameterName = p.Key; param.Value = p.Value; cmd.Parameters.Add(param);
+                                }
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    int row = 2;
+                                    while (reader.Read())
+                                    {
+                                        for (int i = 0; i < colabHeader.Length; i++)
+                                        {
+                                            try {
+                                                worksheet.Cells[row, i + 1].Value = reader[colabHeader[i]].ToString();
+                                            } catch {
+                                                worksheet.Cells[row, i + 1].Value = "";
+                                            }
+                                        }
+                                        row++;
                                     }
                                 }
                             }
@@ -306,66 +387,105 @@ namespace Web.Controllers
                 }
                 else if (viewModel.ExportMode == ExportMode.PorColaborador)
                 {
-                    exportDetails = $"Exported by Collaborator CPF: {viewModel.SelectedColaboradorCPF}";
-                    fileName = $"export_colaborador_{viewModel.SelectedColaboradorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    if (isRestricted)
+                    {
+                        bool isAuthorized = false;
+                        using (var authCmd = connection.CreateCommand())
+                        {
+                            authCmd.CommandText = "SELECT 1 FROM Colaboradores WHERE CPF = @targetCpf AND (CoordenadorCPF = @userCpf OR CPF = @userCpf)";
+                            var pTarget = authCmd.CreateParameter(); pTarget.ParameterName = "@targetCpf"; pTarget.Value = viewModel.SelectedColaboradorCPF; authCmd.Parameters.Add(pTarget);
+                            var pUser = authCmd.CreateParameter(); pUser.ParameterName = "@userCpf"; pUser.Value = userCpf; authCmd.Parameters.Add(pUser);
+                            var result = authCmd.ExecuteScalar();
+                            isAuthorized = result != null;
+                        }
+                        if (!isAuthorized) return Unauthorized();
+                    }
 
-                    // Computadores
-                    csvBuilder.AppendLine("Computadores");
-                    csvBuilder.AppendLine("MAC,IP,Hostname,Fabricante,Processador,SO,DataColeta");
-                    string sqlComputadores = "SELECT c.MAC, c.IP, c.Hostname, c.Fabricante, c.Processador, c.SO, c.DataColeta FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";
+                    exportDetails = $"Exported by Collaborator CPF: {viewModel.SelectedColaboradorCPF}";
+                    fileName = $"export_colaborador_{viewModel.SelectedColaboradorCPF}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+
+                    var wsComputadores = package.Workbook.Worksheets.Add("Computadores");
+                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                    for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
+
+                    string sqlComputadores = "SELECT * FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sqlComputadores;
                         var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
+                            int row = 2;
                             while (reader.Read())
                             {
-                                csvBuilder.AppendLine($"{reader["MAC"]},{reader["IP"]},{reader["Hostname"]},{reader["Fabricante"]},{reader["Processador"]},{reader["SO"]},{reader["DataColeta"]}");
+                                for (int i = 0; i < computerHeader.Length; i++)
+                                {
+                                    try { wsComputadores.Cells[row, i + 1].Value = reader[computerHeader[i]].ToString(); }
+                                    catch { wsComputadores.Cells[row, i + 1].Value = ""; }
+                                }
+                                row++;
                             }
                         }
                     }
 
-                    // Monitores
-                    csvBuilder.AppendLine();
-                    csvBuilder.AppendLine("Monitores");
-                    csvBuilder.AppendLine("PartNumber,ColaboradorNome,Marca,Modelo,Tamanho");
-                    string sqlMonitores = "SELECT m.PartNumber, col.Nome AS ColaboradorNome, m.Marca, m.Modelo, m.Tamanho FROM Monitores m INNER JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF WHERE m.ColaboradorCPF = @colaboradorCpf";
+                    var wsMonitores = package.Workbook.Worksheets.Add("Monitores");
+                    string[] monitorHeader = { "PartNumber", "ColaboradorCPF", "Marca", "Modelo", "Tamanho" };
+                    for (int i = 0; i < monitorHeader.Length; i++) wsMonitores.Cells[1, i + 1].Value = monitorHeader[i];
+
+                    string sqlMonitores = "SELECT * FROM Monitores m WHERE m.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sqlMonitores;
                         var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
+                            int row = 2;
                             while (reader.Read())
                             {
-                                csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["ColaboradorNome"]},{reader["Marca"]},{reader["Modelo"]},{reader["Tamanho"]}");
+                                for (int i = 0; i < monitorHeader.Length; i++)
+                                {
+                                    try { wsMonitores.Cells[row, i + 1].Value = reader[monitorHeader[i]].ToString(); }
+                                    catch { wsMonitores.Cells[row, i + 1].Value = ""; }
+                                }
+                                row++;
                             }
                         }
                     }
 
-                    // Perifericos
-                    csvBuilder.AppendLine();
-                    csvBuilder.AppendLine("Perifericos");
-                    csvBuilder.AppendLine("PartNumber,ColaboradorNome,Tipo,DataEntrega");
-                    string sqlPerifericos = "SELECT p.PartNumber, col.Nome AS ColaboradorNome, p.Tipo, p.DataEntrega FROM Perifericos p INNER JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF WHERE p.ColaboradorCPF = @colaboradorCpf";
+                    var wsPerifericos = package.Workbook.Worksheets.Add("Perifericos");
+                    string[] perifericoHeader = { "PartNumber", "ColaboradorCPF", "Tipo", "DataEntrega" };
+                    for (int i = 0; i < perifericoHeader.Length; i++) wsPerifericos.Cells[1, i + 1].Value = perifericoHeader[i];
+
+                    string sqlPerifericos = "SELECT * FROM Perifericos p WHERE p.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sqlPerifericos;
                         var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
+                            int row = 2;
                             while (reader.Read())
                             {
-                                csvBuilder.AppendLine($"{reader["PartNumber"]},{reader["ColaboradorNome"]},{reader["Tipo"]},{reader["DataEntrega"]}");
+                                for (int i = 0; i < perifericoHeader.Length; i++)
+                                {
+                                    try
+                                    {
+                                        if (perifericoHeader[i] == "DataEntrega" && reader[perifericoHeader[i]] != DBNull.Value)
+                                            wsPerifericos.Cells[row, i + 1].Value = Convert.ToDateTime(reader[perifericoHeader[i]]).ToString("yyyy-MM-dd HH:mm:ss");
+                                        else
+                                            wsPerifericos.Cells[row, i + 1].Value = reader[perifericoHeader[i]].ToString();
+                                    }
+                                    catch { wsPerifericos.Cells[row, i + 1].Value = ""; }
+                                }
+                                row++;
                             }
                         }
                     }
 
-                    // Manutenções
-                    csvBuilder.AppendLine();
-                    csvBuilder.AppendLine("Manutenções");
-                    csvBuilder.AppendLine("Equipamento,Tipo,DataManutencaoHardware,DataManutencaoSoftware,ManutencaoExterna,Data,Historico");
+                    var wsManutencoes = package.Workbook.Worksheets.Add("Manutencoes");
+                    string[] manutencaoHeader = { "Equipamento", "Tipo", "DataManutencaoHardware", "DataManutencaoSoftware", "ManutencaoExterna", "Data", "Historico" };
+                    for (int i = 0; i < manutencaoHeader.Length; i++) wsManutencoes.Cells[1, i + 1].Value = manutencaoHeader[i];
+
                     string sqlManutencoes = @"
                         SELECT
                             COALESCE(c.MAC, m.PartNumber, p.PartNumber) as Equipamento,
@@ -391,32 +511,35 @@ namespace Web.Controllers
                         var p = cmd.CreateParameter(); p.ParameterName = "@colaboradorCpf"; p.Value = viewModel.SelectedColaboradorCPF; cmd.Parameters.Add(p);
                         using (var reader = cmd.ExecuteReader())
                         {
+                            int row = 2;
                             while (reader.Read())
                             {
-                                var line = new List<string>
+                                for (int i = 0; i < manutencaoHeader.Length; i++)
                                 {
-                                    reader["Equipamento"].ToString(),
-                                    reader["Tipo"].ToString(),
-                                    reader["DataManutencaoHardware"].ToString(),
-                                    reader["DataManutencaoSoftware"].ToString(),
-                                    reader["ManutencaoExterna"].ToString(),
-                                    reader["Data"].ToString(),
-                                    reader["Historico"].ToString()
-                                };
-                                csvBuilder.AppendLine(string.Join(",", line));
+                                    try { wsManutencoes.Cells[row, i + 1].Value = reader[manutencaoHeader[i]].ToString(); }
+                                    catch { wsManutencoes.Cells[row, i + 1].Value = ""; }
+                                }
+                                row++;
                             }
                         }
                     }
                 }
                 else if (viewModel.ExportMode == ExportMode.PorCoordenador)
                 {
+                    if (isRestricted && viewModel.CoordenadorCPF != userCpf)
+                    {
+                        return Unauthorized();
+                    }
+
                     exportDetails = $"Exported by Coordinator CPF: {viewModel.CoordenadorCPF}";
-                    fileName = $"export_coordenador_{viewModel.CoordenadorCPF}_{DateTime.Now:yyyyMMddHHmmss}.csv";
-                    string computerHeader = "MAC,IP,ColaboradorNome,Hostname,Fabricante,Processador,ProcessadorFabricante,ProcessadorCore,ProcessadorThread,ProcessadorClock,Ram,RamTipo,RamVelocidade,RamVoltagem,RamPorModule,ArmazenamentoC,ArmazenamentoCTotal,ArmazenamentoCLivre,ArmazenamentoD,ArmazenamentoDTotal,ArmazenamentoDLivre,ConsumoCPU,SO,DataColeta";
-                    csvBuilder.AppendLine(computerHeader);
+                    fileName = $"export_coordenador_{viewModel.CoordenadorCPF}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+                    var wsComputadores = package.Workbook.Worksheets.Add("Computadores");
+
+                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                    for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
 
                     string sql = $@"
-                        SELECT c.MAC, c.IP, colab.Nome as ColaboradorNome, c.Hostname, c.Fabricante, c.Processador, c.ProcessadorFabricante, c.ProcessadorCore, c.ProcessadorThread, c.ProcessadorClock, c.Ram, c.RamTipo, c.RamVelocidade, c.RamVoltagem, c.RamPorModule, c.ArmazenamentoC, c.ArmazenamentoCTotal, c.ArmazenamentoCLivre, c.ArmazenamentoD, c.ArmazenamentoDTotal, c.ArmazenamentoDLivre, c.ConsumoCPU, c.SO, c.DataColeta
+                        SELECT c.*
                         FROM Computadores c
                         INNER JOIN Colaboradores colab ON c.ColaboradorCPF = colab.CPF
                         WHERE colab.CoordenadorCPF = @coordenadorCpf OR colab.CPF = @coordenadorCpf";
@@ -428,29 +551,37 @@ namespace Web.Controllers
 
                         using (var reader = cmd.ExecuteReader())
                         {
+                            int row = 2;
                             while (reader.Read())
                             {
-                                var line = new List<string>();
-                                foreach (var col in computerHeader.Split(','))
+                                for (int i = 0; i < computerHeader.Length; i++)
                                 {
-                                    line.Add(reader[col].ToString());
+                                    try {
+                                        wsComputadores.Cells[row, i + 1].Value = reader[computerHeader[i]].ToString();
+                                    } catch {
+                                        wsComputadores.Cells[row, i + 1].Value = "";
+                                    }
                                 }
-                                csvBuilder.AppendLine(string.Join(",", line));
+                                row++;
                             }
                         }
                     }
                 }
+
+                await _persistentLogService.LogChangeAsync(
+                    User.Identity.Name,
+                    "EXPORT",
+                    "Data",
+                    "Exported data to Excel",
+                    exportDetails
+                );
+
+                using (var stream = new MemoryStream())
+                {
+                    package.SaveAs(stream);
+                    return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+                }
             }
-
-            await _persistentLogService.LogChangeAsync(
-                User.Identity.Name,
-                "EXPORT",
-                "Data",
-                "Exported data to CSV",
-                exportDetails
-            );
-
-            return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
         }
     }
 }
