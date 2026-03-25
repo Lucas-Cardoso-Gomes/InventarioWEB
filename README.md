@@ -1,49 +1,55 @@
-# Inventário WEB & RMM (Remote Monitoring and Management)
+Inventário WEB e RMM (Remote Monitoring and Management)
+O Inventário WEB é uma solução integrada de infraestrutura para a gestão de ativos de TI, monitorização de hardware e suporte remoto centralizado. A arquitetura é composta por um painel de administração Web e um Agente de Endpoint distribuído para as máquinas clientes.
 
-O **Inventário WEB** é uma solução completa de infraestrutura desenhada para gerenciamento de ativos de TI, monitoramento de hardware e suporte remoto centralizado. A arquitetura é dividida em dois componentes principais: um painel de administração Web central e um Agente de Endpoint distribuído nas máquinas clientes.
+Arquitetura do Sistema
+1. Painel Web (Servidor)
+Desenvolvido em ASP.NET Core MVC com .NET 8, funciona como o núcleo de governação e controlo.
 
-## Arquitetura do Sistema
+Base de Dados: Utiliza SQLite gerido via Entity Framework Core, garantindo portabilidade e facilidade de implementação.
 
-### 1. Painel Web (Servidor)
-Desenvolvido em **ASP.NET Core MVC (.NET 8)**, atua como o painel central de governança.
-* **Banco de Dados:** SQLite embutido via Entity Framework Core, facilitando a portabilidade.
-* **Comunicação:** Utiliza SignalR para atualizações em tempo real (Chat de Suporte e Notificações).
-* **Segurança:** Configurações sensíveis e strings de conexão são protegidas em memória via *Embedded Resources*.
+Comunicação em Tempo Real: Implementação de WebSockets através do SignalR para o chat de suporte e notificações instantâneas.
 
-### 2. Agente Coleta (Cliente)
-Aplicação console em **.NET 8** projetada para rodar em segundo plano nas estações de trabalho dos colaboradores.
-* **Servidor TCP:** Escuta ativamente na porta `27275` requisições autenticadas do painel central.
-* **Telemetria:** Coleta dados em tempo real (Consumo de CPU, RAM, OS, MAC Address, Fabricante e Armazenamento via WMI).
-* **Remote Control:** Permite a injeção remota de eventos de teclado, mouse, captura de tela, manipulação de clipboard e execução de processos invisíveis.
+Segurança de Configuração: As credenciais e strings de conexão são protegidas através da leitura de ficheiros JSON embutidos como recursos do sistema (Embedded Resources).
 
-## Principais Funcionalidades
+Autenticação: Sistema baseado em Cookies com suporte para diferentes níveis de acesso (Admin, Coordenador, Colaborador, Diretoria/RH).
 
-- **Gestão de Ativos:** Cadastro e acompanhamento de Computadores, Smartphones, Periféricos e Redes.
-- **Help Desk Integrado:** Sistema de abertura de chamados (tickets) com chat em tempo real via WebSockets.
-- **Suporte Remoto Oculto:** Visualização da tela do usuário e controle de interações diretamente pelo navegador, sem necessidade de softwares de terceiros (como TeamViewer/AnyDesk).
-- **Log e Auditoria:** Rastreabilidade persistente de ações realizadas pelos administradores e relatórios exportáveis.
-- **Deploy Facilitado:** Publicação em formato *Self-Contained* e *Single-File*, não exigindo a instalação do runtime do .NET nas estações alvo ou servidores legados.
+2. Agente de Coleta (Cliente)
+Aplicação de consola desenvolvida em .NET 8, desenhada para execução em segundo plano nas estações de trabalho.
 
-## Guia de Implantação e Compilação
+Servidor TCP Seguro: Escuta na porta 27275 utilizando comunicação encriptada SSL. O certificado é gerado dinamicamente em memória para evitar a persistência de chaves efémeras no disco.
 
-Como o sistema lida com dados confidenciais, a configuração exige compilação direta do código-fonte para embutir as credenciais de forma segura.
+Telemetria Avançada: Recolha de dados de hardware via WMI, incluindo estado do processador, memória RAM, armazenamento, fabricante e detalhes do sistema operativo.
 
-### Publicando o Painel Web
-No terminal, dentro da pasta raiz da solução, execute:
+Controlo Remoto: Capacidade de captura de ecrã (screenshot), simulação de eventos de rato e teclado, manipulação da área de transferência (clipboard) e execução de comandos de sistema.
+
+Transferência de Ficheiros: Suporte para o carregamento de ficheiros diretamente para o ambiente de trabalho do utilizador remoto.
+
+Funcionalidades Principais
+Gestão de Ativos Diversificados: Registo detalhado de computadores, monitores, smartphones, periféricos e infraestrutura de rede.
+
+Centro de Suporte (Help Desk): Sistema de tickets com histórico de conversas, anexos e priorização de chamados.
+
+Monitorização Ativa: Serviço de background para verificação de disponibilidade (Ping) dos ativos de rede.
+
+Auditoria e Manutenção: Registo histórico de intervenções técnicas (hardware e software) e logs persistentes de ações administrativas.
+
+Guia de Compilação e Implementação
+Publicação do Painel Web
+Para gerar o executável do servidor sem dependências externas de runtime:
 
 dotnet publish Web/Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-O executável gerado não dependerá do framework instalado no servidor. É recomendável executar o serviço através do Agendador de Tarefas do Windows ou envelopado via NSSM.
-
-### Publicando o Agente (Coleta)
+Publicação do Agente (Coleta)
+O agente deve ser compilado e distribuído para as máquinas alvo:
 
 dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-Importante sobre o Agente: Para garantir a comunicação entre o Painel Web e os agentes nas estações de trabalho, é mandatório criar uma Regra de Entrada no Firewall do Windows liberando a porta TCP 27275 nas máquinas clientes (preferencialmente via GPO do Active Directory).
+Requisitos de Rede e Segurança
+Firewall: É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a receção de comandos do painel central.
 
-### Segurança e Governança
-Este software possui capacidades de acesso remoto administrativo profundo (Envio de arquivos, Keystrokes, Screen Capture). Devido à sua natureza, sistemas de antivírus corporativos e o Windows Defender podem classificar o Agente (Coleta.exe) como um falso positivo. O executável deve ser incluído na lista de exclusão/confiança (Allowlist) da política de segurança de endpoints da sua infraestrutura.
+Segurança de Endpoint: Devido às capacidades de controlo remoto (injeção de teclas e captura de ecrã), o executável do agente pode ser identificado como um falso positivo por soluções antivírus. Deve ser adicionado à lista de exclusões da política de segurança corporativa.
 
-### Geração de Certificado
+HTTPS: O servidor está configurado para suportar ambientes de produção, sendo recomendada a utilização de certificados válidos para a interface Web.
 
-Disponivel no repositório um gerador de certificado autoassinado, basta ajustar conforme dados do servidor que será instalado.
+Estrutura de Dados
+O sistema utiliza um esquema SQL organizado para garantir a integridade referencial entre colaboradores e os seus respetivos equipamentos, permitindo uma rastreabilidade total desde a entrega de um periférico até ao histórico de manutenção de um computador.
