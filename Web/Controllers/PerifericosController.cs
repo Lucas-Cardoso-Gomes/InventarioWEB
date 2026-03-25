@@ -11,6 +11,10 @@ using Web.Services;
 using System.Security.Claims;
 using System.Data;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
+using System.IO;
+using System.Linq;
 
 namespace Web.Controllers
 {
@@ -266,6 +270,192 @@ namespace Web.Controllers
                 }
             }
             return periferico;
+        }
+
+        private Periferico FindPerifericoById(string id, IDbConnection connection, IDbTransaction transaction)
+        {
+            Periferico periferico = null;
+            try
+            {
+                string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = sql;
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            periferico = new Periferico
+                            {
+                                PartNumber = reader["PartNumber"].ToString(),
+                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
+                                ColaboradorNome = reader["ColaboradorNome"] as string,
+                                Tipo = reader["Tipo"].ToString(),
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
+                            };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao encontrar periferico por ID.");
+                if (transaction != null) throw;
+            }
+            return periferico;
+        }
+
+        private string SanitizeCpf(string cpf)
+        {
+            if (string.IsNullOrEmpty(cpf)) return cpf;
+            return new string(cpf.Where(char.IsDigit).ToArray());
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var perifericos = new List<Periferico>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var sanitizedCpf = SanitizeCpf(worksheet.Cells[row, 2].Value?.ToString().Trim());
+                            
+                            DateTime? dataEntrega = null;
+                            if (DateTime.TryParse(worksheet.Cells[row, 4].Value?.ToString()?.Trim(), out DateTime parsedDate))
+                            {
+                                dataEntrega = parsedDate;
+                            }
+
+                            var periferico = new Periferico
+                            {
+                                PartNumber = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                ColaboradorCPF = string.IsNullOrEmpty(sanitizedCpf) ? null : sanitizedCpf,
+                                Tipo = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                DataEntrega = dataEntrega
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(periferico.PartNumber))
+                            {
+                                perifericos.Add(periferico);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+                var invalidCpfs = new List<string>();
+
+                using (var connection = _databaseService.CreateConnection())
+                {
+                    connection.Open();
+
+                    var colaboradoresCpf = new HashSet<string>();
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = "SELECT CPF FROM Colaboradores";
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                colaboradoresCpf.Add(reader.GetString(0));
+                            }
+                        }
+                    }
+
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var periferico in perifericos)
+                            {
+                                if (!string.IsNullOrEmpty(periferico.ColaboradorCPF) && !colaboradoresCpf.Contains(periferico.ColaboradorCPF))
+                                {
+                                    invalidCpfs.Add(periferico.PartNumber);
+                                    periferico.ColaboradorCPF = null;
+                                }
+
+                                var existente = FindPerifericoById(periferico.PartNumber, connection, transaction);
+                                if (existente != null)
+                                {
+                                    string updateSql = @"UPDATE Perifericos SET
+                                                       ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega
+                                                       WHERE PartNumber = @PartNumber";
+                                    using (var cmd = connection.CreateCommand())
+                                    {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = updateSql;
+                                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
+                                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
+                                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                    atualizados++;
+                                }
+                                else
+                                {
+                                    string insertSql = @"INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega)
+                                                       VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
+                                    using (var cmd = connection.CreateCommand())
+                                    {
+                                        cmd.Transaction = transaction;
+                                        cmd.CommandText = insertSql;
+                                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
+                                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
+                                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                    adicionados++;
+                                }
+                            }
+                            transaction.Commit();
+                            TempData["SuccessMessage"] = $"{adicionados} periféricos adicionados e {atualizados} atualizados com sucesso.";
+                            if (invalidCpfs.Any())
+                            {
+                                TempData["WarningMessage"] = $"Os seguintes periféricos (PartNumber) foram importados, mas o CPF do colaborador não foi encontrado: {string.Join(", ", invalidCpfs)}";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
+                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao importar o arquivo Excel.");
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
 
         private List<Colaborador> GetColaboradores()
