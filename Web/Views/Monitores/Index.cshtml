@@ -27,9 +27,36 @@
                 <div class="input-group">
                     <input type="file" name="file" class="form-control" />
                     <button type="submit" class="btn btn-success">Importar</button>
+                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal">Ajuda de Importação</button>
                 </div>
             </form>
         </div>
+    </div>
+
+    <!-- Modal de Ajuda -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="helpModalLabel">Estrutura do Excel para Monitores</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>O arquivo Excel (.xlsx) deve conter as seguintes colunas na ordem abaixo, começando na primeira linha (cabeçalho não importa, mas a ordem sim):</p>
+            <ol>
+                <li><strong>PartNumber</strong> (Obrigatório)</li>
+                <li><strong>ColaboradorCPF</strong> (Apenas números)</li>
+                <li><strong>Marca</strong></li>
+                <li><strong>Modelo</strong></li>
+                <li><strong>Tamanho</strong></li>
+            </ol>
+            <p><strong>Atenção:</strong> A leitura começa a partir da <strong>linha 2</strong>.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
     </div>
 }
 

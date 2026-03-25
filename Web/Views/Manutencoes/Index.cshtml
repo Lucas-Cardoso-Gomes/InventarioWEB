@@ -6,8 +6,59 @@
 
 <h1>@ViewData["Title"]</h1>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
 @if (User.IsInRole("Admin"))
 {
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <form asp-controller="Manutencoes" asp-action="Importar" method="post" enctype="multipart/form-data">
+                <div class="input-group">
+                    <input type="file" name="file" class="form-control" />
+                    <button type="submit" class="btn btn-success">Importar</button>
+                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal">Ajuda de Importação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Ajuda -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="helpModalLabel">Estrutura do Excel para Manutenções</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>O arquivo Excel (.xlsx) deve conter as seguintes colunas na ordem abaixo, começando na primeira linha (cabeçalho não importa, mas a ordem sim):</p>
+            <ol>
+                <li><strong>ComputadorMAC</strong></li>
+                <li><strong>MonitorPartNumber</strong></li>
+                <li><strong>PerifericoPartNumber</strong></li>
+                <li><strong>DataManutencaoHardware</strong> (Formato: DD/MM/AAAA)</li>
+                <li><strong>DataManutencaoSoftware</strong> (Formato: DD/MM/AAAA)</li>
+                <li><strong>ManutencaoExterna</strong></li>
+                <li><strong>Data</strong> (Formato: DD/MM/AAAA)</li>
+                <li><strong>Historico</strong></li>
+            </ol>
+            <p><strong>Atenção:</strong> Pelo menos um dispositivo (ComputadorMAC, MonitorPartNumber ou PerifericoPartNumber) deve ser preenchido.</p>
+            <p><strong>Atenção:</strong> A leitura começa a partir da <strong>linha 2</strong>.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <p>
         <a asp-action="Create" class="btn btn-primary">Adicionar Nova Manutenção</a>
     </p>

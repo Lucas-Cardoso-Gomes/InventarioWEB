@@ -8,6 +8,10 @@ using Web.Services;
 using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace Web.Controllers
 {
@@ -23,6 +27,96 @@ namespace Web.Controllers
             _manutencaoService = manutencaoService;
             _databaseService = databaseService;
             _persistentLogService = persistentLogService;
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var manutencoes = new List<Manutencao>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            DateTime? dataHardware = null;
+                            if (DateTime.TryParse(worksheet.Cells[row, 4].Value?.ToString()?.Trim(), out DateTime parsedDataH))
+                            {
+                                dataHardware = parsedDataH;
+                            }
+                            
+                            DateTime? dataSoftware = null;
+                            if (DateTime.TryParse(worksheet.Cells[row, 5].Value?.ToString()?.Trim(), out DateTime parsedDataS))
+                            {
+                                dataSoftware = parsedDataS;
+                            }
+                            
+                            DateTime? data = null;
+                            if (DateTime.TryParse(worksheet.Cells[row, 7].Value?.ToString()?.Trim(), out DateTime parsedData))
+                            {
+                                data = parsedData;
+                            }
+
+                            var manutencao = new Manutencao
+                            {
+                                ComputadorMAC = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                MonitorPartNumber = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                PerifericoPartNumber = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                DataManutencaoHardware = dataHardware,
+                                DataManutencaoSoftware = dataSoftware,
+                                ManutencaoExterna = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                Data = data,
+                                Historico = worksheet.Cells[row, 8].Value?.ToString().Trim()
+                            };
+
+                            // Basic validation: must have at least one device linked.
+                            if (!string.IsNullOrWhiteSpace(manutencao.ComputadorMAC) || 
+                                !string.IsNullOrWhiteSpace(manutencao.MonitorPartNumber) || 
+                                !string.IsNullOrWhiteSpace(manutencao.PerifericoPartNumber))
+                            {
+                                manutencoes.Add(manutencao);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+
+                foreach (var manutencao in manutencoes)
+                {
+                    // As IDs are auto-generated and there isn't a strict natural unique key combination, 
+                    // we'll treat all imports as new records or you can adjust to find existing records if preferred.
+                    _manutencaoService.AddManutencao(manutencao);
+                    adicionados++;
+                }
+
+                TempData["SuccessMessage"] = $"{adicionados} manutenções adicionadas com sucesso.";
+            }
+            catch (Exception ex)
+            {
+                // In a real app we might log the exception.
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
 
         public IActionResult Index(string partNumber, string colaborador, string hostname)

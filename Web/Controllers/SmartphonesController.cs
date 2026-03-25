@@ -3,6 +3,12 @@ using System.Threading.Tasks;
 using Web.Models;
 using Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using OfficeOpenXml;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System;
 
 namespace Web.Controllers
 {
@@ -120,6 +126,96 @@ namespace Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
             return View(smartphone);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var smartphones = new List<Smartphone>();
+            try
+            {
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                        if (worksheet == null)
+                        {
+                            TempData["ErrorMessage"] = "A planilha do Excel está vazia ou não foi encontrada.";
+                            return RedirectToAction(nameof(Index));
+                        }
+
+                        int rowCount = worksheet.Dimension.Rows;
+                        for (int row = 2; row <= rowCount; row++)
+                        {
+                            var smartphone = new Smartphone
+                            {
+                                Modelo = worksheet.Cells[row, 1].Value?.ToString().Trim(),
+                                IMEI1 = worksheet.Cells[row, 2].Value?.ToString().Trim(),
+                                IMEI2 = worksheet.Cells[row, 3].Value?.ToString().Trim(),
+                                Usuario = worksheet.Cells[row, 4].Value?.ToString().Trim(),
+                                Filial = worksheet.Cells[row, 5].Value?.ToString().Trim(),
+                                ContaGoogle = worksheet.Cells[row, 6].Value?.ToString().Trim(),
+                                SenhaGoogle = worksheet.Cells[row, 7].Value?.ToString().Trim(),
+                                MAC = worksheet.Cells[row, 8].Value?.ToString().Trim(),
+                                DataCriacao = DateTime.Now
+                            };
+
+                            if (!string.IsNullOrWhiteSpace(smartphone.Modelo) && !string.IsNullOrWhiteSpace(smartphone.IMEI1))
+                            {
+                                smartphones.Add(smartphone);
+                            }
+                        }
+                    }
+                }
+
+                int adicionados = 0;
+                int atualizados = 0;
+
+                var existingSmartphones = await _smartphoneService.GetAllAsync();
+
+                foreach (var smartphone in smartphones)
+                {
+                    var existente = existingSmartphones.FirstOrDefault(s => s.IMEI1 == smartphone.IMEI1);
+
+                    if (existente != null)
+                    {
+                        existente.Modelo = smartphone.Modelo;
+                        existente.IMEI2 = smartphone.IMEI2;
+                        existente.Usuario = smartphone.Usuario;
+                        existente.Filial = smartphone.Filial;
+                        existente.ContaGoogle = smartphone.ContaGoogle;
+                        existente.SenhaGoogle = smartphone.SenhaGoogle;
+                        existente.MAC = smartphone.MAC;
+                        existente.DataAlteracao = DateTime.Now;
+
+                        await _smartphoneService.UpdateAsync(existente);
+                        atualizados++;
+                    }
+                    else
+                    {
+                        await _smartphoneService.CreateAsync(smartphone);
+                        adicionados++;
+                    }
+                }
+
+                TempData["SuccessMessage"] = $"{adicionados} smartphones adicionados e {atualizados} atualizados com sucesso.";
+            }
+            catch (Exception ex)
+            {
+                // In a real app we might inject a logger to log this.
+                TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Smartphones/Delete/5
