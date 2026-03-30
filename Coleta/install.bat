@@ -28,7 +28,7 @@ if exist "%CAMINHO_COMPLETO%" (
     :: /rl highest = Executa com privilégios máximos (Admin)
     :: /ru "SYSTEM" = Garante que a tarefa tenha permissão de sistema
     :: /f = Força a criação mesmo que a tarefa já exista
-    schtasks /create /tn "App_Coleta_Startup" /tr "\"%CAMINHO_COMPLETO%\"" /sc onlogon /rl highest /f /ru "SYSTEM"
+    schtasks /create /tn "App_Coleta_Boot" /tr "\"%CAMINHO_COMPLETO%\"" /sc onstart /rl highest /f /ru "SYSTEM"
 )
 
 :: Finaliza o script sem interações
