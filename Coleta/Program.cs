@@ -21,20 +21,6 @@ namespace coleta
     {
         static async Task Main()
         {
-            // Gerar um certificado auto-assinado em memória contornando o erro de chaves efêmeras no Windows
-            X509Certificate2 serverCertificate;
-            using (RSA rsa = RSA.Create(2048))
-            {
-                var request = new CertificateRequest("cn=ColetaAgent", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-                using (X509Certificate2 ephemeralCert = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(10)))
-                {
-                    // Exporta para PFX e re-importa para evitar o erro "platform does not support ephemeral keys"
-                    // Sem usar PersistKeySet e MachineKeySet para evitar o vazamento de chaves no disco rígido a cada inicialização
-                    byte[] pfxData = ephemeralCert.Export(X509ContentType.Pfx, "temp_password");
-                    serverCertificate = new X509Certificate2(pfxData, "temp_password");
-                }
-            }
-
 // --- CÓDIGO NOVO: Lendo o JSON da memória (Embedded Resource) ---
             var builder = new ConfigurationBuilder();
             var assembly = Assembly.GetExecutingAssembly();
@@ -54,6 +40,28 @@ namespace coleta
 
             IConfiguration config = builder.Build();
             // -----------------------------------------------------------------
+
+            // Gerar um certificado auto-assinado em memória contornando o erro de chaves efêmeras no Windows
+            X509Certificate2 serverCertificate;
+            using (RSA rsa = RSA.Create(2048))
+            {
+                // Import a static RSA private key to generate a self-signed certificate with a predictable Thumbprint
+                // This allows the Web client to securely pin the Thumbprint and prevent MitM attacks.
+                string staticPrivateKeyBase64 = config["Seguranca:CertificadoPrivateKey"] ?? "";
+                if (!string.IsNullOrEmpty(staticPrivateKeyBase64))
+                {
+                    rsa.ImportRSAPrivateKey(Convert.FromBase64String(staticPrivateKeyBase64), out _);
+                }
+
+                var request = new CertificateRequest("cn=ColetaAgent", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using (X509Certificate2 ephemeralCert = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(10)))
+                {
+                    // Exporta para PFX e re-importa para evitar o erro "platform does not support ephemeral keys"
+                    // Sem usar PersistKeySet e MachineKeySet para evitar o vazamento de chaves no disco rígido a cada inicialização
+                    byte[] pfxData = ephemeralCert.Export(X509ContentType.Pfx, "temp_password");
+                    serverCertificate = new X509Certificate2(pfxData, "temp_password");
+                }
+            }
             
             string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
             string realizarComandos = config["Autenticacao:RealizarComandos"];
@@ -89,17 +97,22 @@ namespace coleta
                             using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
                             {
 
-                            string autenticacao = reader.ReadLine();
-                            if (autenticacao == null)
+                            string nonce = Guid.NewGuid().ToString();
+                            writer.WriteLine(nonce);
+
+                            string autenticacaoHash = reader.ReadLine();
+                            if (autenticacaoHash == null)
                             {
                                 Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
                                 continue;
                             }
 
-                            autenticacao = autenticacao.Trim();
-                            Console.WriteLine($"[DEBUG] Autênticação recebida: '{autenticacao}'");
+                            autenticacaoHash = autenticacaoHash.Trim();
 
-                            if (autenticacao == solicitarInformacoes)
+                            string expectedHashSolicitar = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(solicitarInformacoes), Encoding.UTF8.GetBytes(nonce)));
+                            string expectedHashComandos = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(realizarComandos), Encoding.UTF8.GetBytes(nonce)));
+
+                            if (autenticacaoHash == expectedHashSolicitar)
                             {
                                 Console.WriteLine("[INFO] Solicitação de informações recebida.");
                                 var hardwareInfo = new HardwareInfo
@@ -118,7 +131,7 @@ namespace coleta
                                 writer.WriteLine(resposta);
                                 Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
                             }
-                            else if (autenticacao == realizarComandos)
+                            else if (autenticacaoHash == expectedHashComandos)
                             {
                                 string comandoRemoto = reader.ReadLine();
                                 if (comandoRemoto == null)
@@ -206,7 +219,7 @@ namespace coleta
                                 else if (comandoRemoto.StartsWith("upload_file"))
                                 {
                                     var parts = comandoRemoto.Split(' ');
-                                    var fileName = parts[1];
+                                    var fileName = Path.GetFileName(parts[1]); // Prevent Path Traversal
                                     var fileSize = long.Parse(parts[2]);
                                     var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
                                     var filePath = Path.Combine(desktopPath, fileName);
@@ -236,7 +249,7 @@ namespace coleta
                             {
                                 string resposta = "Código de Autenticação Incorreto!";
                                 writer.WriteLine(resposta);
-                                Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacao}'");
+                                Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacaoHash}'");
                             }
                             }
                         }
