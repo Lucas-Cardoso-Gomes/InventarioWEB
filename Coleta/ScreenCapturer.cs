@@ -22,7 +22,7 @@ public class ScreenCapturer
         int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
         IntPtr bitmapPtr = CreateCompatibleBitmap(desktopPtr, width, height);
-        SelectObject(memoryDcPtr, bitmapPtr);
+        IntPtr oldBitmapPtr = SelectObject(memoryDcPtr, bitmapPtr);
 
         // Copy the entire virtual screen to the memory device context
         BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, x, y, SRCCOPY);
@@ -43,19 +43,36 @@ public class ScreenCapturer
                         int x_cursor = pci.ptScreenPos.x - ii.xHotspot;
                         int y_cursor = pci.ptScreenPos.y - ii.yHotspot;
                         DrawIcon(memoryDcPtr, x_cursor, y_cursor, hicon);
+                        
+                        if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
+                        if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);
                     }
+                    DestroyIcon(hicon);
                 }
             }
         }
 
-        using (Bitmap bmp = Bitmap.FromHbitmap(bitmapPtr))
+        byte[] result;
+        try
         {
-            using (MemoryStream ms = new MemoryStream())
+            using (Bitmap bmp = Bitmap.FromHbitmap(bitmapPtr))
             {
-                bmp.Save(ms, ImageFormat.Png);
-                return ms.ToArray();
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    bmp.Save(ms, ImageFormat.Png);
+                    result = ms.ToArray();
+                }
             }
         }
+        finally
+        {
+            SelectObject(memoryDcPtr, oldBitmapPtr);
+            DeleteObject(bitmapPtr);
+            DeleteDC(memoryDcPtr);
+            ReleaseDC(IntPtr.Zero, desktopPtr);
+        }
+
+        return result;
     }
 
     // Constants for GetSystemMetrics
@@ -83,6 +100,18 @@ public class ScreenCapturer
 
     [DllImport("gdi32.dll")]
     private static extern bool BitBlt(IntPtr hdcDest, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, int dwRop);
+
+    [DllImport("user32.dll")]
+    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteDC(IntPtr hDC);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 
     // P/Invoke for cursor
     [StructLayout(LayoutKind.Sequential)]
