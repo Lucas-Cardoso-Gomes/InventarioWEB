@@ -32,5 +32,10 @@ namespace Web.Models
         [StringLength(20)]
         [ValidateNever]
         public string Tamanho { get; set; }
+
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        [ValidateNever]
+        public DateTime? DataGarantia { get; set; }
     }
 }

@@ -74,6 +74,7 @@
             <th>
                 @Html.DisplayNameFor(model => model.Nome)
             </th>
+            <th>Localização / Local</th>
             <th>
                 @Html.DisplayNameFor(model => model.DataInclusao)
             </th>
@@ -81,7 +82,7 @@
                 @Html.DisplayNameFor(model => model.DataAlteracao)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.Observacao)
+                @Html.DisplayNameFor(model => model.DataGarantia)
             </th>
             <th></th>
         </tr>
@@ -102,13 +103,16 @@
                 @Html.DisplayFor(modelItem => item.Nome)
             </td>
             <td>
+                @Html.DisplayFor(modelItem => item.Localizacao)
+            </td>
+            <td>
                 @Html.DisplayFor(modelItem => item.DataInclusao)
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.DataAlteracao)
             </td>
             <td>
-                @Html.DisplayFor(modelItem => item.Observacao)
+                @(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")
             </td>
             <td>
                 <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-warning btn-sm">Editar</a> |

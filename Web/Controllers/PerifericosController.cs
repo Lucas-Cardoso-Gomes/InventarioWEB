@@ -125,7 +125,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
+                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega, DataGarantia) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega, @DataGarantia)";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
@@ -133,6 +133,7 @@ namespace Web.Controllers
                             var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
                             var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
                             var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -175,7 +176,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega, DataGarantia = @DataGarantia WHERE PartNumber = @PartNumber";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
@@ -183,6 +184,7 @@ namespace Web.Controllers
                             var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
                             var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
                             var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -263,7 +265,8 @@ namespace Web.Controllers
                                 ColaboradorCPF = reader["ColaboradorCPF"] as string,
                                 ColaboradorNome = reader["ColaboradorNome"] as string,
                                 Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                             };
                         }
                     }
@@ -293,7 +296,8 @@ namespace Web.Controllers
                                 ColaboradorCPF = reader["ColaboradorCPF"] as string,
                                 ColaboradorNome = reader["ColaboradorNome"] as string,
                                 Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                             };
                         }
                     }
@@ -402,7 +406,7 @@ namespace Web.Controllers
                                 if (existente != null)
                                 {
                                     string updateSql = @"UPDATE Perifericos SET
-                                                       ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega
+                                                       ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega, DataGarantia = @DataGarantia
                                                        WHERE PartNumber = @PartNumber";
                                     using (var cmd = connection.CreateCommand())
                                     {
@@ -412,14 +416,15 @@ namespace Web.Controllers
                                         var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
                                         var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
                                         var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
                                         cmd.ExecuteNonQuery();
                                     }
                                     atualizados++;
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega)
-                                                       VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega)";
+                                    string insertSql = @"INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega, DataGarantia)
+                                                       VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega, @DataGarantia)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -428,6 +433,7 @@ namespace Web.Controllers
                                         var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
                                         var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
                                         var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
+                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
                                         cmd.ExecuteNonQuery();
                                     }
                                     adicionados++;

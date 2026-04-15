@@ -81,6 +81,9 @@
                 @Html.DisplayNameFor(model => model.Filial)
             </th>
             <th>
+                @Html.DisplayNameFor(model => model.DataGarantia)
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.DataCriacao)
             </th>
             @if (User.IsInRole("Admin"))
@@ -109,6 +112,9 @@
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.Filial)
+                </td>
+                <td>
+                    @(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.DataCriacao)

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS Computadores (
     ProcessadorCore TEXT,
     ProcessadorThread TEXT,
     ProcessadorClock TEXT,
+    ProcessadorTemperatura TEXT,
     Ram TEXT,
     RamTipo TEXT,
     RamVelocidade TEXT,
@@ -64,6 +65,8 @@ CREATE TABLE IF NOT EXISTS Computadores (
     SO TEXT,
     DataColeta TEXT,
     PartNumber TEXT,
+    DataGarantia TEXT,
+    Backup TEXT,
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 
@@ -73,6 +76,7 @@ CREATE TABLE IF NOT EXISTS Monitores (
     Marca TEXT,
     Modelo TEXT NOT NULL,
     Tamanho TEXT NOT NULL,
+    DataGarantia TEXT,
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 
@@ -81,6 +85,7 @@ CREATE TABLE IF NOT EXISTS Perifericos (
     ColaboradorCPF TEXT,
     Tipo TEXT NOT NULL,
     DataEntrega TEXT,
+    DataGarantia TEXT,
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 
@@ -140,7 +145,10 @@ CREATE TABLE IF NOT EXISTS Rede (
     Nome TEXT NOT NULL,
     DataInclusao TEXT NOT NULL,
     DataAlteracao TEXT,
-    Observacao TEXT
+    Observacao TEXT,
+    Localizacao TEXT,
+    Endereco TEXT,
+    DataGarantia TEXT
 );
 
 CREATE TABLE IF NOT EXISTS Smartphones (
@@ -154,7 +162,8 @@ CREATE TABLE IF NOT EXISTS Smartphones (
     DataAlteracao TEXT,
     ContaGoogle TEXT,
     SenhaGoogle TEXT,
-    MAC TEXT
+    MAC TEXT,
+    DataGarantia TEXT
 );
 
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator)

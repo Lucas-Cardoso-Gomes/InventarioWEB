@@ -140,8 +140,8 @@ namespace Web.Services
                 // Let's use INSERT INTO ... ON CONFLICT(MAC) DO UPDATE SET ...
 
                 string upsertQuery = @"
-                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber)
-                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber)
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber)
                     ON CONFLICT(MAC) DO UPDATE SET
                         IP = excluded.IP,
                         Processador = excluded.Processador,
@@ -149,6 +149,7 @@ namespace Web.Services
                         ProcessadorCore = excluded.ProcessadorCore,
                         ProcessadorThread = excluded.ProcessadorThread,
                         ProcessadorClock = excluded.ProcessadorClock,
+                        ProcessadorTemperatura = excluded.ProcessadorTemperatura,
                         Ram = excluded.Ram,
                         RamTipo = excluded.RamTipo,
                         RamVelocidade = excluded.RamVelocidade,
@@ -179,6 +180,7 @@ namespace Web.Services
                     var p5 = cmd.CreateParameter(); p5.ParameterName = "@ProcessadorCore"; p5.Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p5);
                     var p6 = cmd.CreateParameter(); p6.ParameterName = "@ProcessadorThread"; p6.Value = hardwareInfo.Processador?.Threads.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p6);
                     var p7 = cmd.CreateParameter(); p7.ParameterName = "@ProcessadorClock"; p7.Value = hardwareInfo.Processador?.ClockSpeed ?? (object)DBNull.Value; cmd.Parameters.Add(p7);
+                    var pTemp = cmd.CreateParameter(); pTemp.ParameterName = "@ProcessadorTemperatura"; pTemp.Value = hardwareInfo.Processador?.Temperatura ?? (object)DBNull.Value; cmd.Parameters.Add(pTemp);
                     var p8 = cmd.CreateParameter(); p8.ParameterName = "@Ram"; p8.Value = hardwareInfo.Ram?.RamTotal ?? (object)DBNull.Value; cmd.Parameters.Add(p8);
                     var p9 = cmd.CreateParameter(); p9.ParameterName = "@RamTipo"; p9.Value = hardwareInfo.Ram?.Tipo ?? (object)DBNull.Value; cmd.Parameters.Add(p9);
                     var p10 = cmd.CreateParameter(); p10.ParameterName = "@RamVelocidade"; p10.Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value; cmd.Parameters.Add(p10);

@@ -66,7 +66,7 @@ namespace Web.Services
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC)";
+                    command.CommandText = "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC, DataGarantia) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC, @DataGarantia)";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Modelo"; p1.Value = smartphone.Modelo; command.Parameters.Add(p1);
                     var p2 = command.CreateParameter(); p2.ParameterName = "@IMEI1"; p2.Value = smartphone.IMEI1; command.Parameters.Add(p2);
@@ -77,6 +77,7 @@ namespace Web.Services
                     var p7 = command.CreateParameter(); p7.ParameterName = "@ContaGoogle"; p7.Value = (object)smartphone.ContaGoogle ?? DBNull.Value; command.Parameters.Add(p7);
                     var p8 = command.CreateParameter(); p8.ParameterName = "@SenhaGoogle"; p8.Value = (object)smartphone.SenhaGoogle ?? DBNull.Value; command.Parameters.Add(p8);
                     var p9 = command.CreateParameter(); p9.ParameterName = "@MAC"; p9.Value = (object)smartphone.MAC ?? DBNull.Value; command.Parameters.Add(p9);
+                    var p10 = command.CreateParameter(); p10.ParameterName = "@DataGarantia"; p10.Value = smartphone.DataGarantia.HasValue ? smartphone.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; command.Parameters.Add(p10);
 
                     command.ExecuteNonQuery();
                 }
@@ -91,7 +92,7 @@ namespace Web.Services
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "UPDATE Smartphones SET Modelo = @Modelo, IMEI1 = @IMEI1, IMEI2 = @IMEI2, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle, MAC = @MAC WHERE Id = @Id";
+                    command.CommandText = "UPDATE Smartphones SET Modelo = @Modelo, IMEI1 = @IMEI1, IMEI2 = @IMEI2, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle, MAC = @MAC, DataGarantia = @DataGarantia WHERE Id = @Id";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = smartphone.Id; command.Parameters.Add(p1);
                     var p2 = command.CreateParameter(); p2.ParameterName = "@Modelo"; p2.Value = smartphone.Modelo; command.Parameters.Add(p2);
@@ -103,6 +104,7 @@ namespace Web.Services
                     var p8 = command.CreateParameter(); p8.ParameterName = "@ContaGoogle"; p8.Value = (object)smartphone.ContaGoogle ?? DBNull.Value; command.Parameters.Add(p8);
                     var p9 = command.CreateParameter(); p9.ParameterName = "@SenhaGoogle"; p9.Value = (object)smartphone.SenhaGoogle ?? DBNull.Value; command.Parameters.Add(p9);
                     var p10 = command.CreateParameter(); p10.ParameterName = "@MAC"; p10.Value = (object)smartphone.MAC ?? DBNull.Value; command.Parameters.Add(p10);
+                    var p11 = command.CreateParameter(); p11.ParameterName = "@DataGarantia"; p11.Value = smartphone.DataGarantia.HasValue ? smartphone.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; command.Parameters.Add(p11);
 
                     command.ExecuteNonQuery();
                 }
@@ -139,7 +141,8 @@ namespace Web.Services
                 DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
                 ContaGoogle = reader["ContaGoogle"] != DBNull.Value ? reader["ContaGoogle"].ToString() : null,
                 SenhaGoogle = reader["SenhaGoogle"] != DBNull.Value ? reader["SenhaGoogle"].ToString() : null,
-                MAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : null
+                MAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : null,
+                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
             };
         }
     }

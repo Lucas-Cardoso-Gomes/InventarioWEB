@@ -85,6 +85,7 @@
                 <th>@Html.DisplayNameFor(model => model.ColaboradorNome)</th>
                 <th>@Html.DisplayNameFor(model => model.DataEntrega)</th>
                 <th>@Html.DisplayNameFor(model => model.PartNumber)</th>
+                <th>@Html.DisplayNameFor(model => model.DataGarantia)</th>
                 @if (User.IsInRole("Admin"))
                 {
                     <th>
@@ -101,6 +102,7 @@
                     <td>@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
                     <td>@Html.DisplayFor(modelItem => item.DataEntrega)</td>
                     <td>@Html.DisplayFor(modelItem => item.PartNumber)</td>
+                    <td>@(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")</td>
                     @if (User.IsInRole("Admin"))
                     {
                         <td>

@@ -105,7 +105,7 @@ namespace Web.Controllers
                         connection.Open();
                         using (var command = connection.CreateCommand())
                         {
-                            command.CommandText = "INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao)";
+                            command.CommandText = "INSERT INTO Rede (Tipo, IP, MAC, Nome, DataInclusao, Observacao, Localizacao, Endereco, DataGarantia) VALUES (@Tipo, @IP, @MAC, @Nome, @DataInclusao, @Observacao, @Localizacao, @Endereco, @DataGarantia)";
 
                             var p1 = command.CreateParameter(); p1.ParameterName = "@Tipo"; p1.Value = rede.Tipo; command.Parameters.Add(p1);
                             var p2 = command.CreateParameter(); p2.ParameterName = "@IP"; p2.Value = rede.IP; command.Parameters.Add(p2);
@@ -113,6 +113,9 @@ namespace Web.Controllers
                             var p4 = command.CreateParameter(); p4.ParameterName = "@Nome"; p4.Value = rede.Nome; command.Parameters.Add(p4);
                             var p5 = command.CreateParameter(); p5.ParameterName = "@DataInclusao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p5);
                             var p6 = command.CreateParameter(); p6.ParameterName = "@Observacao"; p6.Value = (object)rede.Observacao ?? DBNull.Value; command.Parameters.Add(p6);
+                            var p7 = command.CreateParameter(); p7.ParameterName = "@Localizacao"; p7.Value = (object)rede.Localizacao ?? DBNull.Value; command.Parameters.Add(p7);
+                            var p8 = command.CreateParameter(); p8.ParameterName = "@Endereco"; p8.Value = (object)rede.Endereco ?? DBNull.Value; command.Parameters.Add(p8);
+                            var p9 = command.CreateParameter(); p9.ParameterName = "@DataGarantia"; p9.Value = rede.DataGarantia.HasValue ? rede.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; command.Parameters.Add(p9);
 
                             _logger.LogInformation("Executing INSERT command for network asset '{Nome}'.", rede.Nome);
                             command.ExecuteNonQuery();
@@ -181,7 +184,7 @@ namespace Web.Controllers
                         connection.Open();
                         using (var command = connection.CreateCommand())
                         {
-                            command.CommandText = "UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao WHERE Id = @Id";
+                            command.CommandText = "UPDATE Rede SET Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, DataAlteracao = @DataAlteracao, Observacao = @Observacao, Localizacao = @Localizacao, Endereco = @Endereco, DataGarantia = @DataGarantia WHERE Id = @Id";
 
                             var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = rede.Id; command.Parameters.Add(p1);
                             var p2 = command.CreateParameter(); p2.ParameterName = "@Tipo"; p2.Value = rede.Tipo; command.Parameters.Add(p2);
@@ -190,6 +193,9 @@ namespace Web.Controllers
                             var p5 = command.CreateParameter(); p5.ParameterName = "@Nome"; p5.Value = rede.Nome; command.Parameters.Add(p5);
                             var p6 = command.CreateParameter(); p6.ParameterName = "@DataAlteracao"; p6.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p6);
                             var p7 = command.CreateParameter(); p7.ParameterName = "@Observacao"; p7.Value = (object)rede.Observacao ?? DBNull.Value; command.Parameters.Add(p7);
+                            var p8 = command.CreateParameter(); p8.ParameterName = "@Localizacao"; p8.Value = (object)rede.Localizacao ?? DBNull.Value; command.Parameters.Add(p8);
+                            var p9 = command.CreateParameter(); p9.ParameterName = "@Endereco"; p9.Value = (object)rede.Endereco ?? DBNull.Value; command.Parameters.Add(p9);
+                            var p11 = command.CreateParameter(); p11.ParameterName = "@DataGarantia"; p11.Value = rede.DataGarantia.HasValue ? rede.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; command.Parameters.Add(p11);
 
                             _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
                             command.ExecuteNonQuery();
@@ -290,7 +296,8 @@ namespace Web.Controllers
                                 if (existente != null)
                                 {
                                     string updateSql = @"UPDATE Rede SET
-                                                       Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, Observacao = @Observacao, DataAlteracao = @DataAlteracao
+                                                       Tipo = @Tipo, IP = @IP, MAC = @MAC, Nome = @Nome, Observacao = @Observacao, DataAlteracao = @DataAlteracao,
+                                                       Localizacao = @Localizacao, Endereco = @Endereco, DataGarantia = @DataGarantia
                                                        WHERE Id = @Id";
                                     using (var cmd = connection.CreateCommand())
                                     {
@@ -303,14 +310,17 @@ namespace Web.Controllers
                                         var p5 = cmd.CreateParameter(); p5.ParameterName = "@Nome"; p5.Value = rede.Nome; cmd.Parameters.Add(p5);
                                         var p6 = cmd.CreateParameter(); p6.ParameterName = "@Observacao"; p6.Value = (object)rede.Observacao ?? DBNull.Value; cmd.Parameters.Add(p6);
                                         var p7 = cmd.CreateParameter(); p7.ParameterName = "@DataAlteracao"; p7.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p7);
+                                        var p8 = cmd.CreateParameter(); p8.ParameterName = "@Localizacao"; p8.Value = (object)rede.Localizacao ?? DBNull.Value; cmd.Parameters.Add(p8);
+                                        var p9 = cmd.CreateParameter(); p9.ParameterName = "@Endereco"; p9.Value = (object)rede.Endereco ?? DBNull.Value; cmd.Parameters.Add(p9);
+                                        var p11 = cmd.CreateParameter(); p11.ParameterName = "@DataGarantia"; p11.Value = rede.DataGarantia.HasValue ? rede.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p11);
                                         cmd.ExecuteNonQuery();
                                     }
                                     atualizados++;
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Rede (Tipo, IP, MAC, Nome, Observacao, DataInclusao)
-                                                       VALUES (@Tipo, @IP, @MAC, @Nome, @Observacao, @DataInclusao)";
+                                    string insertSql = @"INSERT INTO Rede (Tipo, IP, MAC, Nome, Observacao, DataInclusao, Localizacao, Endereco, DataGarantia)
+                                                       VALUES (@Tipo, @IP, @MAC, @Nome, @Observacao, @DataInclusao, @Localizacao, @Endereco, @DataGarantia)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -321,6 +331,9 @@ namespace Web.Controllers
                                         var p4 = cmd.CreateParameter(); p4.ParameterName = "@Nome"; p4.Value = rede.Nome; cmd.Parameters.Add(p4);
                                         var p5 = cmd.CreateParameter(); p5.ParameterName = "@Observacao"; p5.Value = (object)rede.Observacao ?? DBNull.Value; cmd.Parameters.Add(p5);
                                         var p6 = cmd.CreateParameter(); p6.ParameterName = "@DataInclusao"; p6.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p6);
+                                        var p7 = cmd.CreateParameter(); p7.ParameterName = "@Localizacao"; p7.Value = (object)rede.Localizacao ?? DBNull.Value; cmd.Parameters.Add(p7);
+                                        var p8 = cmd.CreateParameter(); p8.ParameterName = "@Endereco"; p8.Value = (object)rede.Endereco ?? DBNull.Value; cmd.Parameters.Add(p8);
+                                        var p9 = cmd.CreateParameter(); p9.ParameterName = "@DataGarantia"; p9.Value = rede.DataGarantia.HasValue ? rede.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p9);
                                         cmd.ExecuteNonQuery();
                                     }
                                     adicionados++;
@@ -377,7 +390,10 @@ namespace Web.Controllers
                                 Nome = reader["Nome"].ToString(),
                                 DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
                                 DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                Observacao = reader["Observacao"].ToString()
+                                Observacao = reader["Observacao"].ToString(),
+                                Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
+                                Endereco = reader["Endereco"] != DBNull.Value ? reader["Endereco"].ToString() : null,
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                             };
                         }
                     }
@@ -464,7 +480,10 @@ namespace Web.Controllers
                                     Nome = reader["Nome"].ToString(),
                                     DataInclusao = Convert.ToDateTime(reader["DataInclusao"]),
                                     DataAlteracao = reader["DataAlteracao"] != DBNull.Value ? Convert.ToDateTime(reader["DataAlteracao"]) : (DateTime?)null,
-                                    Observacao = reader["Observacao"].ToString()
+                                    Observacao = reader["Observacao"].ToString(),
+                                    Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
+                                    Endereco = reader["Endereco"] != DBNull.Value ? reader["Endereco"].ToString() : null,
+                                    DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                                 };
                             }
                         }

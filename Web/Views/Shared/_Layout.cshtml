@@ -77,6 +77,12 @@
                                 </ul>
                             </li>
                         }
+                        @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark fw-bold" asp-area="" asp-controller="Dashboard" asp-action="Index">Dashboard TI</a>
+                            </li>
+                        }
                     </ul>
                     <partial name="_LoginPartial" />
                 </div>

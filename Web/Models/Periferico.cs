@@ -30,5 +30,10 @@ namespace Web.Models
         [DataType(DataType.Date)]
         [ValidateNever]
         public DateTime? DataEntrega { get; set; }
+
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        [ValidateNever]
+        public DateTime? DataGarantia { get; set; }
     }
 }

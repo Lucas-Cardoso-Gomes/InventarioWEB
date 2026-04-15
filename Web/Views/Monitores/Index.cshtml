@@ -119,6 +119,7 @@
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Marca)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Modelo)</th>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Tamanho)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().DataGarantia)</th>
                 @if (User.IsInRole("Admin")){
                     <th>
                         Ações
@@ -135,6 +136,7 @@
                     <td>@Html.DisplayFor(modelItem => item.Marca)</td>
                     <td>@Html.DisplayFor(modelItem => item.Modelo)</td>
                     <td>@Html.DisplayFor(modelItem => item.Tamanho)</td>
+                    <td>@(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")</td>
                     @if (User.IsInRole("Admin"))
                     {
                         <td>

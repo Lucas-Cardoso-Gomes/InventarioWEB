@@ -19,6 +19,7 @@ namespace Coleta.Models
         public int Cores { get; set; }
         public int Threads { get; set; }
         public string ClockSpeed { get; set; }
+        public string Temperatura { get; set; }
     }
 
     public class RamInfo

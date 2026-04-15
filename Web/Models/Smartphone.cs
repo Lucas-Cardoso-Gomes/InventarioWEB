@@ -38,5 +38,8 @@ namespace Web.Models
 
         [StringLength(17)]
         public string? MAC { get; set; }
+
+        [DataType(DataType.Date)]
+        public DateTime? DataGarantia { get; set; }
     }
 }

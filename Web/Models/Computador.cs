@@ -33,8 +33,15 @@ namespace Web.Models
         public string? ArmazenamentoDTotal { get; set; }
         public string? ArmazenamentoDLivre { get; set; }
         public string? ConsumoCPU { get; set; }
+        public string? ProcessadorTemperatura { get; set; }
         public string? SO { get; set; }
         public DateTime? DataColeta { get; set; }
         public string? PartNumber { get; set; }
+
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        public DateTime? DataGarantia { get; set; }
+
+        public string? Backup { get; set; }
     }
 }

@@ -30,6 +30,13 @@ namespace Web.Models
         [Display(Name = "Observação")]
         public string? Observacao { get; set; }
 
+        public string? Localizacao { get; set; }
+        public string? Endereco { get; set; }
+
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        public DateTime? DataGarantia { get; set; }
+
         // Monitoring properties
         [NotMapped]
         public string? Status { get; set; }

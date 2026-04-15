@@ -76,6 +76,57 @@ namespace Web.Services
         {
             InitializeMainDatabase();
             InitializeLogsDatabase();
+            ApplySchemaUpdates();
+        }
+
+        private void ApplySchemaUpdates()
+        {
+            try
+            {
+                using (var connection = new SqliteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    // Safely add new columns if they don't exist
+                    var columnsToAdd = new[]
+                    {
+                        "ALTER TABLE Rede ADD COLUMN Localizacao TEXT;",
+                        "ALTER TABLE Rede ADD COLUMN Endereco TEXT;",
+                        "ALTER TABLE Rede ADD COLUMN Local TEXT;",
+                        "ALTER TABLE Rede ADD COLUMN DataGarantia TEXT;",
+
+                        "ALTER TABLE Computadores ADD COLUMN DataGarantia TEXT;",
+                        "ALTER TABLE Computadores ADD COLUMN Backup TEXT;",
+                        "ALTER TABLE Computadores ADD COLUMN ProcessadorTemperatura TEXT;",
+
+                        "ALTER TABLE Monitores ADD COLUMN DataGarantia TEXT;",
+
+                        "ALTER TABLE Perifericos ADD COLUMN DataGarantia TEXT;",
+
+                        "ALTER TABLE Smartphones ADD COLUMN DataGarantia TEXT;"
+                    };
+
+                    foreach (var stmt in columnsToAdd)
+                    {
+                        try
+                        {
+                            using (var command = connection.CreateCommand())
+                            {
+                                command.CommandText = stmt;
+                                command.ExecuteNonQuery();
+                            }
+                        }
+                        catch (SqliteException ex) when (ex.SqliteErrorCode == 1) // 1 = SQLITE_ERROR, typically "duplicate column name"
+                        {
+                            // Column already exists, safe to ignore
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to apply schema updates.");
+            }
         }
 
         private void InitializeMainDatabase()

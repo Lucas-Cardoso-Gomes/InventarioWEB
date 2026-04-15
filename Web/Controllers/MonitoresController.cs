@@ -211,7 +211,7 @@ namespace Web.Controllers
                                 if (existente != null)
                                 {
                                     string updateSql = @"UPDATE Monitores SET
-                                                       ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho
+                                                       ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho, DataGarantia = @DataGarantia
                                                        WHERE PartNumber = @PartNumber";
                                     using (var cmd = connection.CreateCommand())
                                     {
@@ -224,8 +224,8 @@ namespace Web.Controllers
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho)
-                                                       VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
+                                    string insertSql = @"INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho, DataGarantia)
+                                                       VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho, @DataGarantia)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -268,6 +268,7 @@ namespace Web.Controllers
             var p3 = cmd.CreateParameter(); p3.ParameterName = "@Marca"; p3.Value = (object)monitor.Marca ?? DBNull.Value; cmd.Parameters.Add(p3);
             var p4 = cmd.CreateParameter(); p4.ParameterName = "@Modelo"; p4.Value = (object)monitor.Modelo ?? DBNull.Value; cmd.Parameters.Add(p4);
             var p5 = cmd.CreateParameter(); p5.ParameterName = "@Tamanho"; p5.Value = (object)monitor.Tamanho ?? DBNull.Value; cmd.Parameters.Add(p5);
+            var p6 = cmd.CreateParameter(); p6.ParameterName = "@DataGarantia"; p6.Value = monitor.DataGarantia.HasValue ? monitor.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p6);
         }
 
         private Monitor FindMonitorById(string id, IDbConnection connection, IDbTransaction transaction)
@@ -291,7 +292,8 @@ namespace Web.Controllers
                                 ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
-                                Tamanho = reader["Tamanho"].ToString()
+                                Tamanho = reader["Tamanho"].ToString(),
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                             };
                         }
                     }
@@ -343,7 +345,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho) VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho)";
+                        string sql = "INSERT INTO Monitores (PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho, DataGarantia) VALUES (@PartNumber, @ColaboradorCPF, @Marca, @Modelo, @Tamanho, @DataGarantia)";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
@@ -391,7 +393,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "UPDATE Monitores SET ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho WHERE PartNumber = @PartNumber";
+                        string sql = "UPDATE Monitores SET ColaboradorCPF = @ColaboradorCPF, Marca = @Marca, Modelo = @Modelo, Tamanho = @Tamanho, DataGarantia = @DataGarantia WHERE PartNumber = @PartNumber";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
@@ -478,7 +480,8 @@ namespace Web.Controllers
                                 ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                 Marca = reader["Marca"].ToString(),
                                 Modelo = reader["Modelo"].ToString(),
-                                Tamanho = reader["Tamanho"].ToString()
+                                Tamanho = reader["Tamanho"].ToString(),
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
                             };
                         }
                     }

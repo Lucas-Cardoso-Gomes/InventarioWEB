@@ -7,12 +7,13 @@ namespace coleta
     {
         public static ProcessorInfo GetProcessorInfo()
         {
+            ProcessorInfo info = null;
             using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
             {
                 var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
                 if (result != null)
                 {
-                    return new ProcessorInfo
+                    info = new ProcessorInfo
                     {
                         Nome = result["Name"]?.ToString(),
                         Fabricante = result["Manufacturer"]?.ToString(),
@@ -22,7 +23,31 @@ namespace coleta
                     };
                 }
             }
-            return null;
+
+            if (info != null)
+            {
+                try
+                {
+                    using (var searcher = new ManagementObjectSearcher(@"root\WMI", "SELECT * FROM MSAcpi_ThermalZoneTemperature"))
+                    {
+                        var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
+                        if (result != null && result["CurrentTemperature"] != null)
+                        {
+                            // MSAcpi_ThermalZoneTemperature is in tenths of degrees Kelvin
+                            uint tempK = Convert.ToUInt32(result["CurrentTemperature"]);
+                            double tempC = (tempK / 10.0) - 273.15;
+                            info.Temperatura = $"{Math.Round(tempC, 1)} °C";
+                        }
+                    }
+                }
+                catch
+                {
+                    // WMI path might not be available or require admin rights
+                    info.Temperatura = "N/A";
+                }
+            }
+
+            return info;
         }
     }
 }

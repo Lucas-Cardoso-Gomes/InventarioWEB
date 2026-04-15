@@ -64,6 +64,12 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.SenhaGoogle)
         </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.DataGarantia)
+        </dt>
+        <dd class="col-sm-10">
+            @(Model.DataGarantia.HasValue ? Model.DataGarantia.Value.ToString("dd/MM/yyyy") : "")
+        </dd>
     </dl>
 </div>
 <div>

@@ -30,6 +30,15 @@ namespace Web.Models
         [ValidateNever]
         public string? Fabricante { get; set; }
 
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        [ValidateNever]
+        public DateTime? DataGarantia { get; set; }
+
+        [Display(Name = "Backup")]
+        [ValidateNever]
+        public string? Backup { get; set; }
+
         [Display(Name = "Processador")]
         [ValidateNever]
         public string? Processador { get; set; }
