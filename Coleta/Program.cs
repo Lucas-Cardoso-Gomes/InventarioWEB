@@ -128,7 +128,9 @@ namespace coleta
                                                 MAC = MAC.GetFormattedMacAddress(),
                                                 SO = OS.GetOSInfo(),
                                                 ConsumoCPU = Consumo.Uso(),
-                                                Armazenamento = Armazenamento.GetStorageInfo()
+                                                Armazenamento = Armazenamento.GetStorageInfo(),
+                                                BateriaWearLevel = Bateria.GetWearLevel(),
+                                                TempoAtividade = Uptime.GetUptime()
                                             };
 
                                             string resposta = JsonSerializer.Serialize(hardwareInfo);

@@ -140,8 +140,8 @@ namespace Web.Services
                 // Let's use INSERT INTO ... ON CONFLICT(MAC) DO UPDATE SET ...
 
                 string upsertQuery = @"
-                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber)
-                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber)
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
                     ON CONFLICT(MAC) DO UPDATE SET
                         IP = excluded.IP,
                         Processador = excluded.Processador,
@@ -166,7 +166,9 @@ namespace Web.Services
                         ArmazenamentoDLivre = excluded.ArmazenamentoDLivre,
                         ConsumoCPU = excluded.ConsumoCPU,
                         DataColeta = excluded.DataColeta,
-                        PartNumber = excluded.PartNumber;
+                        PartNumber = excluded.PartNumber,
+                        BateriaWearLevel = excluded.BateriaWearLevel,
+                        TempoAtividade = excluded.TempoAtividade;
                 ";
 
                 using (var cmd = connection.CreateCommand())
@@ -198,6 +200,8 @@ namespace Web.Services
                     var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value; cmd.Parameters.Add(p22);
                     var p23 = cmd.CreateParameter(); p23.ParameterName = "@DataColeta"; p23.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p23);
                     var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = hardwareInfo.PartNumber ?? (object)DBNull.Value; cmd.Parameters.Add(p24);
+                    var p25 = cmd.CreateParameter(); p25.ParameterName = "@BateriaWearLevel"; p25.Value = hardwareInfo.BateriaWearLevel ?? (object)DBNull.Value; cmd.Parameters.Add(p25);
+                    var p26 = cmd.CreateParameter(); p26.ParameterName = "@TempoAtividade"; p26.Value = hardwareInfo.TempoAtividade ?? (object)DBNull.Value; cmd.Parameters.Add(p26);
 
                     cmd.ExecuteNonQuery();
                 }

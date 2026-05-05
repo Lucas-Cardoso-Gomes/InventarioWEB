@@ -99,6 +99,10 @@ namespace Web.Services
                         "ALTER TABLE Computadores ADD COLUMN Backup TEXT;",
                         "ALTER TABLE Computadores ADD COLUMN ProcessadorTemperatura TEXT;",
 
+                        "ALTER TABLE Computadores ADD COLUMN BateriaWearLevel TEXT;",
+                        "ALTER TABLE Computadores ADD COLUMN TempoAtividade TEXT;",
+                        "ALTER TABLE Computadores ADD COLUMN Localizacao TEXT;",
+
                         "ALTER TABLE Monitores ADD COLUMN DataGarantia TEXT;",
 
                         "ALTER TABLE Perifericos ADD COLUMN DataGarantia TEXT;",

@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS Computadores (
     PartNumber TEXT,
     DataGarantia TEXT,
     Backup TEXT,
+    BateriaWearLevel TEXT,
+    TempoAtividade TEXT,
+    Localizacao TEXT,
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 

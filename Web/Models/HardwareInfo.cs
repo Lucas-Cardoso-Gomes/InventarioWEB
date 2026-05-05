@@ -11,6 +11,8 @@ namespace Web.Models
         public string ConsumoCPU { get; set; }
         public StorageInfo Armazenamento { get; set; }
         public string PartNumber { get; set; }
+        public string BateriaWearLevel { get; set; }
+        public string TempoAtividade { get; set; }
     }
 
     public class ProcessorInfo

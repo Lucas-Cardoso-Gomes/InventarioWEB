@@ -61,7 +61,30 @@
         </div>
     </div>
 
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Status das Garantias
+                </div>
+                <div class="card-body"><canvas id="garantiaPieChart" width="100%" height="50"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    Vencimento das Garantias (Linha do Tempo)
+                </div>
+                <div class="card-body"><canvas id="garantiaBarChart" width="100%" height="50"></canvas></div>
+            </div>
+        </div>
+    </div>
+
     <div class="card mb-4">
+
         <div class="card-header">
             <i class="fas fa-table me-1"></i>
             Lista Geral de Equipamentos
@@ -111,12 +134,72 @@
 </div>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         $(document).ready(function() {
             if ($.fn.DataTable) {
                 $('#datatablesSimple').DataTable({
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json"
+                    }
+                });
+            }
+
+            // Pie Chart
+            var ctxPie = document.getElementById("garantiaPieChart");
+            if (ctxPie) {
+                var pieData = @Html.Raw(Json.Serialize(Model.GarantiaPieData));
+                new Chart(ctxPie, {
+                    type: 'pie',
+                    data: {
+                        labels: ["Tem garantia", "Sem garantia", "Sem dados de garantia"],
+                        datasets: [{
+                            data: pieData,
+                            backgroundColor: ['#28a745', '#dc3545', '#6c757d'],
+                        }],
+                    },
+                });
+            }
+
+            // Bar Chart
+            var ctxBar = document.getElementById("garantiaBarChart");
+            if (ctxBar) {
+                var barData = @Html.Raw(Json.Serialize(Model.GarantiaBarData));
+                var labels = barData.map(function(d) { return d.label; });
+                var data = barData.map(function(d) { return d.value; });
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "Equipamentos a vencer",
+                            backgroundColor: "rgba(2,117,216,1)",
+                            borderColor: "rgba(2,117,216,1)",
+                            data: data,
+                        }],
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    min: 0,
+                                    maxTicksLimit: 5
+                                },
+                                grid: {
+                                    display: true
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
                     }
                 });
             }

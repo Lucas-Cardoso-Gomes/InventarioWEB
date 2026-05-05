@@ -12,6 +12,9 @@ namespace Web.Models
         public int TotalSmartphones { get; set; }
 
         public List<EquipamentoDashboardItem> Equipamentos { get; set; } = new List<EquipamentoDashboardItem>();
+
+        public List<int> GarantiaPieData { get; set; } = new List<int>();
+        public List<ChartData> GarantiaBarData { get; set; } = new List<ChartData>();
     }
 
     public class EquipamentoDashboardItem

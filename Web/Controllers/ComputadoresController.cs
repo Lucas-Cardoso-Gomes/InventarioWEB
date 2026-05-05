@@ -338,7 +338,7 @@ namespace Web.Controllers
                                                        RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal,
                                                        ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
                                                        ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber,
-                                                       DataGarantia = @DataGarantia, Backup = @Backup, ProcessadorTemperatura = @ProcessadorTemperatura
+                                                       DataGarantia = @DataGarantia, Backup = @Backup, ProcessadorTemperatura = @ProcessadorTemperatura, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao
                                                        WHERE MAC = @MAC";
                                     using (var cmd = connection.CreateCommand())
                                     {
@@ -353,7 +353,7 @@ namespace Web.Controllers
                                 else
                                 {
                                     string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup)
-                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup)";
+                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -419,6 +419,10 @@ namespace Web.Controllers
             var p25 = cmd.CreateParameter(); p25.ParameterName = "@DataGarantia"; p25.Value = computador.DataGarantia.HasValue ? computador.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p25);
             var p26 = cmd.CreateParameter(); p26.ParameterName = "@Backup"; p26.Value = (object)computador.Backup ?? DBNull.Value; cmd.Parameters.Add(p26);
             var p27 = cmd.CreateParameter(); p27.ParameterName = "@ProcessadorTemperatura"; p27.Value = (object)computador.ProcessadorTemperatura ?? DBNull.Value; cmd.Parameters.Add(p27);
+            var p28 = cmd.CreateParameter(); p28.ParameterName = "@BateriaWearLevel"; p28.Value = (object)computador.BateriaWearLevel ?? DBNull.Value; cmd.Parameters.Add(p28);
+            var p29 = cmd.CreateParameter(); p29.ParameterName = "@TempoAtividade"; p29.Value = (object)computador.TempoAtividade ?? DBNull.Value; cmd.Parameters.Add(p29);
+            var p30 = cmd.CreateParameter(); p30.ParameterName = "@Localizacao"; p30.Value = (object)computador.Localizacao ?? DBNull.Value; cmd.Parameters.Add(p30);
+
         }
 
         private Computador FindComputadorById(string id, IDbConnection connection, IDbTransaction transaction)
@@ -465,6 +469,9 @@ namespace Web.Controllers
                                 DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
                                     PartNumber = reader["PartNumber"].ToString(),
                                     DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
+                                    BateriaWearLevel = reader["BateriaWearLevel"] != DBNull.Value ? reader["BateriaWearLevel"].ToString() : null,
+                                    TempoAtividade = reader["TempoAtividade"] != DBNull.Value ? reader["TempoAtividade"].ToString() : null,
+                                    Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
                                     Backup = reader["Backup"].ToString(),
                                     ProcessadorTemperatura = reader["ProcessadorTemperatura"].ToString()
                             };
@@ -518,7 +525,7 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
 
                         using (var cmd = connection.CreateCommand())
                         {
@@ -550,6 +557,9 @@ namespace Web.Controllers
                                 SO = viewModel.SO,
                                 PartNumber = viewModel.PartNumber,
                                 DataGarantia = viewModel.DataGarantia,
+                                BateriaWearLevel = viewModel.BateriaWearLevel,
+                                TempoAtividade = viewModel.TempoAtividade,
+                                Localizacao = viewModel.Localizacao,
                                 Backup = viewModel.Backup,
                                 ProcessadorTemperatura = null // We don't overwrite temperature on create
                             };
@@ -608,6 +618,9 @@ namespace Web.Controllers
                 SO = computador.SO,
                 PartNumber = computador.PartNumber,
                 DataGarantia = computador.DataGarantia,
+                BateriaWearLevel = computador.BateriaWearLevel,
+                TempoAtividade = computador.TempoAtividade,
+                Localizacao = computador.Localizacao,
                 Backup = computador.Backup
             };
             ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
@@ -630,7 +643,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao WHERE MAC = @MAC";
 
                         using (var cmd = connection.CreateCommand())
                         {
@@ -662,6 +675,9 @@ namespace Web.Controllers
                                 SO = viewModel.SO,
                                 PartNumber = viewModel.PartNumber,
                                 DataGarantia = viewModel.DataGarantia,
+                                BateriaWearLevel = viewModel.BateriaWearLevel,
+                                TempoAtividade = viewModel.TempoAtividade,
+                                Localizacao = viewModel.Localizacao,
                                 Backup = viewModel.Backup,
                                 ProcessadorTemperatura = null // Update doesn't modify collected temp from Edit form
                             };
@@ -778,6 +794,9 @@ namespace Web.Controllers
                                     DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
                                     PartNumber = reader["PartNumber"].ToString(),
                                     DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
+                                    BateriaWearLevel = reader["BateriaWearLevel"] != DBNull.Value ? reader["BateriaWearLevel"].ToString() : null,
+                                    TempoAtividade = reader["TempoAtividade"] != DBNull.Value ? reader["TempoAtividade"].ToString() : null,
+                                    Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
                                     Backup = reader["Backup"].ToString(),
                                     ProcessadorTemperatura = reader["ProcessadorTemperatura"].ToString()
                                 };

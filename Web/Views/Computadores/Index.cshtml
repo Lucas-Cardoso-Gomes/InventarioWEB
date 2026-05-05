@@ -192,6 +192,9 @@
                 <th class="col-temperatura">Temp. CPU</th>
                 <th class="col-garantia">Garantia</th>
                 <th class="col-backup">Backup</th>
+                <th class="col-bateria">Bateria</th>
+                <th class="col-tempoatividade">Uptime</th>
+                <th class="col-localizacao">Localização</th>
                 <th class="col-datacoleta">
                     <a asp-action="Index" asp-route-sortOrder="@ViewData["DateSortParm"]" asp-route-searchString="@Model.SearchString">Data da Coleta</a>
                 </th>
@@ -232,6 +235,9 @@
                     <td class="col-temperatura">@Html.DisplayFor(modelItem => item.ProcessadorTemperatura)</td>
                     <td class="col-garantia">@(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")</td>
                     <td class="col-backup">@Html.DisplayFor(modelItem => item.Backup)</td>
+                    <td class="col-bateria">@Html.DisplayFor(modelItem => item.BateriaWearLevel)</td>
+                    <td class="col-tempoatividade">@Html.DisplayFor(modelItem => item.TempoAtividade)</td>
+                    <td class="col-localizacao">@Html.DisplayFor(modelItem => item.Localizacao)</td>
                     <td class="col-datacoleta">@Html.DisplayFor(modelItem => item.DataColeta)</td>
                     @if (User.IsInRole("Admin") || User.IsInRole("Coordenador"))
                     {

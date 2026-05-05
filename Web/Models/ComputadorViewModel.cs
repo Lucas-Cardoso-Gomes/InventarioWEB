@@ -114,5 +114,9 @@ namespace Web.Models
         [Display(Name = "Part Number")]
         [ValidateNever]
         public string? PartNumber { get; set; }
+        
+        public string? BateriaWearLevel { get; set; }
+        public string? TempoAtividade { get; set; }
+        public string? Localizacao { get; set; }
     }
 }

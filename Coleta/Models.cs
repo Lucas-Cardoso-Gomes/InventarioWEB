@@ -10,6 +10,8 @@ namespace Coleta.Models
         public string SO { get; set; }
         public string ConsumoCPU { get; set; }
         public StorageInfo Armazenamento { get; set; }
+        public string BateriaWearLevel { get; set; }
+        public string TempoAtividade { get; set; }
     }
 
     public class ProcessorInfo

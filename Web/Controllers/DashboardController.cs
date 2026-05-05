@@ -132,6 +132,44 @@ namespace Web.Controllers
                 }
             }
 
+            // Calculate Pie Chart Data
+            int temGarantia = 0;
+            int semGarantia = 0;
+            int semDados = 0;
+            var expirations = new Dictionary<string, int>();
+
+            foreach (var item in viewModel.Equipamentos)
+            {
+                if (item.DataGarantia.HasValue)
+                {
+                    if (item.DataGarantia.Value >= DateTime.Now)
+                    {
+                        temGarantia++;
+                        var key = item.DataGarantia.Value.ToString("MM/yyyy");
+                        if (expirations.ContainsKey(key)) expirations[key]++;
+                        else expirations[key] = 1;
+                    }
+                    else
+                    {
+                        semGarantia++;
+                    }
+                }
+                else
+                {
+                    semDados++;
+                }
+            }
+
+            viewModel.GarantiaPieData = new List<int> { temGarantia, semGarantia, semDados };
+            
+            var sortedExpirations = new List<string>(expirations.Keys);
+            sortedExpirations.Sort((a, b) => DateTime.ParseExact(a, "MM/yyyy", null).CompareTo(DateTime.ParseExact(b, "MM/yyyy", null)));
+            
+            foreach (var key in sortedExpirations)
+            {
+                viewModel.GarantiaBarData.Add(new ChartData { Label = key, Value = expirations[key] });
+            }
+
             return View(viewModel);
         }
     }
