@@ -23,6 +23,12 @@ public class RemoteControl
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    private const int SM_XVIRTUALSCREEN = 76;
+    private const int SM_YVIRTUALSCREEN = 77;
+
     public struct POINT
     {
         public int X;
@@ -39,19 +45,25 @@ public class RemoteControl
 
     public static void HandleMouseEvent(string type, int x, int y, int deltaY)
     {
+        int virtualX = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int virtualY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+
+        int targetX = x + virtualX;
+        int targetY = y + virtualY;
+
         uint flags = 0;
         uint mouseData = 0;
 
         switch (type)
         {
-            case "down_0": flags = MOUSEEVENTF_LEFTDOWN; SetCursorPos(x, y); break;
-            case "up_0": flags = MOUSEEVENTF_LEFTUP; SetCursorPos(x, y); break;
-            case "down_1": flags = MOUSEEVENTF_MIDDLEDOWN; SetCursorPos(x, y); break;
-            case "up_1": flags = MOUSEEVENTF_MIDDLEUP; SetCursorPos(x, y); break;
-            case "down_2": flags = MOUSEEVENTF_RIGHTDOWN; SetCursorPos(x, y); break;
-            case "up_2": flags = MOUSEEVENTF_RIGHTUP; SetCursorPos(x, y); break;
-            case "move": MoveCursor(x, y); return;
-            case "wheel": flags = MOUSEEVENTF_WHEEL; mouseData = (uint)deltaY; break;
+            case "down_0": flags = MOUSEEVENTF_LEFTDOWN; SetCursorPos(targetX, targetY); break;
+            case "up_0": flags = MOUSEEVENTF_LEFTUP; SetCursorPos(targetX, targetY); break;
+            case "down_1": flags = MOUSEEVENTF_MIDDLEDOWN; SetCursorPos(targetX, targetY); break;
+            case "up_1": flags = MOUSEEVENTF_MIDDLEUP; SetCursorPos(targetX, targetY); break;
+            case "down_2": flags = MOUSEEVENTF_RIGHTDOWN; SetCursorPos(targetX, targetY); break;
+            case "up_2": flags = MOUSEEVENTF_RIGHTUP; SetCursorPos(targetX, targetY); break;
+            case "move": MoveCursor(x, y); return; // dx and dy are relative, so no offset needed
+            case "wheel": flags = MOUSEEVENTF_WHEEL; mouseData = (uint)(-deltaY); break;
         }
 
         if (flags != 0)

@@ -53,7 +53,7 @@ namespace Web.Controllers
                         Response.Headers.Append("X-Original-Height", image.Height.ToString());
                     }
 
-                    return File(imageBytes, "image/png");
+                    return File(imageBytes, "image/jpeg");
                 }
                 return NotFound("Failed to get screen frame.");
             }
@@ -61,6 +61,87 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Error getting screen stream from {IP}", ip);
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet]
+        public async Task GetScreenMJPEGStream(string ip)
+        {
+            if (string.IsNullOrEmpty(ip))
+            {
+                Response.StatusCode = 400;
+                return;
+            }
+
+            Response.Headers.Append("Content-Type", "multipart/x-mixed-replace; boundary=--frame");
+
+            try
+            {
+                using (var tcpClient = new TcpClient())
+                {
+                    await tcpClient.ConnectAsync(ip, 27275);
+                    using (var networkStream = tcpClient.GetStream())
+                    {
+                        var expectedThumbprint = _configuration["Seguranca:AgenteThumbprint"];
+                        using (var sslStream = new SslStream(networkStream, false, (sender, cert, chain, errors) => ValidateServerCertificate(sender, cert, chain, errors, expectedThumbprint), null))
+                        {
+                            await sslStream.AuthenticateAsClientAsync("ColetaAgent");
+
+                            using (var reader = new StreamReader(sslStream, Encoding.UTF8))
+                            using (var writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                            {
+                                var authKey = _configuration["Autenticacao:RealizarComandos"];
+                                var nonce = await reader.ReadLineAsync();
+                                var authHash = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(authKey), Encoding.UTF8.GetBytes(nonce ?? string.Empty)));
+
+                                await writer.WriteLineAsync(authHash);
+                                await writer.WriteLineAsync("take_screenshot_stream");
+                                await writer.FlushAsync(); // Make sure the command is sent before reading raw
+
+                                byte[] sizeBuffer = new byte[4];
+                                while (!HttpContext.RequestAborted.IsCancellationRequested)
+                                {
+                                    int headerRead = 0;
+                                    while (headerRead < 4)
+                                    {
+                                        int read = await sslStream.ReadAsync(sizeBuffer, headerRead, 4 - headerRead, HttpContext.RequestAborted);
+                                        if (read == 0) break;
+                                        headerRead += read;
+                                    }
+                                    if (headerRead < 4) break;
+
+                                    int size = BitConverter.ToInt32(sizeBuffer, 0);
+
+                                    byte[] imageBytes = new byte[size];
+                                    int totalRead = 0;
+                                    while (totalRead < size)
+                                    {
+                                        int read = await sslStream.ReadAsync(imageBytes, totalRead, size - totalRead, HttpContext.RequestAborted);
+                                        if (read == 0) break;
+                                        totalRead += read;
+                                    }
+
+                                    if (totalRead < size) break;
+
+                                    if (HttpContext.RequestAborted.IsCancellationRequested) break;
+
+                                    byte[] headerBytes = Encoding.UTF8.GetBytes($"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {size}\r\n\r\n");
+                                    await Response.Body.WriteAsync(headerBytes, 0, headerBytes.Length, HttpContext.RequestAborted);
+                                    await Response.Body.WriteAsync(imageBytes, 0, imageBytes.Length, HttpContext.RequestAborted);
+                                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes("\r\n"), 0, 2, HttpContext.RequestAborted);
+                                    await Response.Body.FlushAsync();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!(ex is OperationCanceledException))
+                {
+                    _logger.LogError(ex, "Error getting MJPEG stream from {IP}", ip);
+                }
             }
         }
 

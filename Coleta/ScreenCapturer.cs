@@ -40,8 +40,8 @@ public class ScreenCapturer
                     ICONINFO ii;
                     if (GetIconInfo(hicon, out ii))
                     {
-                        int x_cursor = pci.ptScreenPos.x - ii.xHotspot;
-                        int y_cursor = pci.ptScreenPos.y - ii.yHotspot;
+                        int x_cursor = pci.ptScreenPos.x - x - ii.xHotspot;
+                        int y_cursor = pci.ptScreenPos.y - y - ii.yHotspot;
                         DrawIcon(memoryDcPtr, x_cursor, y_cursor, hicon);
                         
                         if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
@@ -59,7 +59,20 @@ public class ScreenCapturer
             {
                 using (MemoryStream ms = new MemoryStream())
                 {
-                    bmp.Save(ms, ImageFormat.Png);
+                    ImageCodecInfo jpegCodec = GetEncoderInfo("image/jpeg");
+                    if (jpegCodec != null)
+                    {
+                        using (EncoderParameters encoderParams = new EncoderParameters(1))
+                        using (EncoderParameter qualityParam = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 50L))
+                        {
+                            encoderParams.Param[0] = qualityParam;
+                            bmp.Save(ms, jpegCodec, encoderParams);
+                        }
+                    }
+                    else
+                    {
+                        bmp.Save(ms, ImageFormat.Jpeg);
+                    }
                     result = ms.ToArray();
                 }
             }
@@ -73,6 +86,17 @@ public class ScreenCapturer
         }
 
         return result;
+    }
+
+    private static ImageCodecInfo GetEncoderInfo(string mimeType)
+    {
+        ImageCodecInfo[] encoders = ImageCodecInfo.GetImageEncoders();
+        for (int j = 0; j < encoders.Length; ++j)
+        {
+            if (encoders[j].MimeType == mimeType)
+                return encoders[j];
+        }
+        return null;
     }
 
     // Constants for GetSystemMetrics

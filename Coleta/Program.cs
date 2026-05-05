@@ -83,186 +83,215 @@ namespace coleta
                     TcpClient client = null;
                     try
                     {
-                        client = listener.AcceptTcpClient();
+                        client = await listener.AcceptTcpClientAsync();
                         string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
                         Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
 
-                        using (NetworkStream networkStream = client.GetStream())
-                        using (SslStream sslStream = new SslStream(networkStream, false))
+                        _ = Task.Run(async () =>
                         {
-                            // Autenticar como servidor usando o certificado gerado em memória
-                            await sslStream.AuthenticateAsServerAsync(serverCertificate, clientCertificateRequired: false, checkCertificateRevocation: true);
-
-                            using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
-                            using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                            try
                             {
-
-                            string nonce = Guid.NewGuid().ToString();
-                            writer.WriteLine(nonce);
-
-                            string autenticacaoHash = reader.ReadLine();
-                            if (autenticacaoHash == null)
-                            {
-                                Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
-                                continue;
-                            }
-
-                            autenticacaoHash = autenticacaoHash.Trim();
-
-                            string expectedHashSolicitar = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(solicitarInformacoes), Encoding.UTF8.GetBytes(nonce)));
-                            string expectedHashComandos = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(realizarComandos), Encoding.UTF8.GetBytes(nonce)));
-
-                            if (autenticacaoHash == expectedHashSolicitar)
-                            {
-                                Console.WriteLine("[INFO] Solicitação de informações recebida.");
-                                var hardwareInfo = new HardwareInfo
+                                using (NetworkStream networkStream = client.GetStream())
+                                using (SslStream sslStream = new SslStream(networkStream, false))
                                 {
-                                    Processador = Processador.GetProcessorInfo(),
-                                    Ram = RAM.GetRamInfo(),
-                                    Usuario = User.GetUserInfo(),
-                                    Fabricante = Fabricante.GetManufacturer(),
-                                    MAC = MAC.GetFormattedMacAddress(),
-                                    SO = OS.GetOSInfo(),
-                                    ConsumoCPU = Consumo.Uso(),
-                                    Armazenamento = Armazenamento.GetStorageInfo()
-                                };
+                                    // Autenticar como servidor usando o certificado gerado em memória
+                                    await sslStream.AuthenticateAsServerAsync(serverCertificate, clientCertificateRequired: false, checkCertificateRevocation: true);
 
-                                string resposta = JsonSerializer.Serialize(hardwareInfo);
-                                writer.WriteLine(resposta);
-                                Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
-                            }
-                            else if (autenticacaoHash == expectedHashComandos)
-                            {
-                                string comandoRemoto = reader.ReadLine();
-                                if (comandoRemoto == null)
-                                {
-                                    Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
-                                    continue;
-                                }
-
-                                comandoRemoto = comandoRemoto.Trim();
-                                Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
-
-                                if (comandoRemoto == "take_screenshot")
-                                {
-                                    try
+                                    using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
+                                    using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
                                     {
-                                        byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
-                                        string base64String = Convert.ToBase64String(screenshotBytes);
 
-                                        // Envia o tamanho primeiro e depois os dados para garantir a integridade
-                                        writer.WriteLine(base64String.Length);
-                                        writer.Write(base64String);
-                                        await writer.FlushAsync();
+                                        string nonce = Guid.NewGuid().ToString();
+                                        await writer.WriteLineAsync(nonce);
 
-                                        Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
-                                        writer.WriteLine($"Error: {ex.Message}");
-                                    }
-                                }
-                                else if (comandoRemoto.StartsWith("mouse_event"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    var type = parts[1];
-                                    int x = int.Parse(parts[2]);
-                                    int y = int.Parse(parts[3]);
-                                    int deltaY = int.Parse(parts[4]);
-
-                                    RemoteControl.HandleMouseEvent(type, x, y, deltaY);
-                                    writer.WriteLine("Mouse event handled.");
-                                }
-                                else if (comandoRemoto.StartsWith("set_clipboard"))
-                                {
-                                    var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
-                                    RemoteControl.SetClipboardText(text);
-                                    writer.WriteLine("Clipboard set.");
-                                }
-                                else if (comandoRemoto == "get_clipboard")
-                                {
-                                    var text = RemoteControl.GetClipboardText();
-                                    writer.WriteLine(text);
-                                }
-                                else if (comandoRemoto.StartsWith("keyboard_event"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    if (parts.Length >= 3)
-                                    {
-                                        var key = parts[1];
-                                        var state = parts[2];
-                                        var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
-                                        if (vkCode != 0)
+                                        string autenticacaoHash = await reader.ReadLineAsync();
+                                        if (autenticacaoHash == null)
                                         {
-                                            RemoteControl.SendKeyEvent(vkCode, state == "up");
+                                            Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
+                                            return;
+                                        }
+
+                                        autenticacaoHash = autenticacaoHash.Trim();
+
+                                        string expectedHashSolicitar = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(solicitarInformacoes), Encoding.UTF8.GetBytes(nonce)));
+                                        string expectedHashComandos = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(realizarComandos), Encoding.UTF8.GetBytes(nonce)));
+
+                                        if (autenticacaoHash == expectedHashSolicitar)
+                                        {
+                                            Console.WriteLine("[INFO] Solicitação de informações recebida.");
+                                            var hardwareInfo = new HardwareInfo
+                                            {
+                                                Processador = Processador.GetProcessorInfo(),
+                                                Ram = RAM.GetRamInfo(),
+                                                Usuario = User.GetUserInfo(),
+                                                Fabricante = Fabricante.GetManufacturer(),
+                                                MAC = MAC.GetFormattedMacAddress(),
+                                                SO = OS.GetOSInfo(),
+                                                ConsumoCPU = Consumo.Uso(),
+                                                Armazenamento = Armazenamento.GetStorageInfo()
+                                            };
+
+                                            string resposta = JsonSerializer.Serialize(hardwareInfo);
+                                            await writer.WriteLineAsync(resposta);
+                                            Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
+                                        }
+                                        else if (autenticacaoHash == expectedHashComandos)
+                                        {
+                                            string comandoRemoto = await reader.ReadLineAsync();
+                                            if (comandoRemoto == null)
+                                            {
+                                                Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
+                                                return;
+                                            }
+
+                                            comandoRemoto = comandoRemoto.Trim();
+                                            Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
+
+                                            if (comandoRemoto == "take_screenshot")
+                                            {
+                                                try
+                                                {
+                                                    byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
+                                                    string base64String = Convert.ToBase64String(screenshotBytes);
+
+                                                    // Envia o tamanho primeiro e depois os dados para garantir a integridade
+                                                    await writer.WriteLineAsync(base64String.Length.ToString());
+                                                    await writer.WriteAsync(base64String);
+                                                    await writer.FlushAsync();
+
+                                                    Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
+                                                    await writer.WriteLineAsync($"Error: {ex.Message}");
+                                                }
+                                            }
+                                            else if (comandoRemoto == "take_screenshot_stream")
+                                            {
+                                                Console.WriteLine($"[INFO] Iniciando stream de tela contínuo...");
+                                                try
+                                                {
+                                                    while (true)
+                                                    {
+                                                        byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
+                                                        byte[] sizeBytes = BitConverter.GetBytes(screenshotBytes.Length);
+                                                        await sslStream.WriteAsync(sizeBytes, 0, 4);
+                                                        await sslStream.WriteAsync(screenshotBytes, 0, screenshotBytes.Length);
+                                                        await sslStream.FlushAsync();
+                                                    }
+                                                }
+                                                catch (Exception)
+                                                {
+                                                    Console.WriteLine($"[INFO] Stream de tela encerrado ou desconectado.");
+                                                }
+                                            }
+                                            else if (comandoRemoto.StartsWith("mouse_event"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                var type = parts[1];
+                                                int x = int.Parse(parts[2]);
+                                                int y = int.Parse(parts[3]);
+                                                int deltaY = int.Parse(parts[4]);
+
+                                                RemoteControl.HandleMouseEvent(type, x, y, deltaY);
+                                                await writer.WriteLineAsync("Mouse event handled.");
+                                            }
+                                            else if (comandoRemoto.StartsWith("set_clipboard"))
+                                            {
+                                                var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
+                                                RemoteControl.SetClipboardText(text);
+                                                await writer.WriteLineAsync("Clipboard set.");
+                                            }
+                                            else if (comandoRemoto == "get_clipboard")
+                                            {
+                                                var text = RemoteControl.GetClipboardText();
+                                                await writer.WriteLineAsync(text);
+                                            }
+                                            else if (comandoRemoto.StartsWith("keyboard_event"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                if (parts.Length >= 3)
+                                                {
+                                                    var key = parts[1];
+                                                    var state = parts[2];
+                                                    var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
+                                                    if (vkCode != 0)
+                                                    {
+                                                        RemoteControl.SendKeyEvent(vkCode, state == "up");
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"[WARN] Key not found in map: {key}");
+                                                    }
+                                                    await writer.WriteLineAsync("Keyboard event handled.");
+                                                }
+                                            }
+                                            else if (comandoRemoto == "send_ctrl_alt_del")
+                                            {
+                                                try
+                                                {
+                                                    Process.Start("taskmgr.exe");
+                                                    await writer.WriteLineAsync("Ctrl+Alt+Del sent.");
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    await writer.WriteLineAsync($"Error: {ex.Message}");
+                                                }
+                                            }
+                                            else if (comandoRemoto.StartsWith("upload_file"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                var fileName = Path.GetFileName(parts[1]); // Prevent Path Traversal
+                                                var fileSize = long.Parse(parts[2]);
+                                                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                                                var filePath = Path.Combine(desktopPath, fileName);
+
+                                                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                                                {
+                                                    var buffer = new byte[8192];
+                                                    long bytesRead = 0;
+                                                    while (bytesRead < fileSize)
+                                                    {
+                                                        var read = await sslStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
+                                                        if (read == 0) break;
+                                                        await fileStream.WriteAsync(buffer, 0, read);
+                                                        bytesRead += read;
+                                                    }
+                                                }
+                                                await writer.WriteLineAsync("File uploaded successfully.");
+                                            }
+                                            else
+                                            {
+                                                string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
+                                                await writer.WriteLineAsync(resultadoComando);
+                                                Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
+                                            }
                                         }
                                         else
                                         {
-                                            Console.WriteLine($"[WARN] Key not found in map: {key}");
-                                        }
-                                        writer.WriteLine("Keyboard event handled.");
-                                    }
-                                }
-                                else if (comandoRemoto == "send_ctrl_alt_del")
-                                {
-                                    try
-                                    {
-                                        Process.Start("taskmgr.exe");
-                                        writer.WriteLine("Ctrl+Alt+Del sent.");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        writer.WriteLine($"Error: {ex.Message}");
-                                    }
-                                }
-                                else if (comandoRemoto.StartsWith("upload_file"))
-                                {
-                                    var parts = comandoRemoto.Split(' ');
-                                    var fileName = Path.GetFileName(parts[1]); // Prevent Path Traversal
-                                    var fileSize = long.Parse(parts[2]);
-                                    var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                                    var filePath = Path.Combine(desktopPath, fileName);
-
-                                    using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
-                                    {
-                                        var buffer = new byte[8192];
-                                        long bytesRead = 0;
-                                        while (bytesRead < fileSize)
-                                        {
-                                            var read = await sslStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
-                                            if (read == 0) break;
-                                            await fileStream.WriteAsync(buffer, 0, read);
-                                            bytesRead += read;
+                                            string resposta = "Código de Autenticação Incorreto!";
+                                            await writer.WriteLineAsync(resposta);
+                                            Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacaoHash}'");
                                         }
                                     }
-                                    writer.WriteLine("File uploaded successfully.");
-                                }
-                                else
-                                {
-                                    string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
-                                    writer.WriteLine(resultadoComando);
-                                    Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
                                 }
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                string resposta = "Código de Autenticação Incorreto!";
-                                writer.WriteLine(resposta);
-                                Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacaoHash}'");
+                                Console.WriteLine($"[ERROR] Erro ao manusear cliente {clientIP}: {ex.Message}");
                             }
+                            finally
+                            {
+                                client?.Close();
+                                Console.WriteLine($"[INFO] Conexão fechada ({clientIP}). Aguardando novas instruções...");
+                                Console.WriteLine("----------------------------------------------------");
                             }
-                        }
+                        });
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[ERROR] Erro ao manusear cliente: {ex.Message}");
-                    }
-                    finally
-                    {
-                        client?.Close();
-                        Console.WriteLine("[INFO] Conexão fechada. Aguardando novas instruções...");
-                        Console.WriteLine("----------------------------------------------------");
+                        Console.WriteLine($"[ERROR] Erro ao aceitar cliente: {ex.Message}");
                     }
                 }
             }
