@@ -164,7 +164,8 @@ namespace Web.Controllers
                             comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ArmazenamentoC,
                             comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre, comp.ArmazenamentoD,
                             comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
-                            comp.DataColeta, comp.PartNumber
+                            comp.DataColeta, comp.PartNumber, comp.ProcessadorTemperatura, comp.DataGarantia,
+                            comp.BateriaWearLevel, comp.TempoAtividade, comp.Localizacao, comp.Backup
                     ";
                     string sql = $"{sqlFields} {baseSql} {whereSql} {orderBySql} LIMIT @pageSize OFFSET @offset";
                     // --- FIM DA CORREÇÃO ---
@@ -213,7 +214,13 @@ namespace Web.Controllers
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
                                     DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
-                                    PartNumber = reader["PartNumber"].ToString()
+                                    PartNumber = reader["PartNumber"].ToString(),
+                                    ProcessadorTemperatura = reader["ProcessadorTemperatura"].ToString(),
+                                    DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
+                                    BateriaWearLevel = reader["BateriaWearLevel"] != DBNull.Value ? reader["BateriaWearLevel"].ToString() : null,
+                                    TempoAtividade = reader["TempoAtividade"] != DBNull.Value ? reader["TempoAtividade"].ToString() : null,
+                                    Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
+                                    Backup = reader["Backup"] != DBNull.Value ? reader["Backup"].ToString() : null
                                 });
                             }
                         }
@@ -561,7 +568,7 @@ namespace Web.Controllers
                                 TempoAtividade = viewModel.TempoAtividade,
                                 Localizacao = viewModel.Localizacao,
                                 Backup = viewModel.Backup,
-                                ProcessadorTemperatura = null // We don't overwrite temperature on create
+                                ProcessadorTemperatura = viewModel.ProcessadorTemperatura
                             };
                             AddComputadorParameters(cmd, comp);
                             var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
@@ -621,7 +628,8 @@ namespace Web.Controllers
                 BateriaWearLevel = computador.BateriaWearLevel,
                 TempoAtividade = computador.TempoAtividade,
                 Localizacao = computador.Localizacao,
-                Backup = computador.Backup
+                Backup = computador.Backup,
+                ProcessadorTemperatura = computador.ProcessadorTemperatura
             };
             ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", viewModel.ColaboradorCPF);
             return View(viewModel);
@@ -679,7 +687,7 @@ namespace Web.Controllers
                                 TempoAtividade = viewModel.TempoAtividade,
                                 Localizacao = viewModel.Localizacao,
                                 Backup = viewModel.Backup,
-                                ProcessadorTemperatura = null // Update doesn't modify collected temp from Edit form
+                                ProcessadorTemperatura = viewModel.ProcessadorTemperatura
                             };
                             AddComputadorParameters(cmd, comp);
 

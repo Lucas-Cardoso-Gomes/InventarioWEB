@@ -42,7 +42,6 @@ namespace coleta
                 }
                 catch
                 {
-                    // WMI path might not be available or require admin rights
                     info.Temperatura = "N/A";
                 }
             }

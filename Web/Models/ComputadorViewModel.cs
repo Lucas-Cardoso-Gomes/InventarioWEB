@@ -115,6 +115,7 @@ namespace Web.Models
         [ValidateNever]
         public string? PartNumber { get; set; }
         
+        public string? ProcessadorTemperatura { get; set; }
         public string? BateriaWearLevel { get; set; }
         public string? TempoAtividade { get; set; }
         public string? Localizacao { get; set; }

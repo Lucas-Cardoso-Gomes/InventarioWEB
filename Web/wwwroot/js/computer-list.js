@@ -19,6 +19,10 @@ document.addEventListener('DOMContentLoaded', function () {
         'col-processador',
         'col-ram',
         'col-so',
+        'col-consumocpu',
+        'col-temperatura',
+        'col-bateria',
+        'col-tempoatividade',
         'col-datacoleta'
     ];
 

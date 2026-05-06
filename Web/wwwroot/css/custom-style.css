@@ -57,11 +57,23 @@ body {
 .table {
     border-radius: var(--border-radius);
     overflow: hidden; /* Ensures the radius is applied to the corners */
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #dee2e6;
 }
 
-.table thead {
+.table thead th {
     background-color: var(--neutral-dark);
     color: var(--white);
+    border-bottom: 2px solid var(--primary-green) !important;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(42, 157, 143, 0.05); /* very light primary-green */
+}
+
+.table td, .table th {
+    vertical-align: middle;
 }
 
 /* Cards */

@@ -6,31 +6,17 @@
 
 <h1>Monitores</h1>
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
-}
-@if (TempData["WarningMessage"] != null)
-{
-    <div class="alert alert-warning">@TempData["WarningMessage"]</div>
-}
-
 @if (User.IsInRole("Admin"))
 {
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <form asp-controller="Monitores" asp-action="Importar" method="post" enctype="multipart/form-data">
-                <div class="input-group">
-                    <input type="file" name="file" class="form-control" />
-                    <button type="submit" class="btn btn-success">Importar</button>
-                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal">Ajuda de Importação</button>
-                </div>
-            </form>
-        </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <a asp-action="Create" class="btn btn-primary">Adicionar Novo Monitor</a>
+        <form asp-controller="Monitores" asp-action="Importar" method="post" enctype="multipart/form-data" class="d-flex m-0">
+            <div class="input-group">
+                <input type="file" name="file" class="form-control" />
+                <button type="submit" class="btn btn-success">Importar</button>
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal">Ajuda de Importação</button>
+            </div>
+        </form>
     </div>
 
     <!-- Modal de Ajuda -->
@@ -59,15 +45,6 @@
       </div>
     </div>
 }
-
-<div class="row mb-3">
-    <div class="col-12">
-        @if (User.IsInRole("Admin"))
-        {
-            <a asp-action="Create" class="btn btn-primary">Adicionar Novo Monitor</a>
-        }
-    </div>
-</div>
 
 <form asp-action="Index" method="get" class="card mb-4">
     <div class="card-header">
@@ -111,7 +88,7 @@
 </form>
 
 <div class="table-responsive">
-    <table class="table table-striped table-bordered">
+    <table class="table table-striped table-bordered table-hover align-middle">
         <thead>
             <tr>
                 <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().PartNumber)</th>
