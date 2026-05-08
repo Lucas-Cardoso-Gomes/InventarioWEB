@@ -964,6 +964,16 @@ namespace Web.Controllers
                 return NotFound();
             }
 
+            if (!User.IsInRole("Admin"))
+            {
+                var userCpf = User.FindFirstValue("ColaboradorCPF");
+                if (chamado.ColaboradorCPF != userCpf || chamado.Status != "Aberto" || (DateTime.Now - chamado.DataCriacao).TotalMinutes > 30)
+                {
+                    TempData["ErrorMessage"] = "Você só pode cancelar um chamado que abriu nos últimos 30 minutos e que ainda não foi iniciado.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
+
             return View(chamado);
         }
 
@@ -973,6 +983,22 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult DeleteConfirmed(int id)
         {
+            var chamado = FindChamadoById(id);
+            if (chamado == null)
+            {
+                return NotFound();
+            }
+
+            if (!User.IsInRole("Admin"))
+            {
+                var userCpf = User.FindFirstValue("ColaboradorCPF");
+                if (chamado.ColaboradorCPF != userCpf || chamado.Status != "Aberto" || (DateTime.Now - chamado.DataCriacao).TotalMinutes > 30)
+                {
+                    TempData["ErrorMessage"] = "Você só pode cancelar um chamado que abriu nos últimos 30 minutos e que ainda não foi iniciado.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
+
             try
             {
                 using (var connection = _databaseService.CreateConnection())
@@ -991,7 +1017,6 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao excluir chamado.");
                 ViewBag.ErrorMessage = "Erro ao excluir o chamado.";
-                var chamado = FindChamadoById(id);
                 return View(chamado);
             }
             return RedirectToAction(nameof(Index));

@@ -191,7 +191,10 @@
                         {
                             <a asp-action="Edit" asp-route-id="@item.ID" class="btn btn-warning btn-sm">Editar</a>
                         }
-                        <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
+                        @if (User.IsInRole("Admin") || (item.Status == "Aberto" && item.ColaboradorCPF == User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value && (DateTime.Now - item.DataCriacao).TotalMinutes <= 30))
+                        {
+                            <a asp-action="Delete" asp-route-id="@item.ID" class="btn btn-danger btn-sm">Excluir</a>
+                        }
                     @if (User.IsInRole("Admin"))
                     {
                         @if (item.Status == "Aberto")
