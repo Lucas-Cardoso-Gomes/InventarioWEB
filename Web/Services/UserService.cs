@@ -41,6 +41,7 @@ namespace Web.Services
                                 PasswordHash = reader["PasswordHash"].ToString(),
                                 Role = reader["Role"].ToString(),
                                 IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                IsActive = reader.GetSchemaTable().Select("ColumnName = 'IsActive'").Length > 0 && reader["IsActive"] != DBNull.Value ? Convert.ToBoolean(reader["IsActive"]) : true,
                                 ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null
                             };
                         }
@@ -57,7 +58,7 @@ namespace Web.Services
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF, @IsCoordinator)";
+                    command.CommandText = "INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator, IsActive) VALUES (@Nome, @Login, @PasswordHash, @Role, @ColaboradorCPF, @IsCoordinator, @IsActive)";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Nome"; p1.Value = user.Nome; command.Parameters.Add(p1);
                     var p2 = command.CreateParameter(); p2.ParameterName = "@Login"; p2.Value = user.Login; command.Parameters.Add(p2);
@@ -65,6 +66,7 @@ namespace Web.Services
                     var p4 = command.CreateParameter(); p4.ParameterName = "@Role"; p4.Value = user.Role; command.Parameters.Add(p4);
                     var p5 = command.CreateParameter(); p5.ParameterName = "@ColaboradorCPF"; p5.Value = (object)user.ColaboradorCPF ?? DBNull.Value; command.Parameters.Add(p5);
                     var p6 = command.CreateParameter(); p6.ParameterName = "@IsCoordinator"; p6.Value = user.IsCoordinator ? 1 : 0; command.Parameters.Add(p6);
+                    var p7 = command.CreateParameter(); p7.ParameterName = "@IsActive"; p7.Value = user.IsActive ? 1 : 0; command.Parameters.Add(p7);
 
                     command.ExecuteNonQuery();
                 }
@@ -171,6 +173,7 @@ namespace Web.Services
                                 Login = reader["Login"].ToString(),
                                 Role = reader["Role"].ToString(),
                                 IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                IsActive = reader.GetSchemaTable().Select("ColumnName = 'IsActive'").Length > 0 && reader["IsActive"] != DBNull.Value ? Convert.ToBoolean(reader["IsActive"]) : true,
                                 ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
                                 Colaborador = new Colaborador()
                             };
@@ -225,6 +228,7 @@ namespace Web.Services
                                 PasswordHash = reader["PasswordHash"].ToString(),
                                 Role = reader["Role"].ToString(),
                                 IsCoordinator = Convert.ToBoolean(reader["IsCoordinator"]),
+                                IsActive = reader.GetSchemaTable().Select("ColumnName = 'IsActive'").Length > 0 && reader["IsActive"] != DBNull.Value ? Convert.ToBoolean(reader["IsActive"]) : true,
                                 ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null
                             };
                         }
@@ -239,7 +243,7 @@ namespace Web.Services
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, ColaboradorCPF = @ColaboradorCPF, IsCoordinator = @IsCoordinator");
+                var query = new System.Text.StringBuilder("UPDATE Usuarios SET Nome = @Nome, Login = @Login, Role = @Role, ColaboradorCPF = @ColaboradorCPF, IsCoordinator = @IsCoordinator, IsActive = @IsActive");
                 if (!string.IsNullOrEmpty(user.PasswordHash))
                 {
                     query.Append(", PasswordHash = @PasswordHash");
@@ -256,6 +260,7 @@ namespace Web.Services
                     var p4 = command.CreateParameter(); p4.ParameterName = "@ColaboradorCPF"; p4.Value = (object)user.ColaboradorCPF ?? DBNull.Value; command.Parameters.Add(p4);
                     var p5 = command.CreateParameter(); p5.ParameterName = "@IsCoordinator"; p5.Value = user.IsCoordinator ? 1 : 0; command.Parameters.Add(p5);
                     var p6 = command.CreateParameter(); p6.ParameterName = "@Id"; p6.Value = user.Id; command.Parameters.Add(p6);
+                    var p8 = command.CreateParameter(); p8.ParameterName = "@IsActive"; p8.Value = user.IsActive ? 1 : 0; command.Parameters.Add(p8);
 
                     if (!string.IsNullOrEmpty(user.PasswordHash))
                     {

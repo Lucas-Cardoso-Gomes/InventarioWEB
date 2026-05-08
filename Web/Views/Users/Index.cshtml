@@ -76,6 +76,7 @@
                 </th>
                 <th class="col-colaborador">Colaborador</th>
                 <th class="col-coordenador">Coordenador?</th>
+                <th class="col-ativo">Ativo?</th>
                 <th>Ações</th>
             </tr>
         </thead>
@@ -88,6 +89,16 @@
                     <td class="col-role">@Html.DisplayFor(modelItem => item.Role)</td>
                     <td class="col-colaborador">@Html.DisplayFor(modelItem => item.Colaborador.Nome)</td>
                     <td class="col-coordenador">@(item.IsCoordinator ? "Sim" : "Não")</td>
+                    <td class="col-ativo">
+                        @if (item.IsActive)
+                        {
+                            <span class="badge bg-success">Sim</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Não</span>
+                        }
+                    </td>
                     <td>
                         <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-warning btn-sm">Editar</a>
                         <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-danger btn-sm">Excluir</a>

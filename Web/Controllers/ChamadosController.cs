@@ -748,6 +748,60 @@ namespace Web.Controllers
                 return NotFound();
             }
 
+            var userCpf = User.FindFirstValue("ColaboradorCPF");
+            bool isAuthorized = true;
+
+            if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
+            {
+                if (User.IsInRole("Coordenador"))
+                {
+                    string coordenadorCpf = null;
+                    try
+                    {
+                        using (var connection = _databaseService.CreateConnection())
+                        {
+                            connection.Open();
+                            var sql = "SELECT CoordenadorCPF FROM Colaboradores WHERE CPF = @CPF";
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+                                var p = cmd.CreateParameter();
+                                p.ParameterName = "@CPF";
+                                p.Value = chamado.ColaboradorCPF;
+                                cmd.Parameters.Add(p);
+                                var result = cmd.ExecuteScalar();
+                                if (result != DBNull.Value)
+                                {
+                                    coordenadorCpf = result?.ToString();
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Erro ao obter CoordenadorCPF do colaborador");
+                    }
+
+                    if (chamado.ColaboradorCPF != userCpf && coordenadorCpf != userCpf)
+                    {
+                        isAuthorized = false;
+                    }
+                }
+                else if (User.IsInRole("Colaborador"))
+                {
+                    if (chamado.ColaboradorCPF != userCpf)
+                    {
+                        isAuthorized = false;
+                    }
+                }
+            }
+
+            if (!isAuthorized)
+            {
+                TempData["ErrorMessage"] = "Você não tem permissão para visualizar este chamado.";
+                return RedirectToAction(nameof(Index));
+            }
+
             chamado.Conversas = GetConversasByChamadoId(id.Value);
             chamado.Anexos = GetAnexosByChamadoId(id.Value);
 
@@ -944,7 +998,6 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ReopenTicket(int id)
         {
@@ -955,6 +1008,13 @@ namespace Web.Controllers
                 if (chamado == null)
                 {
                     return NotFound();
+                }
+
+                var userCpf = User.FindFirstValue("ColaboradorCPF");
+                if (!User.IsInRole("Admin") && chamado.ColaboradorCPF != userCpf)
+                {
+                    TempData["ErrorMessage"] = "Você não tem permissão para reabrir este chamado.";
+                    return RedirectToAction(nameof(Index));
                 }
 
                 if (chamado.Status == "Fechado" && chamado.DataAlteracao.HasValue && DateTime.Now > chamado.DataAlteracao.Value.AddHours(24))

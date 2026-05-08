@@ -29,6 +29,9 @@ namespace Web.Models
         [Display(Name = "É Coordenador?")]
         public bool IsCoordinator { get; set; }
 
+        [Display(Name = "Ativo?")]
+        public bool IsActive { get; set; } = true;
+
         public IEnumerable<SelectListItem>? Colaboradores { get; set; }
     }
 }

@@ -21,6 +21,8 @@ namespace Web.Models
 
         public bool IsCoordinator { get; set; }
 
+        public bool IsActive { get; set; } = true;
+
         public string? ColaboradorCPF { get; set; }
         [ForeignKey("ColaboradorCPF")]
         public virtual Colaborador? Colaborador { get; set; }

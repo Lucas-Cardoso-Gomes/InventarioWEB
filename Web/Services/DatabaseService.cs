@@ -107,7 +107,9 @@ namespace Web.Services
 
                         "ALTER TABLE Perifericos ADD COLUMN DataGarantia TEXT;",
 
-                        "ALTER TABLE Smartphones ADD COLUMN DataGarantia TEXT;"
+                        "ALTER TABLE Smartphones ADD COLUMN DataGarantia TEXT;",
+
+                        "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;"
                     };
 
                     foreach (var stmt in columnsToAdd)

@@ -200,21 +200,21 @@
                                 <button type="submit" class="btn btn-info btn-sm">Iniciar Atendimento</button>
                             </form>
                         }
-                        else
-                        @if (item.Status == "Em Andamento")
+                        else if (item.Status == "Em Andamento")
                         {
                             <form asp-action="CloseTicket" asp-route-id="@item.ID" method="post" class="d-inline">
                                 <button type="submit" class="btn btn-success btn-sm">Fechar Chamado</button>
                             </form>
                         }
-                        else
+                    }
+                    @if (item.Status == "Fechado" && (!item.DataAlteracao.HasValue || DateTime.Now <= item.DataAlteracao.Value.AddHours(24)))
+                    {
+                        var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
+                        if (User.IsInRole("Admin") || item.ColaboradorCPF == userCpf)
                         {
-                            @if (!item.DataAlteracao.HasValue || DateTime.Now <= item.DataAlteracao.Value.AddHours(24))
-                            {
-                                <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-danger btn-sm">Reabrir Chamado</button>
-                                </form>
-                            }
+                            <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-danger btn-sm">Reabrir Chamado</button>
+                            </form>
                         }
                     }
                     </td>

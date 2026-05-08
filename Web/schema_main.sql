@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS Usuarios (
     Role TEXT NOT NULL CHECK (Role IN ('Admin', 'Coordenador', 'Colaborador', 'Diretoria/RH')),
     ColaboradorCPF TEXT,
     IsCoordinator INTEGER NOT NULL DEFAULT 0,
+    IsActive INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 

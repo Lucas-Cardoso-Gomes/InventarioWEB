@@ -36,6 +36,12 @@ namespace Web.Controllers
                 // Example: if (user != null && BCrypt.Net.BCrypt.Verify(model.Password, user.PasswordHash))
                 if (user != null && model.Password == user.PasswordHash) // Placeholder for real hash check
                 {
+                    if (!user.IsActive)
+                    {
+                        ModelState.AddModelError(string.Empty, "Sua conta foi desativada.");
+                        return View(model);
+                    }
+
                     var claims = new List<Claim>
                     {
                         new Claim(ClaimTypes.Name, user.Nome),

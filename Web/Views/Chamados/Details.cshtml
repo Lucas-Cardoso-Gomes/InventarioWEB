@@ -83,6 +83,16 @@
 <br>
 <div>
     <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
+    @if (Model.Status == "Fechado" && (!Model.DataAlteracao.HasValue || DateTime.Now <= Model.DataAlteracao.Value.AddHours(24)))
+    {
+        var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
+        if (User.IsInRole("Admin") || Model.ColaboradorCPF == userCpf)
+        {
+            <form asp-action="ReopenTicket" asp-route-id="@Model.ID" method="post" class="d-inline ms-2">
+                <button type="submit" class="btn btn-danger">Reabrir Chamado</button>
+            </form>
+        }
+    }
 </div>
 
 @section Scripts {
