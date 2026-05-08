@@ -168,6 +168,7 @@
                         <td>
                             <a asp-action="Edit" asp-route-id="@item.CPF" class="btn btn-warning btn-sm">Editar</a>
                             <a asp-action="Delete" asp-route-id="@item.CPF" class="btn btn-danger btn-sm">Excluir</a>
+                            <a asp-action="GerarTermoPdf" asp-route-id="@item.CPF" class="btn btn-info btn-sm">Gerar Termo PDF</a>
                         </td>
                     }
                 </tr>

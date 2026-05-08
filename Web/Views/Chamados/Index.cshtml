@@ -209,9 +209,12 @@
                         }
                         else
                         {
-                            <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
-                                <button type="submit" class="btn btn-danger btn-sm">Reabrir Chamado</button>
-                            </form>
+                            @if (!item.DataAlteracao.HasValue || DateTime.Now <= item.DataAlteracao.Value.AddHours(24))
+                            {
+                                <form asp-action="ReopenTicket" asp-route-id="@item.ID" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-danger btn-sm">Reabrir Chamado</button>
+                                </form>
+                            }
                         }
                     }
                     </td>

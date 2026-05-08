@@ -15,5 +15,7 @@ namespace Web.Models
         public List<ChartData> ChamadosPorDiaDaSemana { get; set; } = new List<ChartData>();
         public List<ChartData> ChamadosPorFilial { get; set; } = new List<ChartData>();
         public List<ChartData> ChamadosPorMes { get; set; } = new List<ChartData>();
+        
+        public string TempoMedio { get; set; } = "N/A";
     }
 }

@@ -251,6 +251,8 @@ namespace Web.Controllers
                 viewModel.ChamadosEmAndamento = await GetCountByStatusAsync(connection, "Em Andamento", whereSql, parameters);
                 viewModel.ChamadosFechados = await GetCountByStatusAsync(connection, "Fechado", whereSql, parameters);
 
+                viewModel.TempoMedio = await GetTempoMedioChamadosAsync(connection, whereSql, parameters);
+
                 // Charts
                 viewModel.Top10Servicos = await GetTop10ServicosAsync(connection, whereSql, parameters);
                 _logger.LogInformation("Dashboard - Top 10 Serviços: {Count} registros encontrados.", viewModel.Top10Servicos.Count);
@@ -269,6 +271,59 @@ namespace Web.Controllers
             }
 
             return View(viewModel);
+        }
+
+        private async Task<string> GetTempoMedioChamadosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
+        {
+            try
+            {
+                var cmdText = $@"
+                    SELECT DataCriacao, DataAlteracao 
+                    FROM Chamados c 
+                    WHERE c.Status = 'Fechado' AND c.DataAlteracao IS NOT NULL {whereSql}";
+
+                var timespans = new List<TimeSpan>();
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = cmdText;
+                    foreach (var param in parameters)
+                    {
+                        var p = cmd.CreateParameter();
+                        p.ParameterName = param.Key;
+                        p.Value = param.Value;
+                        cmd.Parameters.Add(p);
+                    }
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var dataCriacao = Convert.ToDateTime(reader["DataCriacao"]);
+                            var dataAlteracao = Convert.ToDateTime(reader["DataAlteracao"]);
+                            timespans.Add(dataAlteracao - dataCriacao);
+                        }
+                    }
+                }
+
+                if (timespans.Any())
+                {
+                    var averageTicks = (long)timespans.Average(ts => ts.Ticks);
+                    var averageTimeSpan = new TimeSpan(averageTicks);
+                    
+                    if (averageTimeSpan.TotalDays >= 1)
+                        return $"{(int)averageTimeSpan.TotalDays}d {averageTimeSpan.Hours}h {averageTimeSpan.Minutes}m";
+                    else if (averageTimeSpan.TotalHours >= 1)
+                        return $"{averageTimeSpan.Hours}h {averageTimeSpan.Minutes}m";
+                    else
+                        return $"{averageTimeSpan.Minutes}m {averageTimeSpan.Seconds}s";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter o tempo médio dos chamados fechados.");
+            }
+            return "N/A";
         }
 
         private async Task<int> GetTotalChamadosAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
@@ -896,6 +951,18 @@ namespace Web.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
+                var chamado = FindChamadoById(id);
+                if (chamado == null)
+                {
+                    return NotFound();
+                }
+
+                if (chamado.Status == "Fechado" && chamado.DataAlteracao.HasValue && DateTime.Now > chamado.DataAlteracao.Value.AddHours(24))
+                {
+                    TempData["ErrorMessage"] = "Não é possível reabrir um chamado fechado há mais de 24 horas. Por favor, abra um novo chamado.";
+                    return RedirectToAction(nameof(Index));
+                }
+
                 using (var connection = _databaseService.CreateConnection())
                 {
                     var adminCpf = User.FindFirstValue("ColaboradorCPF");
@@ -911,7 +978,7 @@ namespace Web.Controllers
                     }
                 }
 
-                var chamado = FindChamadoById(id);
+                chamado = FindChamadoById(id);
                 if (chamado != null)
                 {
                     _ = Task.Run(() => SendNotificationAsync(chamado, "Reaberto", userId));

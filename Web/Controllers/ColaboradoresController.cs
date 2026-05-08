@@ -14,6 +14,10 @@ using OfficeOpenXml;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
 
 namespace Web.Controllers
 {
@@ -290,6 +294,261 @@ namespace Web.Controllers
             }
             ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome", colaborador.CoordenadorCPF);
             return View(colaborador);
+        }
+
+        [HttpGet]
+        public IActionResult GerarTermoPdf(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound();
+            }
+
+            var colaborador = FindColaboradorById(SanitizeCpf(id));
+            if (colaborador == null)
+            {
+                return NotFound();
+            }
+
+            var computadores = new List<Computador>();
+            var monitores = new List<Web.Models.Monitor>();
+            var perifericos = new List<Periferico>();
+            var smartphones = new List<Smartphone>();
+
+            using (var connection = _databaseService.CreateConnection())
+            {
+                connection.Open();
+
+                // Computadores
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Hostname, Fabricante, Processador, Ram, SO, MAC FROM Computadores WHERE ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@CPF";
+                    p.Value = colaborador.CPF;
+                    cmd.Parameters.Add(p);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            computadores.Add(new Computador
+                            {
+                                Hostname = reader["Hostname"].ToString(),
+                                Fabricante = reader["Fabricante"].ToString(),
+                                Processador = reader["Processador"].ToString(),
+                                Ram = reader["Ram"].ToString(),
+                                SO = reader["SO"].ToString(),
+                                MAC = reader["MAC"].ToString()
+                            });
+                        }
+                    }
+                }
+
+                // Monitores
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Marca, Modelo, Tamanho, PartNumber FROM Monitores WHERE ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@CPF";
+                    p.Value = colaborador.CPF;
+                    cmd.Parameters.Add(p);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            monitores.Add(new Web.Models.Monitor
+                            {
+                                Marca = reader["Marca"].ToString(),
+                                Modelo = reader["Modelo"].ToString(),
+                                Tamanho = reader["Tamanho"].ToString(),
+                                PartNumber = reader["PartNumber"].ToString()
+                            });
+                        }
+                    }
+                }
+
+                // Perifericos
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Tipo, PartNumber FROM Perifericos WHERE ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@CPF";
+                    p.Value = colaborador.CPF;
+                    cmd.Parameters.Add(p);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            perifericos.Add(new Periferico
+                            {
+                                Tipo = reader["Tipo"].ToString(),
+                                PartNumber = reader["PartNumber"].ToString()
+                            });
+                        }
+                    }
+                }
+
+                // Smartphones
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Modelo, IMEI1, IMEI2, MAC FROM Smartphones WHERE Usuario LIKE @Nome";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@Nome";
+                    p.Value = "%" + colaborador.Nome + "%";
+                    cmd.Parameters.Add(p);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            smartphones.Add(new Smartphone
+                            {
+                                Modelo = reader["Modelo"].ToString(),
+                                IMEI1 = reader["IMEI1"].ToString(),
+                                IMEI2 = reader["IMEI2"] != DBNull.Value ? reader["IMEI2"].ToString() : "",
+                                MAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : ""
+                            });
+                        }
+                    }
+                }
+            }
+
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var writer = new PdfWriter(memoryStream))
+                {
+                    using (var pdf = new PdfDocument(writer))
+                    {
+                        var document = new Document(pdf);
+                        document.SetTextAlignment(TextAlignment.LEFT);
+
+                        // Titulo
+                        var titulo = new Paragraph("Termo de Responsabilidade")
+                            .SetTextAlignment(TextAlignment.CENTER)
+                            .SetFontSize(16)
+                            .SetMarginBottom(20);
+                        titulo.SetProperty(iText.Layout.Properties.Property.BOLD_SIMULATION, true);
+                        document.Add(titulo);
+
+                        // Dados do Colaborador
+                        document.Add(new Paragraph($"Eu, {colaborador.Nome}, CPF {colaborador.CPF},")
+                            .SetMarginBottom(10));
+                        document.Add(new Paragraph("Declaro ter recebido os equipamentos abaixo listados em perfeitas condições de uso, " +
+                            "comprometendo-me a zelar por sua conservação e a utilizá-los exclusivamente para o desempenho das minhas " +
+                            "funções profissionais. Estou ciente de que deverei restituí-los imediatamente em caso de desligamento ou " +
+                            "quando solicitado pela empresa.")
+                            .SetMarginBottom(20));
+
+                        // Equipamentos
+                        if (computadores.Any())
+                        {
+                            var pComputadores = new Paragraph("Computadores:");
+                            pComputadores.SetProperty(iText.Layout.Properties.Property.BOLD_SIMULATION, true);
+                            document.Add(pComputadores);
+                            var table = new Table(new float[] { 3, 2, 2, 2, 3 });
+                            table.SetWidth(UnitValue.CreatePercentValue(100));
+                            table.AddHeaderCell("Hostname");
+                            table.AddHeaderCell("Fabricante");
+                            table.AddHeaderCell("Processador");
+                            table.AddHeaderCell("RAM");
+                            table.AddHeaderCell("MAC");
+                            foreach (var comp in computadores)
+                            {
+                                table.AddCell(comp.Hostname ?? "");
+                                table.AddCell(comp.Fabricante ?? "");
+                                table.AddCell(comp.Processador ?? "");
+                                table.AddCell(comp.Ram ?? "");
+                                table.AddCell(comp.MAC ?? "");
+                            }
+                            document.Add(table);
+                            document.Add(new Paragraph("\n"));
+                        }
+
+                        if (monitores.Any())
+                        {
+                            var pMonitores = new Paragraph("Monitores:");
+                            pMonitores.SetProperty(iText.Layout.Properties.Property.BOLD_SIMULATION, true);
+                            document.Add(pMonitores);
+                            var table = new Table(new float[] { 2, 3, 2, 3 });
+                            table.SetWidth(UnitValue.CreatePercentValue(100));
+                            table.AddHeaderCell("Marca");
+                            table.AddHeaderCell("Modelo");
+                            table.AddHeaderCell("Tamanho");
+                            table.AddHeaderCell("PartNumber");
+                            foreach (var mon in monitores)
+                            {
+                                table.AddCell(mon.Marca ?? "");
+                                table.AddCell(mon.Modelo ?? "");
+                                table.AddCell(mon.Tamanho ?? "");
+                                table.AddCell(mon.PartNumber ?? "");
+                            }
+                            document.Add(table);
+                            document.Add(new Paragraph("\n"));
+                        }
+
+                        if (perifericos.Any())
+                        {
+                            var pPerifericos = new Paragraph("Periféricos:");
+                            pPerifericos.SetProperty(iText.Layout.Properties.Property.BOLD_SIMULATION, true);
+                            document.Add(pPerifericos);
+                            var table = new Table(new float[] { 1, 1 });
+                            table.SetWidth(UnitValue.CreatePercentValue(100));
+                            table.AddHeaderCell("Tipo");
+                            table.AddHeaderCell("PartNumber");
+                            foreach (var per in perifericos)
+                            {
+                                table.AddCell(per.Tipo ?? "");
+                                table.AddCell(per.PartNumber ?? "");
+                            }
+                            document.Add(table);
+                            document.Add(new Paragraph("\n"));
+                        }
+
+                        if (smartphones.Any() || !string.IsNullOrEmpty(colaborador.Smartphone))
+                        {
+                            var pSmartphones = new Paragraph("Smartphones:");
+                            pSmartphones.SetProperty(iText.Layout.Properties.Property.BOLD_SIMULATION, true);
+                            document.Add(pSmartphones);
+                            if (smartphones.Any())
+                            {
+                                var table = new Table(new float[] { 2, 3, 3, 2 });
+                                table.SetWidth(UnitValue.CreatePercentValue(100));
+                                table.AddHeaderCell("Modelo");
+                                table.AddHeaderCell("IMEI 1");
+                                table.AddHeaderCell("IMEI 2");
+                                table.AddHeaderCell("MAC");
+                                foreach (var smp in smartphones)
+                                {
+                                    table.AddCell(smp.Modelo ?? "");
+                                    table.AddCell(smp.IMEI1 ?? "");
+                                    table.AddCell(smp.IMEI2 ?? "");
+                                    table.AddCell(smp.MAC ?? "");
+                                }
+                                document.Add(table);
+                            }
+                            else
+                            {
+                                document.Add(new Paragraph($"Smartphone registrado: {colaborador.Smartphone}"));
+                            }
+                            document.Add(new Paragraph("\n"));
+                        }
+
+                        // Assinatura
+                        document.Add(new Paragraph("\n\n\n"));
+                        document.Add(new Paragraph("____________________________________________________")
+                            .SetTextAlignment(TextAlignment.CENTER));
+                        document.Add(new Paragraph(colaborador.Nome)
+                            .SetTextAlignment(TextAlignment.CENTER));
+                        document.Add(new Paragraph(DateTime.Now.ToString("dd/MM/yyyy"))
+                            .SetTextAlignment(TextAlignment.CENTER));
+                    }
+                }
+
+                return File(memoryStream.ToArray(), "application/pdf", $"Termo_Responsabilidade_{colaborador.Nome.Replace(" ", "_")}.pdf");
+            }
         }
 
         // GET: Colaboradores/Delete/5
