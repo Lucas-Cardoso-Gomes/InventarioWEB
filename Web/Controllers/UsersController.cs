@@ -101,7 +101,8 @@ namespace Web.Controllers
                     PasswordHash = model.Password, // Placeholder for real hash
                     Role = model.Role,
                     ColaboradorCPF = model.ColaboradorCPF,
-                    IsCoordinator = model.IsCoordinator
+                    IsCoordinator = model.IsCoordinator,
+                    IsActive = model.IsActive
                 };
 
                 await _userService.CreateAsync(user);
@@ -140,6 +141,7 @@ namespace Web.Controllers
                 Role = user.Role,
                 ColaboradorCPF = user.ColaboradorCPF,
                 IsCoordinator = user.IsCoordinator,
+                IsActive = user.IsActive,
                 Colaboradores = new SelectList(await GetAllColaboradoresAsync(), "CPF", "Nome", user.ColaboradorCPF)
             };
 
@@ -165,6 +167,7 @@ namespace Web.Controllers
                 user.Role = model.Role;
                 user.ColaboradorCPF = model.ColaboradorCPF;
                 user.IsCoordinator = model.IsCoordinator;
+                user.IsActive = model.IsActive;
 
                 if (!string.IsNullOrEmpty(model.Password))
                 {

@@ -38,7 +38,7 @@ namespace Web.Controllers
                 {
                     if (!user.IsActive)
                     {
-                        ModelState.AddModelError(string.Empty, "Sua conta foi desativada.");
+                        ModelState.AddModelError(string.Empty, "Sua conta está desativada!");
                         return View(model);
                     }
 
