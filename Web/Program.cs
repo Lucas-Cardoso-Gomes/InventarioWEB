@@ -5,6 +5,7 @@ using Web.Hubs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +53,14 @@ builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddHostedService<PingService>();
 
+// Adicione isto para que a aplicação reconheça o HTTPS do Proxy Reverso
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Se o Nginx/Apache estiver noutra máquina, terá de configurar as KnownProxies aqui. 
+    // Se for localhost (Docker/VM mesma máquina), o padrão é suficiente.
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -60,12 +69,18 @@ using (var scope = app.Services.CreateScope())
     dbService.InitializeDatabase();
 }
 
+// Aplicar os cabeçalhos recebidos do proxy
+app.UseForwardedHeaders();
+
 // Configure o pipeline HTTP
 if (!app.Environment.IsDevelopment())
 {
-    // app.UseExceptionHandler("/Home/Error"); 
-    // app.UseHsts(); // <-- HSTS COMENTADO POIS EXIGE HTTPS
+    app.UseExceptionHandler("/Home/Error"); // Tratamento de erros seguro
+    app.UseHsts(); // Força o browser a usar apenas HTTPS
 }
+
+// Redireciona eventuais pedidos HTTP perdidos para HTTPS
+app.UseHttpsRedirection();
 
 // app.UseHttpsRedirection(); // <-- REDIRECIONAMENTO HTTPS COMENTADO AQUI
 app.UseStaticFiles();
