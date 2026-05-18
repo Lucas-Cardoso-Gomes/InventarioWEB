@@ -35,17 +35,17 @@ Para gerar o executável do servidor sem dependências externas de runtime:
 
 dotnet publish Web/Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-###Publicação do Agente (Coleta)
+### Publicação do Agente (Coleta)
 O agente deve ser compilado e distribuído para as máquinas alvo:
 
 dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-##Requisitos de Rede e Segurança
+## Requisitos de Rede e Segurança
 Firewall: É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a recepção de comandos do painel central.
 
 Segurança de Endpoint: Devido às capacidades de controle remoto (injeção de teclas e captura de tela), o executável do agente pode ser identificado como um falso positivo por soluções antivírus. Deve ser adicionado à lista de exclusões da política de segurança corporativa.
 
 HTTPS: O servidor está configurado para suportar ambientes de produção, sendo recomendada a utilização de certificados válidos para a interface Web.
 
-##Estrutura de Dados
+## Estrutura de Dados
 O sistema utiliza um esquema SQL organizado para garantir a integridade referencial entre colaboradores e seus respectivos equipamentos, permitindo uma rastreabilidade total desde a entrega de um periférico até o histórico de manutenção de um computador.
