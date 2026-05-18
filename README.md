@@ -31,10 +31,14 @@ Aplicação de console desenvolvida em .NET 8, desenhada para execução em segu
 ### 4. Guia de Compilação e Implementação
 
 * **Publicação do Painel Web:** Para gerar o executável do servidor sem dependências externas de runtime:
+```bash
 dotnet publish Web/Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
 
 * **Publicação do Agente (Coleta):** O agente deve ser compilado e distribuído para as máquinas alvo:
+```bash
 dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
 
 ### 5. Requisitos de Rede e Segurança
 * **Firewall:** É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a recepção de comandos do painel central.
