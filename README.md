@@ -21,14 +21,14 @@ Aplicação de console desenvolvida em .NET 8, desenhada para execução em segu
 * **Controle Remoto:** Capacidade de captura e *streaming* contínuo de tela, simulação de eventos de mouse e teclado, atalhos de sistema (como o envio nativo de *Ctrl+Alt+Del*), manipulação da área de transferência (*clipboard*) e execução de comandos de sistema.
 * **Transferência de Arquivos:** Suporte para o upload direto e seguro de arquivos para a área de trabalho do usuário remoto.
 
-## Funcionalidades Principais
+### 3. Funcionalidades Principais
 
 * **Gestão de Ativos Diversificados:** Registro detalhado de computadores, monitores, smartphones, periféricos e infraestrutura de rede.
 * **Centro de Suporte (Help Desk):** Sistema de tickets com histórico de conversas, anexos e priorização de chamados.
 * **Monitoramento Ativo:** Serviço em background para verificação de disponibilidade (Ping) dos ativos de rede.
 * **Auditoria e Manutenção:** Registro histórico de intervenções técnicas (hardware e software) e logs persistentes de ações administrativas.
 
-## Guia de Compilação e Implementação
+### 4. Guia de Compilação e Implementação
 
 ### Publicação do Painel Web
 Para gerar o executável do servidor sem dependências externas de runtime:
@@ -40,12 +40,12 @@ O agente deve ser compilado e distribuído para as máquinas alvo:
 
 dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-## Requisitos de Rede e Segurança
-Firewall: É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a recepção de comandos do painel central.
+### 5. Requisitos de Rede e Segurança
+* **Firewall:** É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a recepção de comandos do painel central.
 
-Segurança de Endpoint: Devido às capacidades de controle remoto (injeção de teclas e captura de tela), o executável do agente pode ser identificado como um falso positivo por soluções antivírus. Deve ser adicionado à lista de exclusões da política de segurança corporativa.
+* **Segurança de Endpoint:** Devido às capacidades de controle remoto (injeção de teclas e captura de tela), o executável do agente pode ser identificado como um falso positivo por soluções antivírus. Deve ser adicionado à lista de exclusões da política de segurança corporativa.
 
-HTTPS: O servidor está configurado para suportar ambientes de produção, sendo recomendada a utilização de certificados válidos para a interface Web.
+* **HTTPS:** O servidor está configurado para suportar ambientes de produção, sendo recomendada a utilização de certificados válidos para a interface Web.
 
-## Estrutura de Dados
+### 6. Estrutura de Dados
 O sistema utiliza um esquema SQL organizado para garantir a integridade referencial entre colaboradores e seus respectivos equipamentos, permitindo uma rastreabilidade total desde a entrega de um periférico até o histórico de manutenção de um computador.
