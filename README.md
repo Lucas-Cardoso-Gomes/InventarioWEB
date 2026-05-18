@@ -35,12 +35,12 @@ Para gerar o executável do servidor sem dependências externas de runtime:
 
 dotnet publish Web/Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-### Publicação do Agente (Coleta)
+## Publicação do Agente (Coleta)
 O agente deve ser compilado e distribuído para as máquinas alvo:
 
 dotnet publish Coleta/Coleta.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
-### 5. Requisitos de Rede e Segurança
+# 5. Requisitos de Rede e Segurança
 * **Firewall:** É obrigatória a abertura da porta TCP 27275 nas máquinas clientes para permitir a recepção de comandos do painel central.
 
 * **Segurança de Endpoint:** Devido às capacidades de controle remoto (injeção de teclas e captura de tela), o executável do agente pode ser identificado como um falso positivo por soluções antivírus. Deve ser adicionado à lista de exclusões da política de segurança corporativa.
