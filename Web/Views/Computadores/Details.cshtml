@@ -1,0 +1,154 @@
+@model Web.Models.Computador
+
+@{
+    ViewData["Title"] = "Detalhes do Computador";
+    var colaborador = ViewBag.Colaborador as Web.Models.Colaborador;
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-pc-display"></i> Detalhes do Computador: @Model.Hostname</h2>
+        <div>
+            <a asp-action="Edit" asp-route-id="@Model.MAC" class="btn btn-warning"><i class="bi bi-pencil"></i> Editar</a>
+            <a asp-action="Index" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tecnico-tab" data-bs-toggle="tab" data-bs-target="#tecnico" type="button" role="tab" aria-controls="tecnico" aria-selected="true">Dados Técnicos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="hardware-tab" data-bs-toggle="tab" data-bs-target="#hardware" type="button" role="tab" aria-controls="hardware" aria-selected="false">Hardware</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="usuario-tab" data-bs-toggle="tab" data-bs-target="#usuario" type="button" role="tab" aria-controls="usuario" aria-selected="false">Vínculo de Usuário</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="manutencoes-tab" data-bs-toggle="tab" data-bs-target="#manutencoes" type="button" role="tab" aria-controls="manutencoes" aria-selected="false">Histórico de Manutenções</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="trocas-tab" data-bs-toggle="tab" data-bs-target="#trocas" type="button" role="tab" aria-controls="trocas" aria-selected="false">Histórico de Trocas</button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-4 bg-white rounded-bottom" id="myTabContent">
+        <!-- Dados Técnicos -->
+        <div class="tab-pane fade show active" id="tecnico" role="tabpanel" aria-labelledby="tecnico-tab">
+            <div class="row">
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">MAC Address</dt>
+                        <dd class="col-sm-8">@Model.MAC</dd>
+
+                        <dt class="col-sm-4">Hostname</dt>
+                        <dd class="col-sm-8">@Model.Hostname</dd>
+
+                        <dt class="col-sm-4">IP</dt>
+                        <dd class="col-sm-8">@Model.IP</dd>
+
+                        <dt class="col-sm-4">Part Number</dt>
+                        <dd class="col-sm-8">@Model.PartNumber</dd>
+
+                        <dt class="col-sm-4">Fabricante</dt>
+                        <dd class="col-sm-8">@Model.Fabricante</dd>
+
+                        <dt class="col-sm-4">SO</dt>
+                        <dd class="col-sm-8">@Model.SO</dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">Data Garantia</dt>
+                        <dd class="col-sm-8">@(Model.DataGarantia.HasValue ? Model.DataGarantia.Value.ToString("dd/MM/yyyy") : "N/A")</dd>
+
+                        <dt class="col-sm-4">Backup</dt>
+                        <dd class="col-sm-8">@Model.Backup</dd>
+
+                        <dt class="col-sm-4">Localização</dt>
+                        <dd class="col-sm-8">@Model.Localizacao</dd>
+
+                        <dt class="col-sm-4">Bateria Wear Level</dt>
+                        <dd class="col-sm-8">@Model.BateriaWearLevel</dd>
+
+                        <dt class="col-sm-4">Tempo Atividade</dt>
+                        <dd class="col-sm-8">@Model.TempoAtividade</dd>
+
+                        <dt class="col-sm-4">Temperatura CPU</dt>
+                        <dd class="col-sm-8">@Model.ProcessadorTemperatura</dd>
+
+                        <dt class="col-sm-4">Consumo CPU</dt>
+                        <dd class="col-sm-8">@Model.ConsumoCPU</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hardware -->
+        <div class="tab-pane fade" id="hardware" role="tabpanel" aria-labelledby="hardware-tab">
+            <h5 class="mb-3">Processador</h5>
+            <dl class="row border-bottom pb-3">
+                <dt class="col-sm-3">Modelo</dt>
+                <dd class="col-sm-9">@Model.Processador</dd>
+                <dt class="col-sm-3">Fabricante</dt>
+                <dd class="col-sm-9">@Model.ProcessadorFabricante</dd>
+                <dt class="col-sm-3">Cores / Threads</dt>
+                <dd class="col-sm-9">@Model.ProcessadorCore / @Model.ProcessadorThread</dd>
+                <dt class="col-sm-3">Clock</dt>
+                <dd class="col-sm-9">@Model.ProcessadorClock</dd>
+            </dl>
+
+            <h5 class="mt-3 mb-3">Memória RAM</h5>
+            <dl class="row border-bottom pb-3">
+                <dt class="col-sm-3">Total</dt>
+                <dd class="col-sm-9">@Model.Ram</dd>
+                <dt class="col-sm-3">Tipo</dt>
+                <dd class="col-sm-9">@Model.RamTipo</dd>
+                <dt class="col-sm-3">Velocidade</dt>
+                <dd class="col-sm-9">@Model.RamVelocidade</dd>
+                <dt class="col-sm-3">Voltagem</dt>
+                <dd class="col-sm-9">@Model.RamVoltagem</dd>
+                <dt class="col-sm-3">Por Módulo</dt>
+                <dd class="col-sm-9">@Model.RamPorModule</dd>
+            </dl>
+
+            <h5 class="mt-3 mb-3">Armazenamento</h5>
+            <dl class="row">
+                <dt class="col-sm-3">Unidade C</dt>
+                <dd class="col-sm-9">@Model.ArmazenamentoC (Livre: @Model.ArmazenamentoCLivre / Total: @Model.ArmazenamentoCTotal)</dd>
+                <dt class="col-sm-3">Unidade D</dt>
+                <dd class="col-sm-9">@Model.ArmazenamentoD (Livre: @Model.ArmazenamentoDLivre / Total: @Model.ArmazenamentoDTotal)</dd>
+            </dl>
+        </div>
+
+        <!-- Vinculo de Usuario -->
+        <div class="tab-pane fade" id="usuario" role="tabpanel" aria-labelledby="usuario-tab">
+            @if (colaborador != null)
+            {
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">@colaborador.Nome</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">CPF: @colaborador.CPF</h6>
+                        <dl class="row mt-3">
+                            <dt class="col-sm-3">Email</dt>
+                            <dd class="col-sm-9">@colaborador.Email</dd>
+                            <dt class="col-sm-3">Filial / Setor</dt>
+                            <dd class="col-sm-9">@colaborador.Filial / @colaborador.Setor</dd>
+                            <dt class="col-sm-3">Smartphone / Ramal</dt>
+                            <dd class="col-sm-9">@colaborador.Smartphone / @colaborador.Ramal</dd>
+                        </dl>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning" role="alert">
+                    Nenhum colaborador vinculado a este computador no momento.
+                </div>
+            }
+        </div>
+
+        <!-- Históricos -->
+        <partial name="_HistoryTabs" />
+    </div>
+</div>
