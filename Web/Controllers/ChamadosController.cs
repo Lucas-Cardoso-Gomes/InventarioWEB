@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using System.Linq;
+using OfficeOpenXml;
 
 namespace Web.Controllers
 {
@@ -1545,6 +1546,93 @@ namespace Web.Controllers
                     }
                 }
             }
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Importar(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["ErrorMessage"] = "Nenhum arquivo selecionado.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!Path.GetExtension(file.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["ErrorMessage"] = "Formato de arquivo inválido. Por favor, envie um arquivo .xlsx.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            int importedCount = 0;
+            int errorCount = 0;
+
+            try
+            {
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using (var stream = new MemoryStream())
+                {
+                    await file.CopyToAsync(stream);
+                    using (var package = new ExcelPackage(stream))
+                    {
+                        var worksheet = package.Workbook.Worksheets[0];
+                        int rowCount = worksheet.Dimension.Rows;
+
+                        using (var connection = _databaseService.CreateConnection())
+                        {
+                            connection.Open();
+                            for (int row = 2; row <= rowCount; row++)
+                            {
+                                try
+                                {
+                                    var idVal = worksheet.Cells[row, 1].Value?.ToString();
+                                    var adminCpf = worksheet.Cells[row, 2].Value?.ToString();
+                                    var colabCpf = worksheet.Cells[row, 3].Value?.ToString();
+                                    var servico = worksheet.Cells[row, 4].Value?.ToString();
+                                    var descricao = worksheet.Cells[row, 5].Value?.ToString();
+                                    var dataCriacaoStr = worksheet.Cells[row, 6].Value?.ToString();
+                                    var status = worksheet.Cells[row, 7].Value?.ToString() ?? "Aberto";
+                                    var prioridade = worksheet.Cells[row, 8].Value?.ToString() ?? "Médio";
+
+                                    if (string.IsNullOrEmpty(colabCpf) || string.IsNullOrEmpty(servico) || string.IsNullOrEmpty(descricao))
+                                    {
+                                        errorCount++;
+                                        continue;
+                                    }
+
+                                    string sql = "INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade) VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade)";
+                                    using (var cmd = connection.CreateCommand())
+                                    {
+                                        cmd.CommandText = sql;
+                                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = string.IsNullOrEmpty(adminCpf) ? DBNull.Value : (object)adminCpf; cmd.Parameters.Add(p1);
+                                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = colabCpf; cmd.Parameters.Add(p2);
+                                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = servico; cmd.Parameters.Add(p3);
+                                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = descricao; cmd.Parameters.Add(p4);
+                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataCriacao"; p5.Value = string.IsNullOrEmpty(dataCriacaoStr) ? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") : dataCriacaoStr; cmd.Parameters.Add(p5);
+                                        var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = status; cmd.Parameters.Add(p6);
+                                        var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = prioridade; cmd.Parameters.Add(p7);
+                                        cmd.ExecuteNonQuery();
+                                        importedCount++;
+                                    }
+                                }
+                                catch (Exception rowEx)
+                                {
+                                    _logger.LogError(rowEx, $"Erro ao importar linha {row} de Chamados.");
+                                    errorCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+                TempData["SuccessMessage"] = $"Importação concluída. {importedCount} chamados importados. {errorCount} erros.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro fatal na importação de chamados.");
+                TempData["ErrorMessage"] = "Ocorreu um erro ao processar o arquivo.";
+            }
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }

@@ -1,22 +1,22 @@
-@model Web.Models.SmartphoneDetailsViewModel
+@model Web.Models.RedeDetailsViewModel
 
 @{
-    ViewData["Title"] = "Detalhes do Smartphone";
+    ViewData["Title"] = "Detalhes do Ativo de Rede";
 }
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-phone"></i> @ViewData["Title"] - @Model.Smartphone.Modelo</h2>
+        <h2><i class="bi bi-hdd-network"></i> @ViewData["Title"] - @Model.Rede.Nome</h2>
         <div>
             @if (User.IsInRole("Admin"))
             {
-                <a asp-action="Edit" asp-route-id="@Model.Smartphone.Id" class="btn btn-warning"><i class="bi bi-pencil"></i> Editar</a>
+                <a asp-action="Edit" asp-route-id="@Model.Rede.Id" class="btn btn-warning"><i class="bi bi-pencil"></i> Editar</a>
             }
             <a asp-action="Index" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
         </div>
     </div>
 
-    <ul class="nav nav-tabs" id="smartphoneTabs" role="tablist">
+    <ul class="nav nav-tabs" id="redeTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button" role="tab" aria-controls="dados" aria-selected="true"><i class="bi bi-info-circle"></i> Informações do Ativo</button>
         </li>
@@ -25,32 +25,39 @@
         </li>
     </ul>
 
-    <div class="tab-content border border-top-0 p-4 bg-white" id="smartphoneTabsContent">
+    <div class="tab-content border border-top-0 p-4 bg-white" id="redeTabsContent">
 
         <!-- Tab: Informações -->
         <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
             <div class="row">
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><i class="bi bi-phone-fill"></i> <strong>Aparelho e Identificação</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-diagram-3"></i> <strong>Rede e Identificação</strong></div>
                         <ul class="list-group list-group-flush">
-                            <li class="list-group-item"><strong>ID:</strong> @Model.Smartphone.Id</li>
-                            <li class="list-group-item"><strong>Modelo:</strong> @Model.Smartphone.Modelo</li>
-                            <li class="list-group-item"><strong>IMEI 1:</strong> @Model.Smartphone.IMEI1</li>
-                            <li class="list-group-item"><strong>IMEI 2:</strong> @Model.Smartphone.IMEI2</li>
-                            <li class="list-group-item"><strong>MAC Address:</strong> @Model.Smartphone.MAC</li>
+                            <li class="list-group-item"><strong>ID:</strong> @Model.Rede.Id</li>
+                            <li class="list-group-item"><strong>Nome:</strong> @Model.Rede.Nome</li>
+                            <li class="list-group-item"><strong>Tipo:</strong> @Model.Rede.Tipo</li>
+                            <li class="list-group-item"><strong>IP:</strong> @Model.Rede.IP</li>
+                            <li class="list-group-item"><strong>MAC Address:</strong> @Model.Rede.MAC</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><i class="bi bi-person"></i> <strong>Usuário e Acessos</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-geo-alt"></i> <strong>Localização e Garantia</strong></div>
                         <ul class="list-group list-group-flush">
-                            <li class="list-group-item"><strong>Usuário Responsável:</strong> @Model.Smartphone.Usuario</li>
-                            <li class="list-group-item"><strong>Filial:</strong> @Model.Smartphone.Filial</li>
-                            <li class="list-group-item"><strong>Conta Google:</strong> @Model.Smartphone.ContaGoogle</li>
-                            <li class="list-group-item"><strong>Garantia:</strong> @(Model.Smartphone.DataGarantia.HasValue ? Model.Smartphone.DataGarantia.Value.ToString("dd/MM/yyyy") : "Não definida")</li>
+                            <li class="list-group-item"><strong>Localização:</strong> @Model.Rede.Localizacao</li>
+                            <li class="list-group-item"><strong>Endereço:</strong> @Model.Rede.Endereco</li>
+                            <li class="list-group-item"><strong>Garantia:</strong> @(Model.Rede.DataGarantia.HasValue ? Model.Rede.DataGarantia.Value.ToString("dd/MM/yyyy") : "Não definida")</li>
                         </ul>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                     <div class="card mb-3">
+                        <div class="card-header bg-light"><i class="bi bi-pencil-square"></i> <strong>Observações</strong></div>
+                        <div class="card-body">
+                            <p class="card-text">@(string.IsNullOrEmpty(Model.Rede.Observacao) ? "Sem observações." : Model.Rede.Observacao)</p>
+                        </div>
                     </div>
                 </div>
             </div>

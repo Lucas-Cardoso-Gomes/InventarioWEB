@@ -43,5 +43,8 @@ namespace Web.Models
 
         [Display(Name = "Histórico")]
         public string? Historico { get; set; }
+
+        [NotMapped]
+        public string? EquipamentoDetalhe { get; set; }
     }
 }

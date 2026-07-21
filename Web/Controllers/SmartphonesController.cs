@@ -17,11 +17,13 @@ namespace Web.Controllers
     {
         private readonly SmartphoneService _smartphoneService;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IHistoricoTrocasService _historicoTrocasService;
 
-        public SmartphonesController(SmartphoneService smartphoneService, PersistentLogService persistentLogService)
+        public SmartphonesController(SmartphoneService smartphoneService, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService)
         {
             _smartphoneService = smartphoneService;
             _persistentLogService = persistentLogService;
+            _historicoTrocasService = historicoTrocasService;
         }
 
         // GET: Smartphones
@@ -31,22 +33,6 @@ namespace Web.Controllers
             return View(smartphones);
         }
 
-        // GET: Smartphones/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var smartphone = await _smartphoneService.GetByIdAsync(id.Value);
-            if (smartphone == null)
-            {
-                return NotFound();
-            }
-
-            return View(smartphone);
-        }
 
         // GET: Smartphones/Create
         public IActionResult Create()
@@ -75,6 +61,21 @@ namespace Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
             return View(smartphone);
+        }
+
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null) return NotFound();
+            var smartphone = await _smartphoneService.GetByIdAsync(id.Value);
+            if (smartphone == null) return NotFound();
+
+            var viewModel = new SmartphoneDetailsViewModel
+            {
+                Smartphone = smartphone,
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Smartphone", id.Value.ToString())
+            };
+
+            return View(viewModel);
         }
 
         // GET: Smartphones/Edit/5
@@ -108,7 +109,16 @@ namespace Web.Controllers
             {
                 try
                 {
+                    var oldSmartphone = await _smartphoneService.GetByIdAsync(id);
+
                     await _smartphoneService.UpdateAsync(smartphone);
+
+                    if (oldSmartphone != null)
+                    {
+                        var currentUser = User.Identity?.Name ?? "Sistema";
+                        if (oldSmartphone.Usuario != smartphone.Usuario)
+                            _historicoTrocasService.RegistrarAlteracao(id.ToString(), "Smartphone", "Usuário", oldSmartphone.Usuario, smartphone.Usuario, currentUser);
+                    }
 
                     await _persistentLogService.LogChangeAsync(
                         User.Identity.Name,

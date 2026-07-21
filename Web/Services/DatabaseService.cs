@@ -127,6 +127,30 @@ namespace Web.Services
                             // Column already exists, safe to ignore
                         }
                     }
+
+                    // Create table HistoricoTrocas if it doesn't exist yet
+                    try
+                    {
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = @"
+                                CREATE TABLE IF NOT EXISTS HistoricoTrocas (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    EquipamentoId TEXT NOT NULL,
+                                    TipoEquipamento TEXT NOT NULL,
+                                    CampoAlterado TEXT NOT NULL,
+                                    ValorAntigo TEXT,
+                                    ValorNovo TEXT,
+                                    DataAlteracao TEXT NOT NULL,
+                                    Usuario TEXT NOT NULL
+                                );";
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                    catch (SqliteException ex)
+                    {
+                        _logger.LogWarning($"Schema update error for HistoricoTrocas (handled): {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)

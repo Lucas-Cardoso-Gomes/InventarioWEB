@@ -250,6 +250,106 @@ namespace Web.Controllers
                             }
                             break;
 
+                        case DeviceType.Smartphones:
+                            string[] spHeader = { "Id", "Modelo", "IMEI1", "IMEI2", "Usuario", "Filial", "DataCriacao", "ContaGoogle", "SenhaGoogle", "MAC", "DataGarantia" };
+                            for (int i = 0; i < spHeader.Length; i++) worksheet.Cells[1, i + 1].Value = spHeader[i];
+
+                            sql = $"SELECT * FROM Smartphones";
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    int row = 2;
+                                    while (reader.Read())
+                                    {
+                                        for (int i = 0; i < spHeader.Length; i++)
+                                        {
+                                            try { worksheet.Cells[row, i + 1].Value = reader[spHeader[i]].ToString(); } catch { worksheet.Cells[row, i + 1].Value = ""; }
+                                        }
+                                        row++;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case DeviceType.Redes:
+                            string[] rHeader = { "Id", "Tipo", "IP", "MAC", "Nome", "DataInclusao", "DataAlteracao", "Observacao", "Localizacao", "Endereco", "DataGarantia" };
+                            for (int i = 0; i < rHeader.Length; i++) worksheet.Cells[1, i + 1].Value = rHeader[i];
+
+                            sql = $"SELECT * FROM Rede";
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    int row = 2;
+                                    while (reader.Read())
+                                    {
+                                        for (int i = 0; i < rHeader.Length; i++)
+                                        {
+                                            try { worksheet.Cells[row, i + 1].Value = reader[rHeader[i]].ToString(); } catch { worksheet.Cells[row, i + 1].Value = ""; }
+                                        }
+                                        row++;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case DeviceType.Manutencoes:
+                            string[] mHeader = { "Id", "ComputadorMAC", "MonitorPartNumber", "PerifericoPartNumber", "DataManutencaoHardware", "DataManutencaoSoftware", "ManutencaoExterna", "Data", "Historico" };
+                            for (int i = 0; i < mHeader.Length; i++) worksheet.Cells[1, i + 1].Value = mHeader[i];
+
+                            sql = $"SELECT * FROM Manutencoes";
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    int row = 2;
+                                    while (reader.Read())
+                                    {
+                                        for (int i = 0; i < mHeader.Length; i++)
+                                        {
+                                            try { worksheet.Cells[row, i + 1].Value = reader[mHeader[i]].ToString(); } catch { worksheet.Cells[row, i + 1].Value = ""; }
+                                        }
+                                        row++;
+                                    }
+                                }
+                            }
+                            break;
+
+                        case DeviceType.Chamados:
+                            string[] chHeader = { "Id", "AdminCPF", "ColaboradorCPF", "Servico", "Descricao", "DataCriacao", "Status", "Prioridade" };
+                            for (int i = 0; i < chHeader.Length; i++) worksheet.Cells[1, i + 1].Value = chHeader[i];
+
+                            sql = $"SELECT * FROM Chamados";
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.CommandText = sql;
+
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    int row = 2;
+                                    while (reader.Read())
+                                    {
+                                        for (int i = 0; i < chHeader.Length; i++)
+                                        {
+                                            try { worksheet.Cells[row, i + 1].Value = reader[chHeader[i]].ToString(); } catch { worksheet.Cells[row, i + 1].Value = ""; }
+                                        }
+                                        row++;
+                                    }
+                                }
+                            }
+                            break;
+
                         case DeviceType.Monitores:
                             addInClause("m.Marca", viewModel.CurrentMarcas);
                             addInClause("m.Tamanho", viewModel.CurrentTamanhos);
