@@ -117,6 +117,7 @@
                     @if (User.IsInRole("Admin"))
                     {
                         <td>
+                                <a asp-action="Details" asp-route-id="@item.PartNumber" class="btn btn-info btn-sm" title="Detalhes"><i class="bi bi-eye"></i> Detalhes</a>
                             <a asp-action="Edit" asp-route-id="@item.PartNumber" class="btn btn-warning btn-sm">Editar</a>
                             <a asp-action="Delete" asp-route-id="@item.PartNumber" class="btn btn-danger btn-sm">Excluir</a>
                         </td>

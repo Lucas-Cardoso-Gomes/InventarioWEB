@@ -24,12 +24,16 @@ namespace Web.Controllers
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<ComputadoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IHistoricoTrocasService _historicoTrocasService;
+        private readonly ManutencaoService _manutencaoService;
 
-        public ComputadoresController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService)
+        public ComputadoresController(IDatabaseService databaseService, IConfiguration configuration, ILogger<ComputadoresController> logger, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService, ManutencaoService manutencaoService)
         {
             _databaseService = databaseService;
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _historicoTrocasService = historicoTrocasService;
+            _manutencaoService = manutencaoService;
         }
 
         public IActionResult Index(string sortOrder, string searchString,
@@ -591,6 +595,22 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
+        public IActionResult Details(string id)
+        {
+            if (id == null) return NotFound();
+            Computador computador = FindComputadorById(id);
+            if (computador == null) return NotFound();
+
+            var viewModel = new ComputadorDetailsViewModel
+            {
+                Computador = computador,
+                HistoricoManutencoes = _manutencaoService.GetManutencoesByEquipamento("Computador", id),
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Computador", id)
+            };
+
+            return View(viewModel);
+        }
+
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
@@ -693,6 +713,22 @@ namespace Web.Controllers
 
                             cmd.ExecuteNonQuery();
                         }
+                    }
+
+                    if (oldComputador != null)
+                    {
+                        var currentUser = User.Identity?.Name ?? "Sistema";
+                        if (oldComputador.ColaboradorCPF != viewModel.ColaboradorCPF)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Computador", "Usuário", oldComputador.ColaboradorCPF, viewModel.ColaboradorCPF, currentUser);
+
+                        if (oldComputador.Processador != viewModel.Processador)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Computador", "Processador", oldComputador.Processador, viewModel.Processador, currentUser);
+
+                        if (oldComputador.Ram != viewModel.Ram)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Computador", "RAM", oldComputador.Ram, viewModel.Ram, currentUser);
+
+                        if (oldComputador.ArmazenamentoCTotal != viewModel.ArmazenamentoCTotal)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Computador", "Armazenamento C", oldComputador.ArmazenamentoCTotal, viewModel.ArmazenamentoCTotal, currentUser);
                     }
 
                     await _persistentLogService.LogChangeAsync("Computador", "Update", User.Identity.Name, oldComputador, viewModel);

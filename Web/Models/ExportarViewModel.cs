@@ -22,7 +22,15 @@ namespace Web.Models
         [Display(Name = "Periféricos")]
         Perifericos,
         [Display(Name = "Colaboradores")]
-        Colaboradores
+        Colaboradores,
+        [Display(Name = "Smartphones")]
+        Smartphones,
+        [Display(Name = "Ativos de Rede")]
+        Redes,
+        [Display(Name = "Manutenções")]
+        Manutencoes,
+        [Display(Name = "Chamados")]
+        Chamados
     }
 
     public class ExportarViewModel

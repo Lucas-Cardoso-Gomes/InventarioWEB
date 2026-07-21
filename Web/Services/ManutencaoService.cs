@@ -16,6 +16,76 @@ namespace Web.Services
             _databaseService = databaseService;
         }
 
+        public List<Manutencao> GetManutencoesByEquipamento(string tipo, string id)
+        {
+            var manutencoes = new List<Manutencao>();
+            using (var connection = _databaseService.CreateConnection())
+            {
+                connection.Open();
+                string sql = "";
+
+                if (tipo == "Computador")
+                {
+                    sql = @"SELECT m.*, c.Hostname FROM Manutencoes m
+                            LEFT JOIN Computadores c ON m.ComputadorMAC = c.MAC
+                            WHERE m.ComputadorMAC = @Id";
+                }
+                else if (tipo == "Monitor")
+                {
+                    sql = @"SELECT m.*, mo.Modelo FROM Manutencoes m
+                            LEFT JOIN Monitores mo ON m.MonitorPartNumber = mo.PartNumber
+                            WHERE m.MonitorPartNumber = @Id";
+                }
+                else if (tipo == "Periferico")
+                {
+                    sql = @"SELECT m.*, p.Tipo FROM Manutencoes m
+                            LEFT JOIN Perifericos p ON m.PerifericoPartNumber = p.PartNumber
+                            WHERE m.PerifericoPartNumber = @Id";
+                }
+
+                if (!string.IsNullOrEmpty(sql))
+                {
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = sql;
+                        var parameter = command.CreateParameter();
+                        parameter.ParameterName = "@Id";
+                        parameter.Value = id;
+                        command.Parameters.Add(parameter);
+
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var manutencao = new Manutencao
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    DataManutencaoHardware = reader["DataManutencaoHardware"] != DBNull.Value && DateTime.TryParse(reader["DataManutencaoHardware"].ToString(), out var parsedHw) ? parsedHw : (DateTime?)null,
+                                    DataManutencaoSoftware = reader["DataManutencaoSoftware"] != DBNull.Value && DateTime.TryParse(reader["DataManutencaoSoftware"].ToString(), out var parsedSw) ? parsedSw : (DateTime?)null,
+                                    ManutencaoExterna = reader["ManutencaoExterna"] as string,
+                                    Data = reader["Data"] != DBNull.Value && DateTime.TryParse(reader["Data"].ToString(), out var parsedData) ? parsedData : (DateTime?)null,
+                                    Historico = reader["Historico"] as string,
+                                    ComputadorMAC = reader["ComputadorMAC"] as string,
+                                    MonitorPartNumber = reader["MonitorPartNumber"] as string,
+                                    PerifericoPartNumber = reader["PerifericoPartNumber"] as string,
+                                };
+
+                                if (tipo == "Computador" && reader["Hostname"] != DBNull.Value)
+                                    manutencao.EquipamentoDetalhe = reader["Hostname"].ToString();
+                                else if (tipo == "Monitor" && reader["Modelo"] != DBNull.Value)
+                                    manutencao.EquipamentoDetalhe = reader["Modelo"].ToString();
+                                else if (tipo == "Periferico" && reader["Tipo"] != DBNull.Value)
+                                    manutencao.EquipamentoDetalhe = reader["Tipo"].ToString();
+
+                                manutencoes.Add(manutencao);
+                            }
+                        }
+                    }
+                }
+            }
+            return manutencoes;
+        }
+
         public List<Manutencao> GetAllManutencoes(string partNumber, string colaborador, string hostname)
         {
             var manutencoes = new List<Manutencao>();

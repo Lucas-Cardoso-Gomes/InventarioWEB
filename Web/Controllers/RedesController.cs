@@ -22,12 +22,14 @@ namespace Web.Controllers
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<RedesController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IHistoricoTrocasService _historicoTrocasService;
 
-        public RedesController(IDatabaseService databaseService, ILogger<RedesController> logger, PersistentLogService persistentLogService)
+        public RedesController(IDatabaseService databaseService, ILogger<RedesController> logger, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService)
         {
             _databaseService = databaseService;
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _historicoTrocasService = historicoTrocasService;
         }
 
         public IActionResult Index()
@@ -154,6 +156,20 @@ namespace Web.Controllers
             return View(rede);
         }
 
+        public IActionResult Details(int id)
+        {
+            var rede = FindRedeById(id);
+            if (rede == null) return NotFound();
+
+            var viewModel = new RedeDetailsViewModel
+            {
+                Rede = rede,
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Rede", id.ToString())
+            };
+
+            return View(viewModel);
+        }
+
         public IActionResult Edit(int id)
         {
             var rede = FindRedeById(id);
@@ -179,6 +195,7 @@ namespace Web.Controllers
                 _logger.LogInformation("ModelState is valid. Attempting to update the database.");
                 try
                 {
+                    var oldRede = FindRedeById(id);
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
@@ -200,6 +217,13 @@ namespace Web.Controllers
                             _logger.LogInformation("Executing UPDATE command for network asset ID {Id}.", rede.Id);
                             command.ExecuteNonQuery();
                             _logger.LogInformation("UPDATE command executed successfully for ID {Id}.", rede.Id);
+
+                            if (oldRede != null)
+                            {
+                                var currentUser = User.Identity?.Name ?? "Sistema";
+                                if (oldRede.Localizacao != rede.Localizacao)
+                                    _historicoTrocasService.RegistrarAlteracao(id.ToString(), "Rede", "Localização", oldRede.Localizacao, rede.Localizacao, currentUser);
+                            }
 
                             await _persistentLogService.LogChangeAsync(
                                 User.Identity.Name,

@@ -173,3 +173,13 @@ CREATE TABLE IF NOT EXISTS Smartphones (
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator)
 SELECT 'Admin', 'Admin', 'Admin', 'Admin', 0
 WHERE NOT EXISTS (SELECT 1 FROM Usuarios WHERE Login = 'Admin');
+CREATE TABLE IF NOT EXISTS HistoricoTrocas (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    EquipamentoId TEXT NOT NULL,
+    TipoEquipamento TEXT NOT NULL,
+    CampoAlterado TEXT NOT NULL,
+    ValorAntigo TEXT,
+    ValorNovo TEXT,
+    DataAlteracao TEXT NOT NULL,
+    Usuario TEXT NOT NULL
+);

@@ -48,6 +48,7 @@ builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ComandoService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PersistentLogService>();
+builder.Services.AddScoped<IHistoricoTrocasService, HistoricoTrocasService>();
 builder.Services.AddScoped<ManutencaoService>();
 builder.Services.AddScoped<SmartphoneService>();
 builder.Services.AddScoped<DataMigrationService>();

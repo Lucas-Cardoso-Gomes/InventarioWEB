@@ -25,12 +25,16 @@ namespace Web.Controllers
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<MonitoresController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IHistoricoTrocasService _historicoTrocasService;
+        private readonly ManutencaoService _manutencaoService;
 
-        public MonitoresController(IDatabaseService databaseService, ILogger<MonitoresController> logger, PersistentLogService persistentLogService)
+        public MonitoresController(IDatabaseService databaseService, ILogger<MonitoresController> logger, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService, ManutencaoService manutencaoService)
         {
             _databaseService = databaseService;
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _historicoTrocasService = historicoTrocasService;
+            _manutencaoService = manutencaoService;
         }
 
         public IActionResult Index(List<string> currentMarcas, List<string> currentTamanhos, List<string> currentModelos)
@@ -366,6 +370,22 @@ namespace Web.Controllers
             return View(monitor);
         }
 
+        public IActionResult Details(string id)
+        {
+            if (id == null) return NotFound();
+            Monitor monitor = FindMonitorById(id);
+            if (monitor == null) return NotFound();
+
+            var viewModel = new MonitorDetailsViewModel
+            {
+                Monitor = monitor,
+                HistoricoManutencoes = _manutencaoService.GetManutencoesByEquipamento("Monitor", id),
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Monitor", id)
+            };
+
+            return View(viewModel);
+        }
+
         // GET: Monitores/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
@@ -401,6 +421,14 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    if (oldMonitor != null)
+                    {
+                        var currentUser = User.Identity?.Name ?? "Sistema";
+                        if (oldMonitor.ColaboradorCPF != monitor.ColaboradorCPF)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Monitor", "Usuário", oldMonitor.ColaboradorCPF, monitor.ColaboradorCPF, currentUser);
+                    }
+
                     await _persistentLogService.LogChangeAsync("Monitor", "Update", User.Identity.Name, oldMonitor, monitor);
                     return RedirectToAction(nameof(Index));
                 }

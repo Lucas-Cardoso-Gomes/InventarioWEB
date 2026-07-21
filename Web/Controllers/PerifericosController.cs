@@ -24,12 +24,16 @@ namespace Web.Controllers
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<PerifericosController> _logger;
         private readonly PersistentLogService _persistentLogService;
+        private readonly IHistoricoTrocasService _historicoTrocasService;
+        private readonly ManutencaoService _manutencaoService;
 
-        public PerifericosController(IDatabaseService databaseService, ILogger<PerifericosController> logger, PersistentLogService persistentLogService)
+        public PerifericosController(IDatabaseService databaseService, ILogger<PerifericosController> logger, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService, ManutencaoService manutencaoService)
         {
             _databaseService = databaseService;
             _logger = logger;
             _persistentLogService = persistentLogService;
+            _historicoTrocasService = historicoTrocasService;
+            _manutencaoService = manutencaoService;
         }
 
         // GET: Perifericos
@@ -150,6 +154,22 @@ namespace Web.Controllers
             return View(periferico);
         }
 
+        public IActionResult Details(string id)
+        {
+            if (id == null) return NotFound();
+            Periferico periferico = FindPerifericoById(id);
+            if (periferico == null) return NotFound();
+
+            var viewModel = new PerifericoDetailsViewModel
+            {
+                Periferico = periferico,
+                HistoricoManutencoes = _manutencaoService.GetManutencoesByEquipamento("Periferico", id),
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Periferico", id)
+            };
+
+            return View(viewModel);
+        }
+
         // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
@@ -188,6 +208,14 @@ namespace Web.Controllers
                             cmd.ExecuteNonQuery();
                         }
                     }
+
+                    if (oldPeriferico != null)
+                    {
+                        var currentUser = User.Identity?.Name ?? "Sistema";
+                        if (oldPeriferico.ColaboradorCPF != periferico.ColaboradorCPF)
+                            _historicoTrocasService.RegistrarAlteracao(id, "Periferico", "Usuário", oldPeriferico.ColaboradorCPF, periferico.ColaboradorCPF, currentUser);
+                    }
+
                     await _persistentLogService.LogChangeAsync("Periferico", "Update", User.Identity.Name, oldPeriferico, periferico);
                     return RedirectToAction(nameof(Index));
                 }
