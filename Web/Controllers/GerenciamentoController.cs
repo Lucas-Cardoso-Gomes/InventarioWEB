@@ -331,7 +331,7 @@ namespace Web.Controllers
                     ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
                     return View(model);
                 }
-
+                
                 string ip = model.IpAddress;
                 Task.Run(() => RunScopedProgramas(ip));
                 model.Resultados.Add($"Coleta de programas agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
@@ -374,11 +374,11 @@ namespace Web.Controllers
                 var logService = scope.ServiceProvider.GetRequiredService<LogService>();
                 var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
                 var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
-
+                
                 try
                 {
                     logService.AddLog("Info", $"Iniciando coleta de programas via Gerenciamento para {ip}", "Programas");
-
+                    
                     // Recuperar MAC associado ao IP
                     string mac = null;
                     using (var connection = databaseService.CreateConnection())
@@ -403,30 +403,31 @@ namespace Web.Controllers
                     }
 
                     string resultado = await comandoService.EnviarComandoAsync(ip, "get_installed_programs");
-
+                    
                     string jsonToParse = resultado;
                     int firstBrace = resultado.IndexOf('{');
                     int firstBracket = resultado.IndexOf('[');
-
+                    
                     if (firstBrace != -1 || firstBracket != -1)
                     {
                         int startIdx = -1;
                         if (firstBrace != -1 && firstBracket != -1) startIdx = Math.Min(firstBrace, firstBracket);
                         else if (firstBrace != -1) startIdx = firstBrace;
                         else startIdx = firstBracket;
-
+                        
                         jsonToParse = resultado.Substring(startIdx);
                     }
-
-                    if (string.IsNullOrWhiteSpace(jsonToParse))
+                    
+                    if (string.IsNullOrWhiteSpace(jsonToParse) || (!jsonToParse.TrimStart().StartsWith("{") && !jsonToParse.TrimStart().StartsWith("[")))
                     {
-                        logger.LogWarning($"Resultado vazio ou inválido de {ip}: {resultado}");
+                        logger.LogWarning($"Resultado não é um JSON válido recebido de {ip}. Resposta: {resultado}");
+                        logService.AddLog("Warning", $"Não foi possível extrair a lista de programas para {ip}. O formato retornado não era um JSON válido.", "Programas");
                         return;
                     }
 
                     var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonToParse);
                     var programas = new List<dynamic>();
-
+                    
                     if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         foreach (var element in jsonDoc.RootElement.EnumerateArray())
@@ -460,7 +461,7 @@ namespace Web.Controllers
                                 var pDel = cmdDel.CreateParameter(); pDel.ParameterName = "@MAC"; pDel.Value = mac; cmdDel.Parameters.Add(pDel);
                                 cmdDel.ExecuteNonQuery();
                             }
-
+                            
                             var dataColeta = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                             foreach (var p in programas)
                             {

@@ -117,9 +117,10 @@ namespace Web.Controllers
                             jsonToParse = resultado.Substring(startIdx);
                         }
                         
-                        if (string.IsNullOrWhiteSpace(jsonToParse))
+                        if (string.IsNullOrWhiteSpace(jsonToParse) || (!jsonToParse.TrimStart().StartsWith("{") && !jsonToParse.TrimStart().StartsWith("[")))
                         {
                             _logger.LogWarning($"Resultado vazio ou inválido recebido de {ip}. Resposta original: {resultado}");
+                            _logService.AddLog("Warning", $"Resultado inválido recebido ao tentar coletar programas de {ip}. Não foi possível extrair um formato JSON válido.", "Programas");
                             return; // Encerra task silenciosamente ou pode logar no db
                         }
 
