@@ -267,6 +267,8 @@ namespace coleta
                                             {
                                                 Console.WriteLine($"[INFO] Coletando programas instalados (wmic / PowerShell + winget)...");
                                                 string script = @"
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'SilentlyContinue'
 $regProgs = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher
 $wingetOut = winget list --accept-source-agreements --accept-package-agreements
 $wingetMap = @{}
@@ -324,7 +326,7 @@ $results | ConvertTo-Json -Compress
 ";
                                                 byte[] scriptBytes = System.Text.Encoding.Unicode.GetBytes(script);
                                                 string encodedCommand = Convert.ToBase64String(scriptBytes);
-                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encodedCommand}");
+                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand {encodedCommand} 2>nul");
                                                 await writer.WriteLineAsync(resultado);
                                                 Console.WriteLine($"[INFO] Lista de programas enviada.");
                                             }
