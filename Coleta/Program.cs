@@ -21,13 +21,13 @@ namespace coleta
     {
         static async Task Main()
         {
-// --- CÓDIGO NOVO: Lendo o JSON da memória (Embedded Resource) ---
+            // --- CÓDIGO NOVO: Lendo o JSON da memória (Embedded Resource) ---
             var builder = new ConfigurationBuilder();
             var assembly = Assembly.GetExecutingAssembly();
-            
+
             // O nome do recurso geralmente segue o padrão: NamespaceProjeto.NomeDoArquivo
             var appSettingsStream = assembly.GetManifestResourceStream("Coleta.appsettings.json");
-            
+
             if (appSettingsStream != null)
             {
                 builder.AddJsonStream(appSettingsStream);
@@ -62,7 +62,7 @@ namespace coleta
                     serverCertificate = new X509Certificate2(pfxData, "temp_password");
                 }
             }
-            
+
             string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
             string realizarComandos = config["Autenticacao:RealizarComandos"];
 
@@ -264,44 +264,88 @@ namespace coleta
                                                 await writer.WriteLineAsync("File uploaded successfully.");
                                             }
                                             else if (comandoRemoto == "get_installed_programs")
-                                            {
-                                                Console.WriteLine($"[INFO] Coletando programas instalados (wmic / PowerShell + winget)...");
-                                                string script = @"
+{
+    Console.WriteLine($"[INFO] Coletando programas instalados (PowerShell via arquivo temporario)...");
+    
+    string script = @"
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = 'SilentlyContinue'
-$regProgs = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher
-$wingetOut = winget list --accept-source-agreements --accept-package-agreements
-$wingetMap = @{}
-$dashLineIdx = -1
-if ($wingetOut -ne $null) {
-    for ($i=0; $i -lt $wingetOut.Count; $i++) {
-        if ($wingetOut[$i] -match '^-+$') { $dashLineIdx = $i; break }
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# 1. Coleta do Registro (Software) - Incluindo HKCU
+$paths = @(
+    'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+)
+$regProgs = Get-ItemProperty $paths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher
+
+# 2. Descobre caminho real do winget (Necessario para Tasks SYSTEM/Servicos)
+$wingetPath = 'winget.exe'
+if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+    $possiblePaths = @(
+        ($env:LOCALAPPDATA + '\Microsoft\WindowsApps\winget.exe'),
+        ($env:ProgramFiles + '\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe')
+    )
+    foreach ($p in $possiblePaths) {
+        $found = Resolve-Path $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1
+        if ($found) { $wingetPath = $found; break }
     }
 }
-if ($dashLineIdx -gt 0) {
-    $header = $wingetOut[$dashLineIdx - 1]
-    $cols = $header -split '\s{2,}'
-    if ($cols.Count -ge 3) {
-        $idIdx = $header.IndexOf($cols[1])
-        $versionIdx = $header.IndexOf($cols[2])
-        for ($i = $dashLineIdx + 1; $i -lt $wingetOut.Count; $i++) {
-            $line = $wingetOut[$i]
-            if ([string]::IsNullOrWhiteSpace($line)) { continue }
-            $name = if ($line.Length -gt $idIdx) { $line.Substring(0, $idIdx).TrimEnd() } else { $line.TrimEnd() }
-            $id = if ($line.Length -gt $versionIdx) { $line.Substring($idIdx, $versionIdx - $idIdx).TrimEnd() } elseif ($line.Length -gt $idIdx) { $line.Substring($idIdx).TrimEnd() } else { """" }
-            $version = if ($line.Length -gt $versionIdx) { $line.Substring($versionIdx).TrimEnd() -replace '\s{2,}.*','' } else { """" }
-            if ($name) { $wingetMap[$name] = @{ Id = $id; Version = $version } }
+
+# 3. Executa Winget
+$wingetOut = & $wingetPath list --accept-source-agreements --accept-package-agreements 2>$null
+$wingetMap = @{}
+$dashLineIdx = -1
+
+if ($wingetOut -ne $null) {
+    # Remove Carriage Returns (\r) para nao quebrar o Regex
+    $wingetOut = $wingetOut -replace [char]13, ''
+
+    for ($i = 0; $i -lt $wingetOut.Count; $i++) {
+        if ($wingetOut[$i] -match '^-+\s*$') { 
+            $dashLineIdx = $i; 
+            break 
+        }
+    }
+
+    if ($dashLineIdx -gt 0) {
+        $header = $wingetOut[$dashLineIdx - 1]
+        $cols = $header -split '\s{2,}'
+        
+        if ($cols.Count -ge 3) {
+            $idIdx = $header.IndexOf($cols[1])
+            $versionIdx = $header.IndexOf($cols[2])
+
+            for ($i = $dashLineIdx + 1; $i -lt $wingetOut.Count; $i++) {
+                $line = $wingetOut[$i]
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+                $name = if ($line.Length -gt $idIdx) { $line.Substring(0, $idIdx).Trim() } else { $line.Trim() }
+                $id = if ($line.Length -gt $versionIdx) { $line.Substring($idIdx, $versionIdx - $idIdx).Trim() } elseif ($line.Length -gt $idIdx) { $line.Substring($idIdx).Trim() } else { '' }
+                $version = if ($line.Length -gt $versionIdx) { $line.Substring($versionIdx).Trim() -replace '\s{2,}.*','' } else { '' }
+                
+                if ($name) { 
+                    $wingetMap[$name] = @{ Id = $id; Version = $version } 
+                }
+            }
         }
     }
 }
 
 $results = @()
 $processedNames = @{}
+
+# 4. Faz o Merge (Registro + Winget)
 foreach ($regProg in $regProgs) {
-    $name = $regProg.DisplayName
+    $name = ([string]$regProg.DisplayName).Trim()
+    
     if (-not $processedNames.ContainsKey($name)) {
-        $id = """"
-        if ($wingetMap.ContainsKey($name)) { $id = $wingetMap[$name].Id }
+        $id = ''
+        if ($wingetMap.ContainsKey($name)) { 
+            $id = $wingetMap[$name].Id 
+        }
+        
         $results += [PSCustomObject]@{
             DisplayName = $name
             Id = $id
@@ -312,24 +356,45 @@ foreach ($regProg in $regProgs) {
     }
 }
 
+# 5. Adiciona os itens que o Winget listou, mas nao tem no Registro
 foreach ($key in $wingetMap.Keys) {
     if (-not $processedNames.ContainsKey($key)) {
         $results += [PSCustomObject]@{
             DisplayName = $key
             Id = $wingetMap[$key].Id
             DisplayVersion = $wingetMap[$key].Version
-            Publisher = """"
+            Publisher = ''
         }
     }
 }
+
 $results | ConvertTo-Json -Compress
 ";
-                                                byte[] scriptBytes = System.Text.Encoding.Unicode.GetBytes(script);
-                                                string encodedCommand = Convert.ToBase64String(scriptBytes);
-                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand {encodedCommand} 2>nul");
-                                                await writer.WriteLineAsync(resultado);
-                                                Console.WriteLine($"[INFO] Lista de programas enviada.");
-                                            }
+
+    // Gera um nome único para o arquivo temporário
+    string tempScriptPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"coleta_programas_{Guid.NewGuid():N}.ps1");
+    string resultado = "";
+
+    try
+    {
+        // Salva o script fisicamente (UTF-8 sem BOM)
+        System.IO.File.WriteAllText(tempScriptPath, script, new System.Text.UTF8Encoding(false));
+        
+        // Executa através do seu método já existente passando a flag -File
+        resultado = Comandos.ExecutarComando($"powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+    }
+    finally
+    {
+        // Limpa o arquivo no final da execução, garantindo que não vai encher o HD de lixo
+        if (System.IO.File.Exists(tempScriptPath))
+        {
+            try { System.IO.File.Delete(tempScriptPath); } catch { /* Ignore delete errors */ }
+        }
+    }
+
+    await writer.WriteLineAsync(resultado);
+    Console.WriteLine($"[INFO] Lista de programas enviada.");
+}
                                             else
                                             {
                                                 string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
