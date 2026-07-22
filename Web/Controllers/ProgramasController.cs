@@ -65,6 +65,7 @@ namespace Web.Controllers
                                 Nome = reader["Nome"].ToString(),
                                 Versao = reader["Versao"] != DBNull.Value ? reader["Versao"].ToString() : "",
                                 Desenvolvedor = reader["Desenvolvedor"] != DBNull.Value ? reader["Desenvolvedor"].ToString() : "",
+                                PacoteId = reader["PacoteId"] != DBNull.Value ? reader["PacoteId"].ToString() : "",
                                 DataColeta = Convert.ToDateTime(reader["DataColeta"]),
                                 Hostname = reader["Hostname"].ToString()
                             });
@@ -136,6 +137,7 @@ namespace Web.Controllers
                                 programas.Add(new ProgramaInfo
                                 {
                                     DisplayName = element.GetProperty("DisplayName").GetString(),
+                                    Id = element.TryGetProperty("Id", out var id) ? id.GetString() : "",
                                     DisplayVersion = element.TryGetProperty("DisplayVersion", out var v) ? v.GetString() : "",
                                     Publisher = element.TryGetProperty("Publisher", out var p) ? p.GetString() : ""
                                 });
@@ -146,6 +148,7 @@ namespace Web.Controllers
                             programas.Add(new ProgramaInfo
                             {
                                 DisplayName = jsonDoc.RootElement.GetProperty("DisplayName").GetString(),
+                                Id = jsonDoc.RootElement.TryGetProperty("Id", out var id) ? id.GetString() : "",
                                 DisplayVersion = jsonDoc.RootElement.TryGetProperty("DisplayVersion", out var v) ? v.GetString() : "",
                                 Publisher = jsonDoc.RootElement.TryGetProperty("Publisher", out var p) ? p.GetString() : ""
                             });
@@ -170,12 +173,13 @@ namespace Web.Controllers
                                 {
                                     using (var cmd = connection.CreateCommand())
                                     {
-                                        cmd.CommandText = "INSERT INTO ProgramasInstalados (ComputadorMAC, Nome, Versao, Desenvolvedor, DataColeta) VALUES (@MAC, @Nome, @Versao, @Desenvolvedor, @DataColeta)";
+                                        cmd.CommandText = "INSERT INTO ProgramasInstalados (ComputadorMAC, Nome, Versao, Desenvolvedor, PacoteId, DataColeta) VALUES (@MAC, @Nome, @Versao, @Desenvolvedor, @PacoteId, @DataColeta)";
                                         var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = mac; cmd.Parameters.Add(p1);
                                         var p2 = cmd.CreateParameter(); p2.ParameterName = "@Nome"; p2.Value = p.DisplayName; cmd.Parameters.Add(p2);
                                         var p3 = cmd.CreateParameter(); p3.ParameterName = "@Versao"; p3.Value = p.DisplayVersion ?? (object)DBNull.Value; cmd.Parameters.Add(p3);
                                         var p4 = cmd.CreateParameter(); p4.ParameterName = "@Desenvolvedor"; p4.Value = p.Publisher ?? (object)DBNull.Value; cmd.Parameters.Add(p4);
-                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataColeta"; p5.Value = dataColeta; cmd.Parameters.Add(p5);
+                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@PacoteId"; p5.Value = p.Id ?? (object)DBNull.Value; cmd.Parameters.Add(p5);
+                                        var p6 = cmd.CreateParameter(); p6.ParameterName = "@DataColeta"; p6.Value = dataColeta; cmd.Parameters.Add(p6);
                                         cmd.ExecuteNonQuery();
                                     }
                                 }
@@ -204,6 +208,7 @@ namespace Web.Controllers
         private class ProgramaInfo
         {
             public string DisplayName { get; set; }
+            public string Id { get; set; }
             public string DisplayVersion { get; set; }
             public string Publisher { get; set; }
         }

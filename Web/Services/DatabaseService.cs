@@ -100,6 +100,8 @@ namespace Web.Services
                         "ALTER TABLE Computadores ADD COLUMN ProcessadorTemperatura TEXT;",
 
                         "ALTER TABLE Computadores ADD COLUMN BateriaWearLevel TEXT;",
+
+                        "ALTER TABLE ProgramasInstalados ADD COLUMN PacoteId TEXT;",
                         "ALTER TABLE Computadores ADD COLUMN TempoAtividade TEXT;",
                         "ALTER TABLE Computadores ADD COLUMN Localizacao TEXT;",
 
