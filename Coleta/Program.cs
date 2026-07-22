@@ -263,6 +263,17 @@ namespace coleta
                                                 }
                                                 await writer.WriteLineAsync("File uploaded successfully.");
                                             }
+                                            else if (comandoRemoto == "get_installed_programs")
+                                            {
+                                                Console.WriteLine($"[INFO] Coletando programas instalados (wmic / PowerShell)...");
+                                                // Usamos PowerShell porque winget às vezes requer interação de usuário ou falha em background
+                                                // Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*
+                                                string script = @"Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher | ConvertTo-Json -Compress";
+
+                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -ExecutionPolicy Bypass -Command \"{script}\"");
+                                                await writer.WriteLineAsync(resultado);
+                                                Console.WriteLine($"[INFO] Lista de programas enviada.");
+                                            }
                                             else
                                             {
                                                 string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
