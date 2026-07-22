@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS ProgramasInstalados (
     Nome TEXT NOT NULL,
     Versao TEXT,
     Desenvolvedor TEXT,
+    PacoteId TEXT,
     DataColeta TEXT NOT NULL,
     FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
 );
