@@ -311,6 +311,182 @@ namespace Web.Controllers
         }
 
 
+        // GET: /Gerenciamento/Programas
+        public IActionResult Programas()
+        {
+            var model = new ColetaViewModel();
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Programas(ColetaViewModel model)
+        {
+            model.ColetaIniciada = true;
+
+            if (model.TipoColeta == "ip")
+            {
+                if (string.IsNullOrWhiteSpace(model.IpAddress))
+                {
+                    ModelState.AddModelError("IpAddress", "O endereço IP é obrigatório.");
+                    return View(model);
+                }
+
+                string ip = model.IpAddress;
+                Task.Run(() => RunScopedProgramas(ip));
+                model.Resultados.Add($"Coleta de programas agendada para o IP: {ip}. Os resultados aparecerão na página de Logs.");
+            }
+            else if (model.TipoColeta == "range")
+            {
+                string[] faixas;
+                if (model.IpRange == "all")
+                {
+                    faixas = new string[] { "10.0.0.", "10.0.1.", "10.0.2.", "10.1.1.", "10.1.2.", "10.2.2.", "10.3.3.", "10.4.4." };
+                }
+                else
+                {
+                    faixas = new string[] { model.IpRange };
+                }
+
+                model.Resultados.Add($"Varredura de programas agendada para as faixas: {string.Join(", ", faixas)}. Os resultados aparecerão na página de Logs.");
+
+                Task.Run(() =>
+                {
+                    foreach (var faixaBase in faixas)
+                    {
+                        Parallel.For(1, 256, i =>
+                        {
+                            string ipFaixa = faixaBase + i.ToString();
+                            RunScopedProgramas(ipFaixa);
+                        });
+                    }
+                });
+            }
+
+            return View(model);
+        }
+
+        private async Task RunScopedProgramas(string ip)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var comandoService = scope.ServiceProvider.GetRequiredService<ComandoService>();
+                var logService = scope.ServiceProvider.GetRequiredService<LogService>();
+                var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();
+
+                try
+                {
+                    logService.AddLog("Info", $"Iniciando coleta de programas via Gerenciamento para {ip}", "Programas");
+
+                    // Recuperar MAC associado ao IP
+                    string mac = null;
+                    using (var connection = databaseService.CreateConnection())
+                    {
+                        connection.Open();
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = "SELECT MAC FROM Computadores WHERE IP = @IP";
+                            var p = cmd.CreateParameter(); p.ParameterName = "@IP"; p.Value = ip; cmd.Parameters.Add(p);
+                            var result = cmd.ExecuteScalar();
+                            if (result != null)
+                            {
+                                mac = result.ToString();
+                            }
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(mac))
+                    {
+                        logService.AddLog("Warning", $"Não foi possível encontrar o MAC address para o IP {ip}. A coleta de programas requer um computador já cadastrado no sistema.", "Programas");
+                        return;
+                    }
+
+                    string resultado = await comandoService.EnviarComandoAsync(ip, "get_installed_programs");
+
+                    string jsonToParse = resultado;
+                    int firstBrace = resultado.IndexOf('{');
+                    int firstBracket = resultado.IndexOf('[');
+
+                    if (firstBrace != -1 || firstBracket != -1)
+                    {
+                        int startIdx = -1;
+                        if (firstBrace != -1 && firstBracket != -1) startIdx = Math.Min(firstBrace, firstBracket);
+                        else if (firstBrace != -1) startIdx = firstBrace;
+                        else startIdx = firstBracket;
+
+                        jsonToParse = resultado.Substring(startIdx);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(jsonToParse))
+                    {
+                        logger.LogWarning($"Resultado vazio ou inválido de {ip}: {resultado}");
+                        return;
+                    }
+
+                    var jsonDoc = System.Text.Json.JsonDocument.Parse(jsonToParse);
+                    var programas = new List<dynamic>();
+
+                    if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        foreach (var element in jsonDoc.RootElement.EnumerateArray())
+                        {
+                            programas.Add(new
+                            {
+                                DisplayName = element.GetProperty("DisplayName").GetString(),
+                                DisplayVersion = element.TryGetProperty("DisplayVersion", out var v) ? v.GetString() : "",
+                                Publisher = element.TryGetProperty("Publisher", out var p) ? p.GetString() : ""
+                            });
+                        }
+                    }
+                    else if (jsonDoc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        programas.Add(new
+                        {
+                            DisplayName = jsonDoc.RootElement.GetProperty("DisplayName").GetString(),
+                            DisplayVersion = jsonDoc.RootElement.TryGetProperty("DisplayVersion", out var v) ? v.GetString() : "",
+                            Publisher = jsonDoc.RootElement.TryGetProperty("Publisher", out var p) ? p.GetString() : ""
+                        });
+                    }
+
+                    if (programas.Count > 0)
+                    {
+                        using (var connection = databaseService.CreateConnection())
+                        {
+                            connection.Open();
+                            using (var cmdDel = connection.CreateCommand())
+                            {
+                                cmdDel.CommandText = "DELETE FROM ProgramasInstalados WHERE ComputadorMAC = @MAC";
+                                var pDel = cmdDel.CreateParameter(); pDel.ParameterName = "@MAC"; pDel.Value = mac; cmdDel.Parameters.Add(pDel);
+                                cmdDel.ExecuteNonQuery();
+                            }
+
+                            var dataColeta = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                            foreach (var p in programas)
+                            {
+                                using (var cmd = connection.CreateCommand())
+                                {
+                                    cmd.CommandText = "INSERT INTO ProgramasInstalados (ComputadorMAC, Nome, Versao, Desenvolvedor, DataColeta) VALUES (@MAC, @Nome, @Versao, @Desenvolvedor, @DataColeta)";
+                                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = mac; cmd.Parameters.Add(p1);
+                                    var p2 = cmd.CreateParameter(); p2.ParameterName = "@Nome"; p2.Value = p.DisplayName; cmd.Parameters.Add(p2);
+                                    var p3 = cmd.CreateParameter(); p3.ParameterName = "@Versao"; p3.Value = p.DisplayVersion ?? (object)DBNull.Value; cmd.Parameters.Add(p3);
+                                    var p4 = cmd.CreateParameter(); p4.ParameterName = "@Desenvolvedor"; p4.Value = p.Publisher ?? (object)DBNull.Value; cmd.Parameters.Add(p4);
+                                    var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataColeta"; p5.Value = dataColeta; cmd.Parameters.Add(p5);
+                                    cmd.ExecuteNonQuery();
+                                }
+                            }
+                        }
+                        logService.AddLog("Success", $"Coleta de programas para {ip} concluída ({programas.Count} prog).", "Programas");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, $"Erro na coleta de programas para {ip}");
+                    logService.AddLog("Error", $"Erro ao coletar programas para {ip}: {ex.Message}", "Programas");
+                }
+            }
+        }
+
         // GET: /Gerenciamento/Comandos
         public IActionResult Comandos()
         {

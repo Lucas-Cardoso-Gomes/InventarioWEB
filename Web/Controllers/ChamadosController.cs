@@ -806,9 +806,34 @@ namespace Web.Controllers
             chamado.Conversas = GetConversasByChamadoId(id.Value);
             chamado.Anexos = GetAnexosByChamadoId(id.Value);
 
+            MarcarMensagensComoLidas(id.Value, userCpf);
+
             ViewBag.ChamadoID = id.Value;
 
             return View(chamado);
+        }
+
+        private void MarcarMensagensComoLidas(int chamadoId, string currentCpf)
+        {
+            try
+            {
+                using (var connection = _databaseService.CreateConnection())
+                {
+                    connection.Open();
+                    var sql = "UPDATE ChamadoConversas SET Lido = 1 WHERE ChamadoID = @ChamadoID AND UsuarioCPF != @CurrentCPF";
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = sql;
+                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@CurrentCPF"; p2.Value = currentCpf ?? (object)DBNull.Value; cmd.Parameters.Add(p2);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao marcar mensagens como lidas.");
+            }
         }
 
         // GET: Chamados/Edit/5
@@ -1264,6 +1289,7 @@ namespace Web.Controllers
                                     UsuarioCPF = reader["UsuarioCPF"].ToString(),
                                     Mensagem = reader["Mensagem"].ToString(),
                                     DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),
+                                    Lido = Convert.ToInt32(reader["Lido"]) == 1,
                                     UsuarioNome = reader["UsuarioNome"].ToString()
                                 });
                             }
@@ -1385,8 +1411,8 @@ namespace Web.Controllers
                 using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao)
-                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao);
+                    var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao, Lido)
+                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao, 0);
                                 SELECT last_insert_rowid();";
                     using (var cmd = connection.CreateCommand())
                     {
@@ -1409,6 +1435,24 @@ namespace Web.Controllers
                 _logger.LogError(ex, "Erro ao enviar mensagem do chat.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> NotifyUser(int chamadoId)
+        {
+            var chamado = FindChamadoById(chamadoId);
+            if (chamado == null)
+            {
+                return NotFound();
+            }
+
+            var notificationMessage = $"Você tem uma nova notificação no chamado #{chamadoId} - {chamado.Servico}";
+
+            // Sends the notification to the specific user identifier (their CPF)
+            await _notificationHubContext.Clients.User(chamado.ColaboradorCPF).SendAsync("ReceiveNotification", "Sistema", notificationMessage);
+
+            return Ok();
         }
 
         private async Task SendNotificationAsync(Chamado chamado, string status, string userId)

@@ -10,7 +10,15 @@
 <div id="messages-list" style="height: 400px; overflow-y: scroll; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
     @foreach (var conversa in Model)
     {
-        <div><strong>@conversa.UsuarioNome:</strong> @conversa.Mensagem <span class="text-muted" style="font-size: 0.8em;">(@conversa.DataCriacao.ToString("g"))</span></div>
+        var lidoIcon = conversa.Lido ? "<i class='fas fa-check-double text-primary' title='Lido'></i>" : "<i class='fas fa-check text-muted' title='Enviado'></i>";
+        <div>
+            <strong>@conversa.UsuarioNome:</strong> @conversa.Mensagem
+            <span class="text-muted" style="font-size: 0.8em;">(@conversa.DataCriacao.ToString("g"))</span>
+            @if(User.Identity.Name == conversa.UsuarioNome)
+            {
+                <span style="font-size: 0.8em; margin-left: 5px;">@Html.Raw(lidoIcon)</span>
+            }
+        </div>
     }
 </div>
 
@@ -40,7 +48,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     connection.on("ReceiveMessage", function (user, message, timestamp) {
         const msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const encodedMsg = `<div><strong>${user}:</strong> ${msg} <span class="text-muted" style="font-size: 0.8em;">(${new Date(timestamp).toLocaleString()})</span></div>`;
+        const isCurrentUser = user === '@User.Identity.Name';
+        const lidoIcon = isCurrentUser ? `<span style="font-size: 0.8em; margin-left: 5px;"><i class='fas fa-check text-muted' title='Enviado'></i></span>` : "";
+        const encodedMsg = `<div><strong>${user}:</strong> ${msg} <span class="text-muted" style="font-size: 0.8em;">(${new Date(timestamp).toLocaleString()})</span>${lidoIcon}</div>`;
         messagesList.innerHTML += encodedMsg;
         messagesList.scrollTop = messagesList.scrollHeight;
     });
