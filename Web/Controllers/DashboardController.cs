@@ -28,12 +28,32 @@ namespace Web.Controllers
                 // Computadores
                 using (var cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, col.Nome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
+                    cmd.CommandText = "SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, comp.BateriaWearLevel, col.Nome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
                             viewModel.TotalComputadores++;
+
+                            double? bateriaWearLevel = null;
+                            if (reader["BateriaWearLevel"] != DBNull.Value)
+                            {
+                                string wearLevelStr = reader["BateriaWearLevel"].ToString();
+                                // Parse format "Ciclo: X - Y% Desgaste"
+                                if (wearLevelStr.Contains("% Desgaste"))
+                                {
+                                    var parts = wearLevelStr.Split('-');
+                                    if (parts.Length == 2)
+                                    {
+                                        string percStr = parts[1].Replace("% Desgaste", "").Trim();
+                                        if (double.TryParse(percStr, out double perc))
+                                        {
+                                            bateriaWearLevel = perc;
+                                        }
+                                    }
+                                }
+                            }
+
                             viewModel.Equipamentos.Add(new EquipamentoDashboardItem
                             {
                                 TipoEquipamento = "Computador",
@@ -42,7 +62,8 @@ namespace Web.Controllers
                                 DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
                                 Backup = reader["Backup"].ToString(),
                                 DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
-                                ColaboradorNome = reader["Nome"].ToString()
+                                ColaboradorNome = reader["Nome"].ToString(),
+                                BateriaWearLevel = bateriaWearLevel
                             });
                         }
                     }
@@ -168,6 +189,64 @@ namespace Web.Controllers
             foreach (var key in sortedExpirations)
             {
                 viewModel.GarantiaBarData.Add(new ChartData { Label = key, Value = expirations[key] });
+            }
+
+            // Calculate Battery Wear Data
+            double totalWear = 0;
+            int wearCount = 0;
+            var computersWithBattery = new List<EquipamentoDashboardItem>();
+
+            foreach (var item in viewModel.Equipamentos)
+            {
+                if (item.TipoEquipamento == "Computador" && item.BateriaWearLevel.HasValue)
+                {
+                    totalWear += item.BateriaWearLevel.Value;
+                    wearCount++;
+                    computersWithBattery.Add(item);
+                }
+            }
+
+            if (wearCount > 0)
+            {
+                viewModel.AverageBatteryWear = totalWear / wearCount;
+                computersWithBattery.Sort((a, b) => b.BateriaWearLevel.Value.CompareTo(a.BateriaWearLevel.Value)); // Sort descending
+
+                viewModel.WorstBatteryComputer = computersWithBattery[0];
+
+                int topCount = Math.Min(5, computersWithBattery.Count);
+                for (int i = 0; i < topCount; i++)
+                {
+                    viewModel.TopWorstBatteries.Add(computersWithBattery[i]);
+                }
+            }
+
+            // Calculate Coleta Data
+            var coletaCounts = new Dictionary<string, int>();
+            foreach (var item in viewModel.Equipamentos)
+            {
+                if (item.TipoEquipamento == "Computador" && item.DataColeta.HasValue)
+                {
+                    string key = item.DataColeta.Value.ToString("dd/MM/yyyy");
+                    if (coletaCounts.ContainsKey(key))
+                    {
+                        coletaCounts[key]++;
+                    }
+                    else
+                    {
+                        coletaCounts[key] = 1;
+                    }
+                }
+            }
+
+            var sortedColetas = new List<string>(coletaCounts.Keys);
+            sortedColetas.Sort((a, b) => DateTime.ParseExact(a, "dd/MM/yyyy", null).CompareTo(DateTime.ParseExact(b, "dd/MM/yyyy", null)));
+
+            // Show last 7 days of data at most for the chart
+            int startIndex = Math.Max(0, sortedColetas.Count - 7);
+            for (int i = startIndex; i < sortedColetas.Count; i++)
+            {
+                var key = sortedColetas[i];
+                viewModel.ColetaBarData.Add(new ChartData { Label = key, Value = coletaCounts[key] });
             }
 
             return View(viewModel);

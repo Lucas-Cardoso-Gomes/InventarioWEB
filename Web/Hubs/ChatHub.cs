@@ -38,8 +38,8 @@ namespace Web.Hubs
                 using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-                    var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao)
-                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao)";
+                    var sql = @"INSERT INTO ChamadoConversas (ChamadoID, UsuarioCPF, Mensagem, DataCriacao, Lido)
+                                VALUES (@ChamadoID, @UsuarioCPF, @Mensagem, @DataCriacao, 0)";
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sql;
