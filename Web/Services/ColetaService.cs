@@ -47,7 +47,6 @@ namespace Web.Services
                     if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
                     {
                         string message = $"Timeout ao conectar com: {computadorIp}";
-                        _logService.AddLog("Warning", message, "Coleta");
                         onResult(message);
                         return;
                     }

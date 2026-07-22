@@ -39,7 +39,6 @@ namespace Web.Services
                     if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
                     {
                         string message = $"Timeout ao conectar com: {computadorIp} para enviar o comando.";
-                        _logService.AddLog("Warning", message, "Comandos");
                         return message;
                     }
 
