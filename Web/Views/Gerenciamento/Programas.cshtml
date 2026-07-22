@@ -1,0 +1,122 @@
+@model Web.Models.ColetaViewModel
+@{
+    ViewData["Title"] = "Coletar Programas";
+}
+
+<div class="container mt-4">
+    <h2>Coletar Programas Instalados</h2>
+    <p>Utilize esta ferramenta para extrair a lista de programas instalados de computadores na rede. Os equipamentos devem estar ligados, com o agente rodando e já cadastrados (MAC associado ao IP) na base de dados.</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-search me-1"></i>
+                    Opções de Coleta
+                </div>
+                <div class="card-body">
+                    <form asp-action="Programas" method="post" id="coletaForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Modo de Coleta:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="TipoColeta" id="radioIp" value="ip" @(Model.TipoColeta == "ip" || string.IsNullOrEmpty(Model.TipoColeta) ? "checked" : "")>
+                                <label class="form-check-label" for="radioIp">
+                                    Por Endereço IP Único
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="TipoColeta" id="radioRange" value="range" @(Model.TipoColeta == "range" ? "checked" : "")>
+                                <label class="form-check-label" for="radioRange">
+                                    Por Range de IP (Varredura)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="ipInputGroup" class="mb-3" style="display: @(Model.TipoColeta == "ip" || string.IsNullOrEmpty(Model.TipoColeta) ? "block" : "none");">
+                            <label asp-for="IpAddress" class="form-label">Endereço IP</label>
+                            <input asp-for="IpAddress" class="form-control" placeholder="Ex: 192.168.1.100" />
+                            <span asp-validation-for="IpAddress" class="text-danger"></span>
+                        </div>
+
+                        <div id="rangeInputGroup" class="mb-3" style="display: @(Model.TipoColeta == "range" ? "block" : "none");">
+                            <label asp-for="IpRange" class="form-label">Faixa de IP</label>
+                            <select asp-for="IpRange" class="form-select">
+                                <option value="all">Todas as Faixas Conhecidas (10.0.0.* até 10.4.4.*)</option>
+                                <option value="10.0.0.">10.0.0.*</option>
+                                <option value="10.0.1.">10.0.1.*</option>
+                                <option value="10.0.2.">10.0.2.*</option>
+                                <option value="10.1.1.">10.1.1.*</option>
+                                <option value="10.1.2.">10.1.2.*</option>
+                                <option value="10.2.2.">10.2.2.*</option>
+                                <option value="10.3.3.">10.3.3.*</option>
+                                <option value="10.4.4.">10.4.4.*</option>
+                            </select>
+                            <span asp-validation-for="IpRange" class="text-danger"></span>
+                            <small class="text-muted mt-1 d-block">Varreduras completas podem demorar alguns minutos. Monitore o Log Persistente.</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btnSubmit">
+                            <span id="spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            Iniciar Coleta
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Status da Execução
+                </div>
+                <div class="card-body">
+                    @if (Model.ColetaIniciada)
+                    {
+                        <div class="alert alert-success">
+                            <h5 class="alert-heading">Ação Registrada!</h5>
+                            <p>A coleta foi enviada para processamento em background.</p>
+                            <hr>
+                            <ul class="mb-0">
+                                @foreach (var result in Model.Resultados)
+                                {
+                                    <li>@result</li>
+                                }
+                            </ul>
+                        </div>
+                        <a href="/Gerenciamento/PersistentLogs?actionTypeFilter=Programas" class="btn btn-outline-dark mt-2">Acompanhar Progresso nos Logs</a>
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center mt-4">Nenhuma coleta em andamento na sessão atual.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a asp-action="Index" class="btn btn-secondary">Voltar ao Gerenciamento</a>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(document).ready(function () {
+            $('input[type=radio][name=TipoColeta]').change(function () {
+                if (this.value == 'ip') {
+                    $('#ipInputGroup').show();
+                    $('#rangeInputGroup').hide();
+                }
+                else if (this.value == 'range') {
+                    $('#ipInputGroup').hide();
+                    $('#rangeInputGroup').show();
+                }
+            });
+
+            $('#coletaForm').submit(function() {
+                $('#spinner').removeClass('d-none');
+                $('#btnSubmit').prop('disabled', true);
+            });
+        });
+    </script>
+}
