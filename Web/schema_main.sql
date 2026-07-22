@@ -39,6 +39,38 @@ CREATE TABLE IF NOT EXISTS Usuarios (
     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
 );
 
+CREATE TABLE IF NOT EXISTS Feedbacks (
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Protocolo TEXT NOT NULL UNIQUE,
+    Assunto TEXT NOT NULL,
+    Mensagem TEXT NOT NULL,
+    DataCriacao TEXT NOT NULL,
+    UsuarioCPF TEXT,
+    Status TEXT NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado')),
+    FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
+);
+
+CREATE TABLE IF NOT EXISTS FeedbackConversas (
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    FeedbackID INTEGER NOT NULL,
+    UsuarioCPF TEXT, -- Pode ser null se for o autor anônimo ou admin não vinculado
+    Remetente TEXT NOT NULL, -- "Anônimo", "Admin", ou Nome
+    Mensagem TEXT NOT NULL,
+    DataCriacao TEXT NOT NULL,
+    FOREIGN KEY (FeedbackID) REFERENCES Feedbacks(ID) ON DELETE CASCADE,
+    FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
+);
+
+CREATE TABLE IF NOT EXISTS ProgramasInstalados (
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    ComputadorMAC TEXT NOT NULL,
+    Nome TEXT NOT NULL,
+    Versao TEXT,
+    Desenvolvedor TEXT,
+    DataColeta TEXT NOT NULL,
+    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Computadores (
     MAC TEXT PRIMARY KEY,
     IP TEXT,
@@ -128,6 +160,7 @@ CREATE TABLE IF NOT EXISTS ChamadoConversas (
     UsuarioCPF TEXT NOT NULL,
     Mensagem TEXT NOT NULL,
     DataCriacao TEXT NOT NULL,
+    Lido INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (ChamadoID) REFERENCES Chamados(ID) ON DELETE CASCADE,
     FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
 );

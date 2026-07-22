@@ -9,6 +9,7 @@ namespace Web.Models
         public string UsuarioCPF { get; set; }
         public string Mensagem { get; set; }
         public DateTime DataCriacao { get; set; }
+        public bool Lido { get; set; }
         public string UsuarioNome { get; set; } // To display in the chat view
     }
 }
