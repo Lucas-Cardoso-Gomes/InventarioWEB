@@ -111,7 +111,9 @@ namespace Web.Services
 
                         "ALTER TABLE Smartphones ADD COLUMN DataGarantia TEXT;",
 
-                        "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;"
+                        "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;",
+                        
+                        "ALTER TABLE Feedbacks ADD COLUMN Protocolo TEXT;"
                     };
 
                     foreach (var stmt in columnsToAdd)
@@ -146,9 +148,10 @@ namespace Web.Services
                                     DataAlteracao TEXT NOT NULL,
                                     Usuario TEXT NOT NULL
                                 );
-
+                                
                                 CREATE TABLE IF NOT EXISTS Feedbacks (
                                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    Protocolo TEXT NOT NULL UNIQUE,
                                     Assunto TEXT NOT NULL,
                                     Mensagem TEXT NOT NULL,
                                     DataCriacao TEXT NOT NULL,
@@ -156,7 +159,7 @@ namespace Web.Services
                                     Status TEXT NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado')),
                                     FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
                                 );
-
+                                
                                 CREATE TABLE IF NOT EXISTS FeedbackConversas (
                                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                                     FeedbackID INTEGER NOT NULL,
@@ -167,7 +170,7 @@ namespace Web.Services
                                     FOREIGN KEY (FeedbackID) REFERENCES Feedbacks(ID) ON DELETE CASCADE,
                                     FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
                                 );
-
+                                
                                 CREATE TABLE IF NOT EXISTS ProgramasInstalados (
                                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                                     ComputadorMAC TEXT NOT NULL,

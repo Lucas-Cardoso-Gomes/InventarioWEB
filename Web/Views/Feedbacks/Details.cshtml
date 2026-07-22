@@ -15,10 +15,10 @@
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Autor:</dt>
                     <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.UsuarioCPF) ? "Anônimo" : Model.AutorNome)</dd>
-
+                    
                     <dt class="col-sm-4">Data:</dt>
                     <dd class="col-sm-8">@Model.DataCriacao.ToString("dd/MM/yyyy HH:mm")</dd>
-
+                    
                     <dt class="col-sm-4">Status:</dt>
                     <dd class="col-sm-8">
                         @if(Model.Status == "Aberto")
@@ -48,15 +48,16 @@
     </div>
     <div class="col-md-8">
         <div class="card mb-4">
-            <div class="card-header">
-                <strong>Assunto:</strong> @Model.Assunto
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><strong>Assunto:</strong> @Model.Assunto</span>
+                <span class="badge bg-dark">@Model.Protocolo</span>
             </div>
             <div class="card-body">
                 <div class="p-3 bg-light border rounded mb-3">
                     <strong>Mensagem Original:</strong><br/>
                     @Model.Mensagem
                 </div>
-
+                
                 <hr />
                 <h5>Conversa (Anotações/Respostas)</h5>
                 <div class="chat-container" style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px;">
@@ -75,20 +76,34 @@
                         <div class="text-center text-muted">Nenhuma mensagem adicional.</div>
                     }
                 </div>
-
+                
                 @if (Model.Status != "Fechado")
                 {
                     <form asp-action="SendMessage" method="post">
                         <input type="hidden" name="feedbackId" value="@Model.ID" />
+                        @if (!User.Identity.IsAuthenticated)
+                        {
+                            <input type="hidden" name="remetente" value="Autor" />
+                        }
                         <div class="input-group">
                             <input type="text" name="mensagem" class="form-control" placeholder="Adicionar nota ou resposta..." required />
                             <button type="submit" class="btn btn-primary">Enviar</button>
                         </div>
                     </form>
-                    <small class="text-muted mt-1 d-block">Nota: O autor anônimo não será notificado desta resposta, use apenas como registro/anotação interna.</small>
+                    @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH"))
+                    {
+                        <small class="text-muted mt-1 d-block">Nota: O autor anônimo não recebe notificação ativa, ele precisará verificar usando o protocolo.</small>
+                    }
                 }
             </div>
         </div>
-        <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
+        @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH"))
+        {
+            <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
+        }
+        else
+        {
+            <a href="/" class="btn btn-secondary">Voltar ao Início</a>
+        }
     </div>
 </div>

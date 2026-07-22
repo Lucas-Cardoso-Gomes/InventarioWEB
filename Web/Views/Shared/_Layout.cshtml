@@ -71,25 +71,18 @@
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="navbarDropdownGerenciamento">
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Programas" asp-action="Index">Programas Instalados</a></li>
-                                </ul>
-                            </li>
-                        }
-
-                        @if (User.IsInRole("Admin"))
-                        {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle text-dark" href="#" id="navbarDropdownConfig" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Configurações
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="navbarDropdownConfig">
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Colaboradores" asp-action="Index">Colaboradores</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Users" asp-action="Index">Usuários</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Index">Gerenciamento Remoto</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Monitoramento" asp-action="Index">Monitoramento de Rede</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Logs">Logs do Sistema</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="PersistentLogs">Log Persistente</a></li>
+                                    @if (User.IsInRole("Admin"))
+                                    {
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Colaboradores" asp-action="Index">Colaboradores</a></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Users" asp-action="Index">Usuários</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Index">Gerenciamento Remoto</a></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Monitoramento" asp-action="Index">Monitoramento de Rede</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="Logs">Logs do Sistema</a></li>
+                                        <li><a class="dropdown-item" asp-area="" asp-controller="Gerenciamento" asp-action="PersistentLogs">Log Persistente</a></li>
+                                    }
                                 </ul>
                             </li>
                         }
@@ -165,6 +158,9 @@
                             <label class="form-check-label" for="feedbackAnonimo">
                                 Enviar anonimamente
                             </label>
+                        </div>
+                        <div class="mt-2 text-center">
+                            <a href="/Feedbacks/Acompanhar" class="text-decoration-none">Já enviou um feedback? Acompanhe aqui.</a>
                         </div>
                     </div>
                     <div class="modal-footer">
