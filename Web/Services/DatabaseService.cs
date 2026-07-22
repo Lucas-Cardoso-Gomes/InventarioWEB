@@ -103,13 +103,17 @@ namespace Web.Services
                         "ALTER TABLE Computadores ADD COLUMN TempoAtividade TEXT;",
                         "ALTER TABLE Computadores ADD COLUMN Localizacao TEXT;",
 
+                        "ALTER TABLE ChamadoConversas ADD COLUMN Lido INTEGER NOT NULL DEFAULT 0;",
+
                         "ALTER TABLE Monitores ADD COLUMN DataGarantia TEXT;",
 
                         "ALTER TABLE Perifericos ADD COLUMN DataGarantia TEXT;",
 
                         "ALTER TABLE Smartphones ADD COLUMN DataGarantia TEXT;",
 
-                        "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;"
+                        "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;",
+
+                        "ALTER TABLE Feedbacks ADD COLUMN Protocolo TEXT;"
                     };
 
                     foreach (var stmt in columnsToAdd)
@@ -143,6 +147,38 @@ namespace Web.Services
                                     ValorNovo TEXT,
                                     DataAlteracao TEXT NOT NULL,
                                     Usuario TEXT NOT NULL
+                                );
+
+                                CREATE TABLE IF NOT EXISTS Feedbacks (
+                                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    Protocolo TEXT NOT NULL UNIQUE,
+                                    Assunto TEXT NOT NULL,
+                                    Mensagem TEXT NOT NULL,
+                                    DataCriacao TEXT NOT NULL,
+                                    UsuarioCPF TEXT,
+                                    Status TEXT NOT NULL DEFAULT 'Aberto' CHECK (Status IN ('Aberto', 'Em Andamento', 'Fechado')),
+                                    FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
+                                );
+
+                                CREATE TABLE IF NOT EXISTS FeedbackConversas (
+                                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    FeedbackID INTEGER NOT NULL,
+                                    UsuarioCPF TEXT,
+                                    Remetente TEXT NOT NULL,
+                                    Mensagem TEXT NOT NULL,
+                                    DataCriacao TEXT NOT NULL,
+                                    FOREIGN KEY (FeedbackID) REFERENCES Feedbacks(ID) ON DELETE CASCADE,
+                                    FOREIGN KEY (UsuarioCPF) REFERENCES Colaboradores(CPF)
+                                );
+
+                                CREATE TABLE IF NOT EXISTS ProgramasInstalados (
+                                    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    ComputadorMAC TEXT NOT NULL,
+                                    Nome TEXT NOT NULL,
+                                    Versao TEXT,
+                                    Desenvolvedor TEXT,
+                                    DataColeta TEXT NOT NULL,
+                                    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
                                 );";
                             command.ExecuteNonQuery();
                         }
