@@ -265,12 +265,68 @@ namespace coleta
                                             }
                                             else if (comandoRemoto == "get_installed_programs")
                                             {
-                                                Console.WriteLine($"[INFO] Coletando programas instalados (wmic / PowerShell)...");
-                                                // Usamos PowerShell porque winget às vezes requer interação de usuário ou falha em background
-                                                // Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*
-                                                string script = @"Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher | ConvertTo-Json -Compress";
+                                                Console.WriteLine($"[INFO] Coletando programas instalados (wmic / PowerShell + winget)...");
+                                                string script = @"
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'SilentlyContinue'
+$regProgs = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher
+$wingetOut = winget list --accept-source-agreements --accept-package-agreements
+$wingetMap = @{}
+$dashLineIdx = -1
+if ($wingetOut -ne $null) {
+    for ($i=0; $i -lt $wingetOut.Count; $i++) {
+        if ($wingetOut[$i] -match '^-+$') { $dashLineIdx = $i; break }
+    }
+}
+if ($dashLineIdx -gt 0) {
+    $header = $wingetOut[$dashLineIdx - 1]
+    $cols = $header -split '\s{2,}'
+    if ($cols.Count -ge 3) {
+        $idIdx = $header.IndexOf($cols[1])
+        $versionIdx = $header.IndexOf($cols[2])
+        for ($i = $dashLineIdx + 1; $i -lt $wingetOut.Count; $i++) {
+            $line = $wingetOut[$i]
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $name = if ($line.Length -gt $idIdx) { $line.Substring(0, $idIdx).TrimEnd() } else { $line.TrimEnd() }
+            $id = if ($line.Length -gt $versionIdx) { $line.Substring($idIdx, $versionIdx - $idIdx).TrimEnd() } elseif ($line.Length -gt $idIdx) { $line.Substring($idIdx).TrimEnd() } else { """" }
+            $version = if ($line.Length -gt $versionIdx) { $line.Substring($versionIdx).TrimEnd() -replace '\s{2,}.*','' } else { """" }
+            if ($name) { $wingetMap[$name] = @{ Id = $id; Version = $version } }
+        }
+    }
+}
 
-                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -ExecutionPolicy Bypass -Command \"{script}\"");
+$results = @()
+$processedNames = @{}
+foreach ($regProg in $regProgs) {
+    $name = $regProg.DisplayName
+    if (-not $processedNames.ContainsKey($name)) {
+        $id = """"
+        if ($wingetMap.ContainsKey($name)) { $id = $wingetMap[$name].Id }
+        $results += [PSCustomObject]@{
+            DisplayName = $name
+            Id = $id
+            DisplayVersion = $regProg.DisplayVersion
+            Publisher = $regProg.Publisher
+        }
+        $processedNames[$name] = $true
+    }
+}
+
+foreach ($key in $wingetMap.Keys) {
+    if (-not $processedNames.ContainsKey($key)) {
+        $results += [PSCustomObject]@{
+            DisplayName = $key
+            Id = $wingetMap[$key].Id
+            DisplayVersion = $wingetMap[$key].Version
+            Publisher = """"
+        }
+    }
+}
+$results | ConvertTo-Json -Compress
+";
+                                                byte[] scriptBytes = System.Text.Encoding.Unicode.GetBytes(script);
+                                                string encodedCommand = Convert.ToBase64String(scriptBytes);
+                                                string resultado = Comandos.ExecutarComando($"powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand {encodedCommand} 2>nul");
                                                 await writer.WriteLineAsync(resultado);
                                                 Console.WriteLine($"[INFO] Lista de programas enviada.");
                                             }
