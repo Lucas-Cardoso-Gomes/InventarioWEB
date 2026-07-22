@@ -15,10 +15,10 @@
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Autor:</dt>
                     <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.UsuarioCPF) ? "Anônimo" : Model.AutorNome)</dd>
-
+                    
                     <dt class="col-sm-4">Data:</dt>
                     <dd class="col-sm-8">@Model.DataCriacao.ToString("dd/MM/yyyy HH:mm")</dd>
-
+                    
                     <dt class="col-sm-4">Status:</dt>
                     <dd class="col-sm-8">
                         @if(Model.Status == "Aberto")
@@ -57,7 +57,7 @@
                     <strong>Mensagem Original:</strong><br/>
                     @Model.Mensagem
                 </div>
-
+                
                 <hr />
                 <h5>Conversa (Anotações/Respostas)</h5>
                 <div class="chat-container" style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px;">
@@ -76,7 +76,7 @@
                         <div class="text-center text-muted">Nenhuma mensagem adicional.</div>
                     }
                 </div>
-
+                
                 @if (Model.Status != "Fechado")
                 {
                     <form asp-action="SendMessage" method="post">

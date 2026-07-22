@@ -76,9 +76,9 @@ namespace Web.Controllers
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                var sql = @"SELECT f.*, c.Nome as AutorNome
-                            FROM Feedbacks f
-                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF
+                var sql = @"SELECT f.*, c.Nome as AutorNome 
+                            FROM Feedbacks f 
+                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF 
                             ORDER BY f.DataCriacao DESC";
                 using (var cmd = connection.CreateCommand())
                 {
@@ -128,9 +128,9 @@ namespace Web.Controllers
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                var sql = @"SELECT f.*, c.Nome as AutorNome
-                            FROM Feedbacks f
-                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF
+                var sql = @"SELECT f.*, c.Nome as AutorNome 
+                            FROM Feedbacks f 
+                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF 
                             WHERE f.Protocolo = @Protocolo";
                 using (var cmd = connection.CreateCommand())
                 {
@@ -197,9 +197,9 @@ namespace Web.Controllers
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                var sql = @"SELECT f.*, c.Nome as AutorNome
-                            FROM Feedbacks f
-                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF
+                var sql = @"SELECT f.*, c.Nome as AutorNome 
+                            FROM Feedbacks f 
+                            LEFT JOIN Colaboradores c ON f.UsuarioCPF = c.CPF 
                             WHERE f.ID = @ID";
                 using (var cmd = connection.CreateCommand())
                 {
@@ -274,7 +274,7 @@ namespace Web.Controllers
                 using (var connection = _databaseService.CreateConnection())
                 {
                     connection.Open();
-
+                    
                     // Pega o protocolo para redirecionamento caso seja anônimo
                     var sqlProto = "SELECT Protocolo FROM Feedbacks WHERE ID = @ID";
                     using (var cmdProto = connection.CreateCommand())

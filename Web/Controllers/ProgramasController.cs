@@ -32,15 +32,15 @@ namespace Web.Controllers
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                var sql = @"SELECT p.*, c.Hostname
-                            FROM ProgramasInstalados p
+                var sql = @"SELECT p.*, c.Hostname 
+                            FROM ProgramasInstalados p 
                             JOIN Computadores c ON p.ComputadorMAC = c.MAC";
-
+                
                 if (!string.IsNullOrEmpty(filter))
                 {
                     sql += " WHERE p.Nome LIKE @Filter OR c.Hostname LIKE @Filter";
                 }
-
+                
                 sql += " ORDER BY p.Nome ASC";
 
                 using (var cmd = connection.CreateCommand())
@@ -53,7 +53,7 @@ namespace Web.Controllers
                         p.Value = "%" + filter + "%";
                         cmd.Parameters.Add(p);
                     }
-
+                    
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -72,7 +72,7 @@ namespace Web.Controllers
                     }
                 }
             }
-
+            
             ViewBag.Filter = filter;
             return View(programas);
         }
@@ -93,7 +93,7 @@ namespace Web.Controllers
                 // The actual processing should happen in background or via SignalR, here we trigger and wait
                 // Due to timeout limits in synchronous web requests, we will just send the command.
                 // The agent needs to return a large JSON array which we should parse.
-
+                
                 // Fire and forget or handle properly?
                 // Let's create a background task or use a dedicated method
                 Task.Run(async () =>
@@ -101,22 +101,22 @@ namespace Web.Controllers
                     try {
                         string resultado = await _comandoService.EnviarComandoAsync(ip, "get_installed_programs");
                         _logger.LogInformation("Recebeu resposta do comando get_installed_programs");
-
+                        
                         // Limpa a string para pegar apenas o JSON (ignora mensagens de erro/aviso que podem vir do PowerShell)
                         string jsonToParse = resultado;
                         int firstBrace = resultado.IndexOf('{');
                         int firstBracket = resultado.IndexOf('[');
-
+                        
                         if (firstBrace != -1 || firstBracket != -1)
                         {
                             int startIdx = -1;
                             if (firstBrace != -1 && firstBracket != -1) startIdx = Math.Min(firstBrace, firstBracket);
                             else if (firstBrace != -1) startIdx = firstBrace;
                             else startIdx = firstBracket;
-
+                            
                             jsonToParse = resultado.Substring(startIdx);
                         }
-
+                        
                         if (string.IsNullOrWhiteSpace(jsonToParse))
                         {
                             _logger.LogWarning($"Resultado vazio ou inválido recebido de {ip}. Resposta original: {resultado}");
@@ -126,7 +126,7 @@ namespace Web.Controllers
                         // Parse JSON result and save to DB
                         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                         var jsonDoc = JsonDocument.Parse(jsonToParse);
-
+                        
                         var programas = new List<ProgramaInfo>();
                         if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
                         {
@@ -162,7 +162,7 @@ namespace Web.Controllers
                                     var pDel = cmdDel.CreateParameter(); pDel.ParameterName = "@MAC"; pDel.Value = mac; cmdDel.Parameters.Add(pDel);
                                     cmdDel.ExecuteNonQuery();
                                 }
-
+                                
                                 // Insert new
                                 var dataColeta = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                                 foreach (var p in programas)
