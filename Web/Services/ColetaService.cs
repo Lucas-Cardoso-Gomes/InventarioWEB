@@ -128,7 +128,7 @@ namespace Web.Services
             return false;
         }
 
-        private void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
+        public void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
         {
             using (var connection = _databaseService.CreateConnection())
             {

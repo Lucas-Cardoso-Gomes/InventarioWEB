@@ -14,6 +14,8 @@ using Coleta.Models;
 using Coleta;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Net.Http;
+using System.Net.Http.Headers;
 
 namespace coleta
 {
@@ -67,6 +69,9 @@ namespace coleta
             string realizarComandos = config["Autenticacao:RealizarComandos"];
 
             Console.Clear();
+
+            // Fire and forget a coleta inicial de telemetria
+            _ = Task.Run(() => SendInitialTelemetryAsync(config, solicitarInformacoes));
 
             try
             {
@@ -434,6 +439,69 @@ $results | ConvertTo-Json -Compress
                 Console.WriteLine("Erro: " + ex.Message);
             }
             Console.WriteLine("Fora do Loop, sistema finalizando operações...");
+        }
+
+        static async Task SendInitialTelemetryAsync(IConfiguration config, string authKey)
+        {
+            try
+            {
+                Console.WriteLine("[INFO] Iniciando coleta de telemetria inicial...");
+                
+                var hardwareInfo = new HardwareInfo
+                {
+                    Processador = Processador.GetProcessorInfo(),
+                    Ram = RAM.GetRamInfo(),
+                    Usuario = User.GetUserInfo(),
+                    Fabricante = Fabricante.GetManufacturer(),
+                    MAC = MAC.GetFormattedMacAddress(),
+                    SO = OS.GetOSInfo(),
+                    ConsumoCPU = Consumo.Uso(),
+                    Armazenamento = Armazenamento.GetStorageInfo(),
+                    BateriaWearLevel = Bateria.GetWearLevel(),
+                    TempoAtividade = Uptime.GetUptime()
+                };
+
+                string serverUrl = config["Servidor:Url"];
+                if (string.IsNullOrEmpty(serverUrl))
+                {
+                    Console.WriteLine("[WARN] URL do Servidor não configurada. Telemetria inicial não enviada.");
+                    return;
+                }
+
+                string endpoint = $"{serverUrl.TrimEnd('/')}/api/agent/telemetry";
+                
+                string authHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(authKey)));
+
+                string payload = JsonSerializer.Serialize(hardwareInfo);
+                var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+                // Ignorar erros de certificado SSL auto-assinado/desenvolvimento
+                var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+                };
+
+                using (var httpClient = new HttpClient(handler))
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authHash);
+                    
+                    Console.WriteLine($"[INFO] Enviando telemetria inicial para {endpoint}...");
+                    var response = await httpClient.PostAsync(endpoint, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("[INFO] Telemetria inicial enviada com sucesso.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ERROR] Falha ao enviar telemetria inicial. Status: {response.StatusCode}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Erro na coleta ou envio da telemetria inicial: {ex.Message}");
+            }
         }
     }
 }
