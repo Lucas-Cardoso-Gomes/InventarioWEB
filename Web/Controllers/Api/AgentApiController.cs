@@ -92,7 +92,7 @@ namespace Web.Controllers.Api
                     }
 
                     _coletaService.SalvarDados(hardwareInfo, ip);
-                    _logService.AddLog("Info", $"Telemetry recebida e salva de {ip} (MAC: {hardwareInfo.MAC})", "Coleta");
+                    _logService.AddLog("Info", $"Telemetria recebida e salva de {ip} (MAC: {hardwareInfo.MAC})", "Coleta");
 
                     return Ok();
                 }
