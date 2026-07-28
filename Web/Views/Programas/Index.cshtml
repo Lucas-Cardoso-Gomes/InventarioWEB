@@ -3,13 +3,28 @@
 @{
     ViewData["Title"] = "Programas Instalados";
 
-    // Calcula o top 10 programas mais instalados
-    var top10 = Model
+    var groupedProgramas = Model
         .GroupBy(p => p.Nome)
-        .Select(g => new { Nome = g.Key, Count = g.Count() })
-        .OrderByDescending(g => g.Count)
+        .Select(g => new {
+            Nome = g.Key,
+            Desenvolvedor = g.FirstOrDefault()?.Desenvolvedor,
+            Quantidade = g.Count(),
+            Instalacoes = g.Select(i => new {
+                Hostname = i.Hostname,
+                ComputadorMAC = i.ComputadorMAC,
+                Versao = i.Versao,
+                DataColeta = i.DataColeta.ToString("dd/MM/yyyy HH:mm")
+            }).ToList()
+        })
+        .OrderByDescending(g => g.Quantidade)
+        .ToList();
+
+    var top10 = groupedProgramas
         .Take(10)
         .ToList();
+
+    var uniqueNames = groupedProgramas.Select(g => g.Nome).OrderBy(n => n).ToList();
+    var uniqueQuantities = groupedProgramas.Select(g => g.Quantidade).Distinct().OrderBy(q => q).ToList();
 }
 
 <div class="container-fluid">
@@ -30,6 +45,36 @@
         </div>
     </div>
 
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-filter me-1"></i>
+            Filtros
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="filterNome" class="form-label">Nome do Programa</label>
+                    <select id="filterNome" class="form-select searchable-select" multiple="multiple">
+                        @foreach (var name in uniqueNames)
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="filterQuantidade" class="form-label">Quantidade de Instalações</label>
+                    <select id="filterQuantidade" class="form-select searchable-select" multiple="multiple">
+                        @foreach (var q in uniqueQuantities)
+                        {
+                            <option value="@q">@q</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card mb-4">
         <div class="card-header">
             <i class="fas fa-table me-1"></i>
@@ -40,26 +85,25 @@
                 <table class="table table-striped table-bordered table-hover align-middle" id="datatablesSimple">
                     <thead>
                         <tr>
-                            <th>Computador</th>
-                            <th>MAC</th>
                             <th>Programa</th>
-                            <th>ID do Pacote</th>
-                            <th>Versão</th>
                             <th>Desenvolvedor</th>
-                            <th>Data da Coleta</th>
+                            <th>Quantidade Instalada</th>
+                            <th class="text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in Model)
+                        @for (int i = 0; i < groupedProgramas.Count; i++)
                         {
+                            var item = groupedProgramas[i];
                             <tr>
-                                <td>@item.Hostname</td>
-                                <td>@item.ComputadorMAC</td>
                                 <td>@item.Nome</td>
-                                <td>@item.PacoteId</td>
-                                <td>@item.Versao</td>
                                 <td>@item.Desenvolvedor</td>
-                                <td>@item.DataColeta.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@item.Quantidade</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-primary btn-ver-pcs" data-index="@i">
+                                        <i class="fas fa-desktop"></i> Ver PCs
+                                    </button>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -69,22 +113,81 @@
     </div>
 </div>
 
+<!-- Modal -->
+<div class="modal fade" id="pcsModal" tabindex="-1" aria-labelledby="pcsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pcsModalLabel">Computadores com o programa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered table-hover align-middle" id="modalTable">
+                <thead>
+                    <tr>
+                        <th>Computador</th>
+                        <th>MAC</th>
+                        <th>Versão</th>
+                        <th>Data da Coleta</th>
+                    </tr>
+                </thead>
+                <tbody id="modalTableBody">
+                </tbody>
+            </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        var programData = @Html.Raw(Json.Serialize(groupedProgramas.Select(g => g.Instalacoes)));
+
         $(document).ready(function() {
+            var table;
             if ($.fn.DataTable) {
-                $('#datatablesSimple').DataTable({
+                // Configuração customizada de filtro para o DataTables
+                $.fn.dataTable.ext.search.push(
+                    function( settings, data, dataIndex ) {
+                        if (settings.nTable.id !== 'datatablesSimple') {
+                            return true;
+                        }
+
+                        var selectedNames = $('#filterNome').val() || [];
+                        var selectedQuantities = $('#filterQuantidade').val() || [];
+
+                        var rowName = data[0]; 
+                        var rowQuantity = data[2];
+
+                        var matchName = selectedNames.length === 0 || selectedNames.includes(rowName);
+                        var matchQuantity = selectedQuantities.length === 0 || selectedQuantities.includes(rowQuantity);
+
+                        return matchName && matchQuantity;
+                    }
+                );
+
+                table = $('#datatablesSimple').DataTable({
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json"
                     }
+                });
+
+                // Atualizar tabela ao alterar filtros
+                $('#filterNome, #filterQuantidade').on('change', function() {
+                    table.draw();
                 });
             }
 
             var ctx = document.getElementById("topProgramasChart");
             if (ctx) {
                 var labels = @Html.Raw(Json.Serialize(top10.Select(t => t.Nome)));
-                var data = @Html.Raw(Json.Serialize(top10.Select(t => t.Count)));
+                var data = @Html.Raw(Json.Serialize(top10.Select(t => t.Quantidade)));
 
                 new Chart(ctx, {
                     type: 'bar',
@@ -122,6 +225,31 @@
                     }
                 });
             }
+
+            // Delegação de evento para o botão Ver PCs
+            $('#datatablesSimple tbody').on('click', '.btn-ver-pcs', function() {
+                var index = $(this).data('index');
+                var instalacoes = programData[index];
+
+                var tbody = $('#modalTableBody');
+                tbody.empty();
+
+                if (instalacoes && instalacoes.length > 0) {
+                    instalacoes.forEach(function(inst) {
+                        var tr = $('<tr>');
+                        tr.append($('<td>').text(inst.hostname || inst.Hostname || ''));
+                        tr.append($('<td>').text(inst.computadorMAC || inst.ComputadorMAC || ''));
+                        tr.append($('<td>').text(inst.versao || inst.Versao || ''));
+                        tr.append($('<td>').text(inst.dataColeta || inst.DataColeta || ''));
+                        tbody.append(tr);
+                    });
+                } else {
+                    tbody.append('<tr><td colspan="4" class="text-center">Nenhuma instalação encontrada.</td></tr>');
+                }
+
+                var pcsModal = new bootstrap.Modal(document.getElementById('pcsModal'));
+                pcsModal.show();
+            });
         });
     </script>
 }
