@@ -162,8 +162,8 @@
                         var selectedNames = $('#filterNome').val() || [];
                         var selectedQuantities = $('#filterQuantidade').val() || [];
 
-                        var rowName = data[0]; 
-                        var rowQuantity = data[2];
+                        var rowName = String(data[0] || '').trim(); 
+                        var rowQuantity = String(data[2] || '').trim();
 
                         var matchName = selectedNames.length === 0 || selectedNames.includes(rowName);
                         var matchQuantity = selectedQuantities.length === 0 || selectedQuantities.includes(rowQuantity);
