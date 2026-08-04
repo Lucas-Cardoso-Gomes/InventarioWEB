@@ -1,0 +1,120 @@
+@model Web.Models.Colaborador
+
+@{
+    ViewData["Title"] = "Detalhes do Colaborador";
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-badge"></i> @ViewData["Title"] - @Model.Nome</h2>
+        <div>
+            @if (User.IsInRole("Admin"))
+            {
+                <a asp-action="Edit" asp-route-id="@Model.CPF" class="btn btn-warning"><i class="bi bi-pencil"></i> Editar</a>
+            }
+            <a asp-action="Index" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Dados Pessoais & Organizacionais</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">CPF</dt>
+                <dd class="col-sm-9">@Model.CPF</dd>
+                
+                <dt class="col-sm-3">Nome</dt>
+                <dd class="col-sm-9">@Model.Nome</dd>
+
+                <dt class="col-sm-3">Email</dt>
+                <dd class="col-sm-9">@Model.Email</dd>
+
+                <dt class="col-sm-3">Filial</dt>
+                <dd class="col-sm-9">@Model.Filial</dd>
+
+                <dt class="col-sm-3">Setor</dt>
+                <dd class="col-sm-9">@Model.Setor</dd>
+
+                <dt class="col-sm-3">Coordenador</dt>
+                <dd class="col-sm-9">@Html.DisplayFor(model => model.CoordenadorNome) (@Model.CoordenadorCPF)</dd>
+
+                <dt class="col-sm-3">Data de Inclusão</dt>
+                <dd class="col-sm-9">@Model.DataInclusao?.ToString("g")</dd>
+
+                <dt class="col-sm-3">Última Alteração</dt>
+                <dd class="col-sm-9">@Model.DataAlteracao?.ToString("g")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">Sistemas & Credenciais</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Senha Email</dt>
+                <dd class="col-sm-9">@Model.SenhaEmail</dd>
+
+                <dt class="col-sm-3">Teams</dt>
+                <dd class="col-sm-9">@Model.Teams</dd>
+                
+                <dt class="col-sm-3">Senha Teams</dt>
+                <dd class="col-sm-9">@Model.SenhaTeams</dd>
+
+                <dt class="col-sm-3">E-Despacho</dt>
+                <dd class="col-sm-9">@Model.EDespacho</dd>
+
+                <dt class="col-sm-3">Senha E-Despacho</dt>
+                <dd class="col-sm-9">@Model.SenhaEDespacho</dd>
+
+                <dt class="col-sm-3">Genius</dt>
+                <dd class="col-sm-9">@Model.Genius</dd>
+
+                <dt class="col-sm-3">Senha Genius</dt>
+                <dd class="col-sm-9">@Model.SenhaGenius</dd>
+
+                <dt class="col-sm-3">Ibrooker</dt>
+                <dd class="col-sm-9">@Model.Ibrooker</dd>
+
+                <dt class="col-sm-3">Senha Ibrooker</dt>
+                <dd class="col-sm-9">@Model.SenhaIbrooker</dd>
+
+                <dt class="col-sm-3">Adicional (Sistema)</dt>
+                <dd class="col-sm-9">@Model.Adicional</dd>
+
+                <dt class="col-sm-3">Senha Adicional</dt>
+                <dd class="col-sm-9">@Model.SenhaAdicional</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Equipamentos & Contatos</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Smartphone</dt>
+                <dd class="col-sm-9">@Model.Smartphone</dd>
+
+                <dt class="col-sm-3">Telefone Fixo</dt>
+                <dd class="col-sm-9">@Model.TelefoneFixo</dd>
+
+                <dt class="col-sm-3">Ramal</dt>
+                <dd class="col-sm-9">@Model.Ramal</dd>
+
+                <dt class="col-sm-3">Alarme</dt>
+                <dd class="col-sm-9">@Model.Alarme</dd>
+
+                <dt class="col-sm-3">Videoporteiro</dt>
+                <dd class="col-sm-9">@Model.Videoporteiro</dd>
+
+                <dt class="col-sm-3">Observações</dt>
+                <dd class="col-sm-9">@Model.Obs</dd>
+            </dl>
+        </div>
+    </div>
+</div>

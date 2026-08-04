@@ -84,12 +84,12 @@
 <form asp-action="Index" method="get" class="card mb-4" id="colaboradores-filter-form">
     <div class="card-header" id="filterHeader">
         <h5 class="mb-0">
-            <button class="btn btn-link text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+            <button class="btn btn-link text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
                 Filtros
             </button>
         </h5>
     </div>
-    <div id="filterCollapse" class="collapse show" aria-labelledby="filterHeader">
+    <div id="filterCollapse" class="collapse" aria-labelledby="filterHeader">
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-12">
@@ -146,10 +146,7 @@
                 <th class="col-datainclusao">Data Inclusão</th>
                 <th class="col-dataalteracao">Data Alteração</th>
                 <th class="col-coordenador">Coordenador</th>
-                @if (User.IsInRole("Admin"))
-                {
-                    <th>Ações</th>
-                }
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
@@ -163,14 +160,15 @@
                     <td class="col-datainclusao">@item.DataInclusao?.ToString("g")</td>
                     <td class="col-dataalteracao">@item.DataAlteracao?.ToString("g")</td>
                     <td class="col-coordenador">@Html.DisplayFor(modelItem => item.CoordenadorNome)</td>
-                    @if (User.IsInRole("Admin"))
-                    {
-                        <td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@item.CPF" class="btn btn-primary btn-sm">Detalhes</a>
+                        @if (User.IsInRole("Admin"))
+                        {
                             <a asp-action="Edit" asp-route-id="@item.CPF" class="btn btn-warning btn-sm">Editar</a>
                             <a asp-action="Delete" asp-route-id="@item.CPF" class="btn btn-danger btn-sm">Excluir</a>
                             <a asp-action="GerarTermoPdf" asp-route-id="@item.CPF" class="btn btn-info btn-sm">Gerar Termo PDF</a>
-                        </td>
-                    }
+                        }
+                    </td>
                 </tr>
             }
         </tbody>

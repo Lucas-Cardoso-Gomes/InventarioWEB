@@ -21,7 +21,7 @@ using iText.Layout.Properties;
 
 namespace Web.Controllers
 {
-    [Authorize(Roles = "Admin,Coordenador")]
+    [Authorize]
     public class ColaboradoresController : Controller
     {
         private readonly IDatabaseService _databaseService;
@@ -112,6 +112,22 @@ namespace Web.Controllers
                     addInClause("c.TelefoneFixo", viewModel.CurrentTelefoneFixos);
                     addInClause("c.Ramal", viewModel.CurrentRamais);
                     addInClause("co.Nome", viewModel.CurrentCoordenadores);
+
+                    // Add role-based filtering
+                    if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
+                    {
+                        var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
+                        if (!string.IsNullOrEmpty(userCpf))
+                        {
+                            whereClauses.Add("(c.CPF = @userCpf OR c.CoordenadorCPF = @userCpf)");
+                            parameters.Add("@userCpf", userCpf);
+                        }
+                        else
+                        {
+                            // If the user doesn't have a CPF claim (e.g. they aren't linked to a Colaborador), they should see nothing
+                            whereClauses.Add("1 = 0");
+                        }
+                    }
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
@@ -231,6 +247,28 @@ namespace Web.Controllers
                 }
             }
             ViewBag.Coordenadores = new SelectList(GetCoordenadores(), "CPF", "Nome", colaborador.CoordenadorCPF);
+            return View(colaborador);
+        }
+
+        // GET: Colaboradores/Details/5
+        public IActionResult Details(string id)
+        {
+            if (id == null) return NotFound();
+            var sanitizedId = SanitizeCpf(id);
+            Colaborador colaborador = FindColaboradorById(sanitizedId);
+            if (colaborador == null) return NotFound();
+
+            // Authorization check
+            if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
+            {
+                var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
+                // If the current user's CPF doesn't match the accessed CPF and the accessed user's Coordinator CPF
+                if (userCpf != colaborador.CPF && userCpf != colaborador.CoordenadorCPF)
+                {
+                    return Forbid();
+                }
+            }
+
             return View(colaborador);
         }
 
