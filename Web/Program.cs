@@ -108,7 +108,6 @@ if (!app.Environment.IsDevelopment())
 // Redireciona eventuais pedidos HTTP perdidos para HTTPS
 app.UseHttpsRedirection();
 
-// app.UseHttpsRedirection(); // <-- REDIRECIONAMENTO HTTPS COMENTADO AQUI
 app.UseStaticFiles();
 
 app.UseRouting();

@@ -132,7 +132,8 @@ namespace Web.Controllers
                     using (var countCommand = connection.CreateCommand())
                     {
                         countCommand.CommandText = countSql;
-                        foreach (var p in parameters) {
+                        foreach (var p in parameters)
+                        {
                             var param = countCommand.CreateParameter();
                             param.ParameterName = p.Key;
                             param.Value = p.Value;
@@ -177,7 +178,8 @@ namespace Web.Controllers
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sql;
-                        foreach (var p in parameters) {
+                        foreach (var p in parameters)
+                        {
                             var param = cmd.CreateParameter();
                             param.ParameterName = p.Key;
                             param.Value = p.Value;
@@ -363,8 +365,8 @@ namespace Web.Controllers
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup)
-                                                       VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao)
+                                    VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -478,13 +480,13 @@ namespace Web.Controllers
                                 ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                 SO = reader["SO"].ToString(),
                                 DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
-                                    PartNumber = reader["PartNumber"].ToString(),
-                                    DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
-                                    BateriaWearLevel = reader["BateriaWearLevel"] != DBNull.Value ? reader["BateriaWearLevel"].ToString() : null,
-                                    TempoAtividade = reader["TempoAtividade"] != DBNull.Value ? reader["TempoAtividade"].ToString() : null,
-                                    Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
-                                    Backup = reader["Backup"].ToString(),
-                                    ProcessadorTemperatura = reader["ProcessadorTemperatura"].ToString()
+                                PartNumber = reader["PartNumber"].ToString(),
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
+                                BateriaWearLevel = reader["BateriaWearLevel"] != DBNull.Value ? reader["BateriaWearLevel"].ToString() : null,
+                                TempoAtividade = reader["TempoAtividade"] != DBNull.Value ? reader["TempoAtividade"].ToString() : null,
+                                Localizacao = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : null,
+                                Backup = reader["Backup"].ToString(),
+                                ProcessadorTemperatura = reader["ProcessadorTemperatura"].ToString()
                             };
                         }
                     }
@@ -871,7 +873,8 @@ namespace Web.Controllers
                     {
                         while (reader.Read())
                         {
-                            colaboradores.Add(new Colaborador {
+                            colaboradores.Add(new Colaborador
+                            {
                                 CPF = reader["CPF"].ToString(),
                                 Nome = reader["Nome"].ToString()
                             });
