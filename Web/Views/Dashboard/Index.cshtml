@@ -4,6 +4,10 @@
     ViewData["Title"] = "Dashboard de Equipamentos TI";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+}
+
 <div class="container-fluid">
     <h1 class="mt-4">Dashboard de Equipamentos TI</h1>
     <ol class="breadcrumb mb-4">
@@ -111,8 +115,8 @@
                                                 <div class="progress" style="height: 20px;">
                                                     @{
                                                         string bgClass = "bg-success";
-                                                        if (item.BateriaWearLevel > 50) bgClass = "bg-danger";
-                                                        else if (item.BateriaWearLevel > 20) bgClass = "bg-warning text-dark";
+                                                        if (item.BateriaWearLevel >= 50) bgClass = "bg-danger";
+                                                        else if (item.BateriaWearLevel >= 25) bgClass = "bg-warning text-dark";
                                                     }
                                                     <div class="progress-bar @bgClass" role="progressbar" style="width: @(item.BateriaWearLevel?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%;" aria-valuenow="@(item.BateriaWearLevel?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" aria-valuemin="0" aria-valuemax="100">
                                                         @(item.BateriaWearLevel?.ToString("0.0"))%
@@ -126,6 +130,81 @@
                                 {
                                     <tr>
                                         <td colspan="2" class="text-center text-muted">Nenhum dado de bateria encontrado.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-microchip me-1"></i>
+                    Consumo de CPU (Média)
+                </div>
+                <div class="card-body">
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                        <canvas id="cpuWearPieChart" style="max-height: 250px;"></canvas>
+                    </div>
+                </div>
+                <div class="card-footer small text-muted">
+                    @if (Model.WorstCpuComputer != null)
+                    {
+                        <span>Maior consumo: <strong>@Model.WorstCpuComputer.ModeloOuNome</strong> (@(Model.WorstCpuComputer.CpuUsage?.ToString("0.0"))% de uso)</span>
+                    }
+                    else
+                    {
+                        <span>Dados insuficientes</span>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-list me-1"></i>
+                    Top 5 Computadores com Maior Uso de CPU
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Computador</th>
+                                    <th>Uso de CPU</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.TopWorstCpus.Any())
+                                {
+                                    foreach (var item in Model.TopWorstCpus)
+                                    {
+                                        <tr>
+                                            <td>@item.ModeloOuNome</td>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    @{
+                                                        string bgClass = "bg-success";
+                                                        if (item.CpuUsage >= 50) bgClass = "bg-danger";
+                                                        else if (item.CpuUsage >= 25) bgClass = "bg-warning text-dark";
+                                                    }
+                                                    <div class="progress-bar @bgClass" role="progressbar" style="width: @(item.CpuUsage?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%;" aria-valuenow="@(item.CpuUsage?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" aria-valuemin="0" aria-valuemax="100">
+                                                        @(item.CpuUsage?.ToString("0.0"))%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted">Nenhum dado de CPU encontrado.</td>
                                     </tr>
                                 }
                             </tbody>
@@ -237,6 +316,8 @@
 </div>
 
 @section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         $(document).ready(function() {
@@ -353,27 +434,37 @@
             // Battery Wear Pie Chart
             var ctxBatteryPie = document.getElementById("batteryWearPieChart");
             if (ctxBatteryPie) {
-                var avgWear = @Html.Raw(Json.Serialize(Model.AverageBatteryWear));
-                var remaining = 100 - avgWear;
+                var batteryGood = @Html.Raw(Json.Serialize(Model.BatteryGoodCount));
+                var batteryWarning = @Html.Raw(Json.Serialize(Model.BatteryWarningCount));
+                var batteryCritical = @Html.Raw(Json.Serialize(Model.BatteryCriticalCount));
+
                 new Chart(ctxBatteryPie, {
                     type: 'pie',
                     data: {
-                        labels: ["Desgaste Médio", "Saúde Restante"],
+                        labels: ["Boa (0-24%)", "Atenção (25-49%)", "Ruim (50%+)"],
                         datasets: [{
-                            data: [avgWear.toFixed(2), remaining.toFixed(2)],
-                            backgroundColor: ['#dc3545', '#28a745'],
+                            data: [batteryGood, batteryWarning, batteryCritical],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
                         }],
-                    },
-                    options: {
-                        plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + '%';
-                                    }
-                                }
-                            }
-                        }
+                    }
+                });
+            }
+
+            // CPU Usage Pie Chart
+            var ctxCpuPie = document.getElementById("cpuWearPieChart");
+            if (ctxCpuPie) {
+                var cpuGood = @Html.Raw(Json.Serialize(Model.CpuGoodCount));
+                var cpuWarning = @Html.Raw(Json.Serialize(Model.CpuWarningCount));
+                var cpuCritical = @Html.Raw(Json.Serialize(Model.CpuCriticalCount));
+
+                new Chart(ctxCpuPie, {
+                    type: 'pie',
+                    data: {
+                        labels: ["Boa (0-24%)", "Atenção (25-49%)", "Ruim (50%+)"],
+                        datasets: [{
+                            data: [cpuGood, cpuWarning, cpuCritical],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                        }],
                     }
                 });
             }

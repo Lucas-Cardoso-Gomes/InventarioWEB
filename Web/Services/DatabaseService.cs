@@ -189,6 +189,27 @@ namespace Web.Services
                     {
                         _logger.LogWarning($"Schema update error for HistoricoTrocas (handled): {ex.Message}");
                     }
+
+                    // Create table HistoricoCPU if it doesn't exist yet
+                    try
+                    {
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = @"
+                                CREATE TABLE IF NOT EXISTS HistoricoCPU (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    ComputadorMAC TEXT NOT NULL,
+                                    Consumo REAL NOT NULL,
+                                    DataColeta TEXT NOT NULL,
+                                    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
+                                )";
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error creating HistoricoCPU table.");
+                    }
                 }
             }
             catch (Exception ex)

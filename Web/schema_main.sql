@@ -217,3 +217,11 @@ CREATE TABLE IF NOT EXISTS HistoricoTrocas (
     DataAlteracao TEXT NOT NULL,
     Usuario TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS HistoricoCPU (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ComputadorMAC TEXT NOT NULL,
+    Consumo REAL NOT NULL,
+    DataColeta TEXT NOT NULL,
+    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
+);

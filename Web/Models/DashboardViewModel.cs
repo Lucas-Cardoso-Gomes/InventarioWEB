@@ -17,9 +17,20 @@ namespace Web.Models
         public List<ChartData> GarantiaBarData { get; set; } = new List<ChartData>();
 
         // Battery Wear properties
+        public int BatteryGoodCount { get; set; }
+        public int BatteryWarningCount { get; set; }
+        public int BatteryCriticalCount { get; set; }
         public double AverageBatteryWear { get; set; }
         public EquipamentoDashboardItem WorstBatteryComputer { get; set; }
         public List<EquipamentoDashboardItem> TopWorstBatteries { get; set; } = new List<EquipamentoDashboardItem>();
+
+        // CPU Usage properties
+        public int CpuGoodCount { get; set; }
+        public int CpuWarningCount { get; set; }
+        public int CpuCriticalCount { get; set; }
+        public double AverageCpuUsage { get; set; }
+        public EquipamentoDashboardItem WorstCpuComputer { get; set; }
+        public List<EquipamentoDashboardItem> TopWorstCpus { get; set; } = new List<EquipamentoDashboardItem>();
 
         // Coleta Data properties
         public List<ChartData> ColetaBarData { get; set; } = new List<ChartData>();
@@ -35,5 +46,6 @@ namespace Web.Models
         public DateTime? DataColeta { get; set; } // Specific to Computador
         public string ColaboradorNome { get; set; }
         public double? BateriaWearLevel { get; set; } // Specific to Computador
+        public double? CpuUsage { get; set; } // Specific to Computador
     }
 }

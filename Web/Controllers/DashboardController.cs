@@ -28,7 +28,7 @@ namespace Web.Controllers
                 // Computadores
                 using (var cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, comp.BateriaWearLevel, col.Nome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
+                    cmd.CommandText = "SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, comp.BateriaWearLevel, comp.ConsumoCPU, col.Nome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -54,6 +54,16 @@ namespace Web.Controllers
                                 }
                             }
 
+                            double? cpuUsage = null;
+                            if (reader["ConsumoCPU"] != DBNull.Value)
+                            {
+                                string cpuStr = reader["ConsumoCPU"].ToString().Replace("%", "").Trim();
+                                if (double.TryParse(cpuStr, out double cVal))
+                                {
+                                    cpuUsage = cVal;
+                                }
+                            }
+
                             viewModel.Equipamentos.Add(new EquipamentoDashboardItem
                             {
                                 TipoEquipamento = "Computador",
@@ -63,7 +73,8 @@ namespace Web.Controllers
                                 Backup = reader["Backup"].ToString(),
                                 DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
                                 ColaboradorNome = reader["Nome"].ToString(),
-                                BateriaWearLevel = bateriaWearLevel
+                                BateriaWearLevel = bateriaWearLevel,
+                                CpuUsage = cpuUsage
                             });
                         }
                     }
@@ -200,9 +211,14 @@ namespace Web.Controllers
             {
                 if (item.TipoEquipamento == "Computador" && item.BateriaWearLevel.HasValue)
                 {
-                    totalWear += item.BateriaWearLevel.Value;
+                    double wear = item.BateriaWearLevel.Value;
+                    totalWear += wear;
                     wearCount++;
                     computersWithBattery.Add(item);
+
+                    if (wear >= 50) viewModel.BatteryCriticalCount++;
+                    else if (wear >= 25) viewModel.BatteryWarningCount++;
+                    else viewModel.BatteryGoodCount++;
                 }
             }
 
@@ -217,6 +233,40 @@ namespace Web.Controllers
                 for (int i = 0; i < topCount; i++)
                 {
                     viewModel.TopWorstBatteries.Add(computersWithBattery[i]);
+                }
+            }
+
+            // Calculate CPU Usage Data
+            double totalCpu = 0;
+            int cpuCount = 0;
+            var computersWithCpu = new List<EquipamentoDashboardItem>();
+
+            foreach (var item in viewModel.Equipamentos)
+            {
+                if (item.TipoEquipamento == "Computador" && item.CpuUsage.HasValue)
+                {
+                    double cpu = item.CpuUsage.Value;
+                    totalCpu += cpu;
+                    cpuCount++;
+                    computersWithCpu.Add(item);
+
+                    if (cpu >= 50) viewModel.CpuCriticalCount++;
+                    else if (cpu >= 25) viewModel.CpuWarningCount++;
+                    else viewModel.CpuGoodCount++;
+                }
+            }
+
+            if (cpuCount > 0)
+            {
+                viewModel.AverageCpuUsage = totalCpu / cpuCount;
+                computersWithCpu.Sort((a, b) => b.CpuUsage.Value.CompareTo(a.CpuUsage.Value)); // Sort descending
+
+                viewModel.WorstCpuComputer = computersWithCpu[0];
+
+                int topCpuCount = Math.Min(5, computersWithCpu.Count);
+                for (int i = 0; i < topCpuCount; i++)
+                {
+                    viewModel.TopWorstCpus.Add(computersWithCpu[i]);
                 }
             }
 
