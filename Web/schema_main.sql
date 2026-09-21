@@ -204,6 +204,40 @@ CREATE TABLE IF NOT EXISTS Smartphones (
     DataGarantia TEXT
 );
 
+CREATE TABLE IF NOT EXISTS SmartphoneIMEIs (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SmartphoneId INTEGER NOT NULL,
+    IMEI TEXT NOT NULL,
+    Ordem INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (SmartphoneId) REFERENCES Smartphones(Id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ComputadorDiscos (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ComputadorMAC TEXT NOT NULL,
+    Letra TEXT NOT NULL,
+    TotalGB TEXT,
+    LivreGB TEXT,
+    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ColaboradorCredenciais (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ColaboradorCPF TEXT NOT NULL,
+    Sistema TEXT NOT NULL,
+    UsuarioSistema TEXT,
+    SenhaSistema TEXT,
+    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ColaboradorTelefones (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ColaboradorCPF TEXT NOT NULL,
+    Tipo TEXT NOT NULL,
+    Numero TEXT NOT NULL,
+    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF) ON DELETE CASCADE
+);
+
 INSERT INTO Usuarios (Nome, Login, PasswordHash, Role, IsCoordinator)
 SELECT 'Admin', 'Admin', 'Admin', 'Admin', 0
 WHERE NOT EXISTS (SELECT 1 FROM Usuarios WHERE Login = 'Admin');

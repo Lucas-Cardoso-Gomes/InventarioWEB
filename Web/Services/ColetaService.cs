@@ -134,66 +134,7 @@ namespace Web.Services
             {
                 connection.Open();
 
-                // Processar e salvar histórico de CPU
-                double consumoValue = 0;
-                string avgCpuDisplay = hardwareInfo.ConsumoCPU;
-                
-                if (!string.IsNullOrEmpty(hardwareInfo.ConsumoCPU))
-                {
-                    string parseStr = hardwareInfo.ConsumoCPU.Replace("%", "").Trim();
-                    if (double.TryParse(parseStr, out double cVal))
-                    {
-                        consumoValue = cVal;
-                        
-                        // Insert current CPU usage
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = "INSERT INTO HistoricoCPU (ComputadorMAC, Consumo, DataColeta) VALUES (@MAC, @Consumo, @DataColeta)";
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
-                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@Consumo"; p2.Value = consumoValue; cmd.Parameters.Add(p2);
-                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@DataColeta"; p3.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p3);
-                            cmd.ExecuteNonQuery();
-                        }
-                        
-                        // Keep only last 5 records
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = @"
-                                DELETE FROM HistoricoCPU 
-                                WHERE Id NOT IN (
-                                    SELECT Id FROM HistoricoCPU 
-                                    WHERE ComputadorMAC = @MAC 
-                                    ORDER BY Id DESC 
-                                    LIMIT 5
-                                ) AND ComputadorMAC = @MAC";
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
-                            cmd.ExecuteNonQuery();
-                        }
-                        
-                        // Calculate Average
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = "SELECT AVG(Consumo) FROM HistoricoCPU WHERE ComputadorMAC = @MAC";
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
-                            var avgResult = cmd.ExecuteScalar();
-                            if (avgResult != null && avgResult != DBNull.Value)
-                            {
-                                double avg = Convert.ToDouble(avgResult);
-                                avgCpuDisplay = $"{avg:0.0}%";
-                            }
-                        }
-                    }
-                }
-
-                // Update hardwareInfo with average CPU usage
-                hardwareInfo.ConsumoCPU = avgCpuDisplay;
-
-
-                // SQLite uses INSERT OR REPLACE (REPLACE INTO) or UPSERT syntax (INSERT ... ON CONFLICT DO UPDATE)
-                // UPSERT is preferred for preserving data not in the new insert if needed, but here we update everything on match.
-                // Or "INSERT OR REPLACE INTO" which replaces the whole row (deleting old one).
-                // Let's use INSERT INTO ... ON CONFLICT(MAC) DO UPDATE SET ...
-
+                // 1. Inserir ou atualizar primeiro a tabela pai 'Computadores' para garantir a chave primária MAC
                 string upsertQuery = @"
                     INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
                     VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
@@ -260,6 +201,60 @@ namespace Web.Services
 
                     cmd.ExecuteNonQuery();
                 }
+
+                // 2. Processar e salvar histórico de CPU na tabela filha 'HistoricoCPU' (agora com a FK garantida)
+                double consumoValue = 0;
+                string avgCpuDisplay = hardwareInfo.ConsumoCPU;
+                
+                if (!string.IsNullOrEmpty(hardwareInfo.ConsumoCPU))
+                {
+                    string parseStr = hardwareInfo.ConsumoCPU.Replace("%", "").Trim();
+                    if (double.TryParse(parseStr, out double cVal))
+                    {
+                        consumoValue = cVal;
+                        
+                        // Insert current CPU usage
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = "INSERT INTO HistoricoCPU (ComputadorMAC, Consumo, DataColeta) VALUES (@MAC, @Consumo, @DataColeta)";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@Consumo"; p2.Value = consumoValue; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@DataColeta"; p3.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p3);
+                            cmd.ExecuteNonQuery();
+                        }
+                        
+                        // Keep only last 5 records
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = @"
+                                DELETE FROM HistoricoCPU 
+                                WHERE Id NOT IN (
+                                    SELECT Id FROM HistoricoCPU 
+                                    WHERE ComputadorMAC = @MAC 
+                                    ORDER BY Id DESC 
+                                    LIMIT 5
+                                ) AND ComputadorMAC = @MAC";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            cmd.ExecuteNonQuery();
+                        }
+                        
+                        // Calculate Average
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = "SELECT AVG(Consumo) FROM HistoricoCPU WHERE ComputadorMAC = @MAC";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            var avgResult = cmd.ExecuteScalar();
+                            if (avgResult != null && avgResult != DBNull.Value)
+                            {
+                                double avg = Convert.ToDouble(avgResult);
+                                avgCpuDisplay = $"{avg:0.0}%";
+                            }
+                        }
+                    }
+                }
+
+                // Update hardwareInfo with average CPU usage
+                hardwareInfo.ConsumoCPU = avgCpuDisplay;
             }
         }
 

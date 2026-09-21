@@ -190,7 +190,7 @@ namespace Web.Services
                         _logger.LogWarning($"Schema update error for HistoricoTrocas (handled): {ex.Message}");
                     }
 
-                    // Create table HistoricoCPU if it doesn't exist yet
+                    // Create table HistoricoCPU and normalized tables if they don't exist yet
                     try
                     {
                         using (var command = connection.CreateCommand())
@@ -202,13 +202,47 @@ namespace Web.Services
                                     Consumo REAL NOT NULL,
                                     DataColeta TEXT NOT NULL,
                                     FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
-                                )";
+                                );
+
+                                CREATE TABLE IF NOT EXISTS SmartphoneIMEIs (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    SmartphoneId INTEGER NOT NULL,
+                                    IMEI TEXT NOT NULL,
+                                    Ordem INTEGER NOT NULL DEFAULT 1,
+                                    FOREIGN KEY (SmartphoneId) REFERENCES Smartphones(Id) ON DELETE CASCADE
+                                );
+
+                                CREATE TABLE IF NOT EXISTS ComputadorDiscos (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    ComputadorMAC TEXT NOT NULL,
+                                    Letra TEXT NOT NULL,
+                                    TotalGB TEXT,
+                                    LivreGB TEXT,
+                                    FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
+                                );
+
+                                CREATE TABLE IF NOT EXISTS ColaboradorCredenciais (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    ColaboradorCPF TEXT NOT NULL,
+                                    Sistema TEXT NOT NULL,
+                                    UsuarioSistema TEXT,
+                                    SenhaSistema TEXT,
+                                    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF) ON DELETE CASCADE
+                                );
+
+                                CREATE TABLE IF NOT EXISTS ColaboradorTelefones (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    ColaboradorCPF TEXT NOT NULL,
+                                    Tipo TEXT NOT NULL,
+                                    Numero TEXT NOT NULL,
+                                    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF) ON DELETE CASCADE
+                                );";
                             command.ExecuteNonQuery();
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error creating HistoricoCPU table.");
+                        _logger.LogError(ex, "Error creating normalized tables.");
                     }
                 }
             }
