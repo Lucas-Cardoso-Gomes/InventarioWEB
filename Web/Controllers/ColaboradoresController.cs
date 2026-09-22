@@ -290,16 +290,17 @@ namespace Web.Controllers
         public async Task<IActionResult> Edit(string id, Colaborador colaborador)
         {
             var sanitizedId = SanitizeCpf(id);
-            colaborador.CPF = SanitizeCpf(colaborador.CPF);
+            var cleanColaboradorCpf = SanitizeCpf(colaborador.CPF);
             colaborador.CoordenadorCPF = SanitizeCpf(colaborador.CoordenadorCPF);
 
-            if (sanitizedId != colaborador.CPF) return NotFound();
+            if (sanitizedId != cleanColaboradorCpf && id != colaborador.CPF) return NotFound();
 
             if (ModelState.IsValid)
             {
                 try
                 {
                     var oldColaborador = FindColaboradorById(sanitizedId);
+                    if (oldColaborador == null) return NotFound();
 
                     using (var connection = _databaseService.CreateConnection())
                     {
@@ -310,11 +311,13 @@ namespace Web.Controllers
                                        Ibrooker = @Ibrooker, SenhaIbrooker = @SenhaIbrooker, Adicional = @Adicional, SenhaAdicional = @SenhaAdicional, 
                                        Filial = @Filial, Setor = @Setor, Smartphone = @Smartphone, TelefoneFixo = @TelefoneFixo, Ramal = @Ramal, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
                                        Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF
-                                       WHERE CPF = @CPF";
+                                       WHERE CPF = @OldCPF OR REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = @CleanCPF";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
                             AddColaboradorParameters(cmd, colaborador);
+                            var pOld = cmd.CreateParameter(); pOld.ParameterName = "@OldCPF"; pOld.Value = oldColaborador.CPF; cmd.Parameters.Add(pOld);
+                            var pClean = cmd.CreateParameter(); pClean.ParameterName = "@CleanCPF"; pClean.Value = sanitizedId; cmd.Parameters.Add(pClean);
                             var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataAlteracao"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
                             cmd.ExecuteNonQuery();
                         }
@@ -614,11 +617,12 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF";
+                        string sql = "DELETE FROM Colaboradores WHERE CPF = @CPF OR REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = @CleanCPF";
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = sanitizedId; cmd.Parameters.Add(p1);
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = colaborador.CPF; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@CleanCPF"; p2.Value = sanitizedId; cmd.Parameters.Add(p2);
                             cmd.ExecuteNonQuery();
                         }
                     }
@@ -645,6 +649,8 @@ namespace Web.Controllers
                 ownConnection = true;
             }
 
+            var cleanId = SanitizeCpf(id);
+
             try
             {
                 if (ownConnection)
@@ -652,12 +658,13 @@ namespace Web.Controllers
                     connection.Open();
                 }
 
-                string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF";
+                string sql = "SELECT * FROM Colaboradores WHERE CPF = @CPF OR REPLACE(REPLACE(REPLACE(CPF, '.', ''), '-', ''), ' ', '') = @CleanCPF";
                 using (var cmd = connection.CreateCommand())
                 {
                     cmd.Transaction = transaction;
                     cmd.CommandText = sql;
-                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = id; cmd.Parameters.Add(p1);
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = id ?? ""; cmd.Parameters.Add(p1);
+                    var p2 = cmd.CreateParameter(); p2.ParameterName = "@CleanCPF"; p2.Value = cleanId ?? ""; cmd.Parameters.Add(p2);
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read())

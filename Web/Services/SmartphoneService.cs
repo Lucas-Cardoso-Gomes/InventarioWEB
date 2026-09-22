@@ -64,9 +64,10 @@ namespace Web.Services
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
+                int insertedId = 0;
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC, DataGarantia) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC, @DataGarantia)";
+                    command.CommandText = "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC, DataGarantia) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC, @DataGarantia); SELECT last_insert_rowid();";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Modelo"; p1.Value = smartphone.Modelo; command.Parameters.Add(p1);
                     var p2 = command.CreateParameter(); p2.ParameterName = "@IMEI1"; p2.Value = smartphone.IMEI1; command.Parameters.Add(p2);
@@ -79,10 +80,48 @@ namespace Web.Services
                     var p9 = command.CreateParameter(); p9.ParameterName = "@MAC"; p9.Value = (object)smartphone.MAC ?? DBNull.Value; command.Parameters.Add(p9);
                     var p10 = command.CreateParameter(); p10.ParameterName = "@DataGarantia"; p10.Value = smartphone.DataGarantia.HasValue ? smartphone.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; command.Parameters.Add(p10);
 
-                    command.ExecuteNonQuery();
+                    insertedId = Convert.ToInt32(command.ExecuteScalar());
+                }
+
+                if (insertedId > 0)
+                {
+                    smartphone.Id = insertedId;
+                    SalvarIMEIs(connection, insertedId, smartphone.IMEI1, smartphone.IMEI2);
                 }
             }
             await Task.CompletedTask;
+        }
+
+        private void SalvarIMEIs(IDbConnection connection, int smartphoneId, string imei1, string imei2)
+        {
+            using (var delCmd = connection.CreateCommand())
+            {
+                delCmd.CommandText = "DELETE FROM SmartphoneIMEIs WHERE SmartphoneId = @SmartphoneId";
+                var p = delCmd.CreateParameter(); p.ParameterName = "@SmartphoneId"; p.Value = smartphoneId; delCmd.Parameters.Add(p);
+                delCmd.ExecuteNonQuery();
+            }
+
+            if (!string.IsNullOrWhiteSpace(imei1))
+            {
+                using (var insCmd = connection.CreateCommand())
+                {
+                    insCmd.CommandText = "INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem) VALUES (@SmartphoneId, @IMEI, 1)";
+                    var p1 = insCmd.CreateParameter(); p1.ParameterName = "@SmartphoneId"; p1.Value = smartphoneId; insCmd.Parameters.Add(p1);
+                    var p2 = insCmd.CreateParameter(); p2.ParameterName = "@IMEI"; p2.Value = imei1; insCmd.Parameters.Add(p2);
+                    insCmd.ExecuteNonQuery();
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(imei2))
+            {
+                using (var insCmd = connection.CreateCommand())
+                {
+                    insCmd.CommandText = "INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem) VALUES (@SmartphoneId, @IMEI, 2)";
+                    var p1 = insCmd.CreateParameter(); p1.ParameterName = "@SmartphoneId"; p1.Value = smartphoneId; insCmd.Parameters.Add(p1);
+                    var p2 = insCmd.CreateParameter(); p2.ParameterName = "@IMEI"; p2.Value = imei2; insCmd.Parameters.Add(p2);
+                    insCmd.ExecuteNonQuery();
+                }
+            }
         }
 
         public async Task UpdateAsync(Smartphone smartphone)
@@ -108,6 +147,8 @@ namespace Web.Services
 
                     command.ExecuteNonQuery();
                 }
+
+                SalvarIMEIs(connection, smartphone.Id, smartphone.IMEI1, smartphone.IMEI2);
             }
             await Task.CompletedTask;
         }

@@ -202,6 +202,43 @@ namespace Web.Services
                     cmd.ExecuteNonQuery();
                 }
 
+                // 1b. Salvar discos na tabela normalizada 1FN 'ComputadorDiscos'
+                if (hardwareInfo.Armazenamento != null)
+                {
+                    using (var delCmd = connection.CreateCommand())
+                    {
+                        delCmd.CommandText = "DELETE FROM ComputadorDiscos WHERE ComputadorMAC = @MAC";
+                        var pMac = delCmd.CreateParameter(); pMac.ParameterName = "@MAC"; pMac.Value = hardwareInfo.MAC ?? ""; delCmd.Parameters.Add(pMac);
+                        delCmd.ExecuteNonQuery();
+                    }
+
+                    if (hardwareInfo.Armazenamento.DriveC != null && !string.IsNullOrEmpty(hardwareInfo.Armazenamento.DriveC.Letra))
+                    {
+                        using (var insCmd = connection.CreateCommand())
+                        {
+                            insCmd.CommandText = "INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB) VALUES (@MAC, @Letra, @TotalGB, @LivreGB)";
+                            var p1 = insCmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; insCmd.Parameters.Add(p1);
+                            var p2 = insCmd.CreateParameter(); p2.ParameterName = "@Letra"; p2.Value = hardwareInfo.Armazenamento.DriveC.Letra; insCmd.Parameters.Add(p2);
+                            var p3 = insCmd.CreateParameter(); p3.ParameterName = "@TotalGB"; p3.Value = (object)hardwareInfo.Armazenamento.DriveC.TotalGB ?? DBNull.Value; insCmd.Parameters.Add(p3);
+                            var p4 = insCmd.CreateParameter(); p4.ParameterName = "@LivreGB"; p4.Value = (object)hardwareInfo.Armazenamento.DriveC.LivreGB ?? DBNull.Value; insCmd.Parameters.Add(p4);
+                            insCmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (hardwareInfo.Armazenamento.DriveD != null && !string.IsNullOrEmpty(hardwareInfo.Armazenamento.DriveD.Letra))
+                    {
+                        using (var insCmd = connection.CreateCommand())
+                        {
+                            insCmd.CommandText = "INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB) VALUES (@MAC, @Letra, @TotalGB, @LivreGB)";
+                            var p1 = insCmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; insCmd.Parameters.Add(p1);
+                            var p2 = insCmd.CreateParameter(); p2.ParameterName = "@Letra"; p2.Value = hardwareInfo.Armazenamento.DriveD.Letra; insCmd.Parameters.Add(p2);
+                            var p3 = insCmd.CreateParameter(); p3.ParameterName = "@TotalGB"; p3.Value = (object)hardwareInfo.Armazenamento.DriveD.TotalGB ?? DBNull.Value; insCmd.Parameters.Add(p3);
+                            var p4 = insCmd.CreateParameter(); p4.ParameterName = "@LivreGB"; p4.Value = (object)hardwareInfo.Armazenamento.DriveD.LivreGB ?? DBNull.Value; insCmd.Parameters.Add(p4);
+                            insCmd.ExecuteNonQuery();
+                        }
+                    }
+                }
+
                 // 2. Processar e salvar histórico de CPU na tabela filha 'HistoricoCPU' (agora com a FK garantida)
                 double consumoValue = 0;
                 string avgCpuDisplay = hardwareInfo.ConsumoCPU;
