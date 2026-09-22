@@ -136,8 +136,8 @@ namespace Web.Services
 
                 // 1. Inserir ou atualizar primeiro a tabela pai 'Computadores' para garantir a chave primária MAC
                 string upsertQuery = @"
-                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
-                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
                     ON CONFLICT(MAC) DO UPDATE SET
                         IP = excluded.IP,
                         Processador = excluded.Processador,
@@ -154,12 +154,6 @@ namespace Web.Services
                         Hostname = excluded.Hostname,
                         Fabricante = excluded.Fabricante,
                         SO = excluded.SO,
-                        ArmazenamentoC = excluded.ArmazenamentoC,
-                        ArmazenamentoCTotal = excluded.ArmazenamentoCTotal,
-                        ArmazenamentoCLivre = excluded.ArmazenamentoCLivre,
-                        ArmazenamentoD = excluded.ArmazenamentoD,
-                        ArmazenamentoDTotal = excluded.ArmazenamentoDTotal,
-                        ArmazenamentoDLivre = excluded.ArmazenamentoDLivre,
                         ConsumoCPU = excluded.ConsumoCPU,
                         DataColeta = excluded.DataColeta,
                         PartNumber = excluded.PartNumber,
@@ -187,12 +181,6 @@ namespace Web.Services
                     var p13 = cmd.CreateParameter(); p13.ParameterName = "@Hostname"; p13.Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value; cmd.Parameters.Add(p13);
                     var p14 = cmd.CreateParameter(); p14.ParameterName = "@Fabricante"; p14.Value = hardwareInfo.Fabricante ?? (object)DBNull.Value; cmd.Parameters.Add(p14);
                     var p15 = cmd.CreateParameter(); p15.ParameterName = "@SO"; p15.Value = hardwareInfo.SO ?? (object)DBNull.Value; cmd.Parameters.Add(p15);
-                    var p16 = cmd.CreateParameter(); p16.ParameterName = "@ArmazenamentoC"; p16.Value = hardwareInfo.Armazenamento?.DriveC?.Letra ?? (object)DBNull.Value; cmd.Parameters.Add(p16);
-                    var p17 = cmd.CreateParameter(); p17.ParameterName = "@ArmazenamentoCTotal"; p17.Value = hardwareInfo.Armazenamento?.DriveC?.TotalGB ?? (object)DBNull.Value; cmd.Parameters.Add(p17);
-                    var p18 = cmd.CreateParameter(); p18.ParameterName = "@ArmazenamentoCLivre"; p18.Value = hardwareInfo.Armazenamento?.DriveC?.LivreGB ?? (object)DBNull.Value; cmd.Parameters.Add(p18);
-                    var p19 = cmd.CreateParameter(); p19.ParameterName = "@ArmazenamentoD"; p19.Value = hardwareInfo.Armazenamento?.DriveD?.Letra ?? (object)DBNull.Value; cmd.Parameters.Add(p19);
-                    var p20 = cmd.CreateParameter(); p20.ParameterName = "@ArmazenamentoDTotal"; p20.Value = hardwareInfo.Armazenamento?.DriveD?.TotalGB ?? (object)DBNull.Value; cmd.Parameters.Add(p20);
-                    var p21 = cmd.CreateParameter(); p21.ParameterName = "@ArmazenamentoDLivre"; p21.Value = hardwareInfo.Armazenamento?.DriveD?.LivreGB ?? (object)DBNull.Value; cmd.Parameters.Add(p21);
                     var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value; cmd.Parameters.Add(p22);
                     var p23 = cmd.CreateParameter(); p23.ParameterName = "@DataColeta"; p23.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p23);
                     var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = hardwareInfo.PartNumber ?? (object)DBNull.Value; cmd.Parameters.Add(p24);

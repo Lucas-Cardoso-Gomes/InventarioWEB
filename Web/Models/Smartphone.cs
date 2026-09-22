@@ -11,11 +11,10 @@ namespace Web.Models
         [StringLength(100)]
         public string Modelo { get; set; }
 
-        [Required]
-        [StringLength(15)]
-        public string IMEI1 { get; set; }
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string? IMEI1 { get; set; }
 
-        [StringLength(15)]
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public string? IMEI2 { get; set; }
 
         [StringLength(100)]

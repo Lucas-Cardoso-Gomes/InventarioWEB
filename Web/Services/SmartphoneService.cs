@@ -34,6 +34,11 @@ namespace Web.Services
                         }
                     }
                 }
+
+                foreach (var sp in smartphones)
+                {
+                    CarregarIMEIs(connection, sp);
+                }
             }
             return await Task.FromResult(smartphones);
         }
@@ -43,6 +48,7 @@ namespace Web.Services
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
+                Smartphone sp = null;
                 using (var command = connection.CreateCommand())
                 {
                     command.CommandText = "SELECT * FROM Smartphones WHERE Id = @Id";
@@ -51,12 +57,36 @@ namespace Web.Services
                     {
                         if (reader.Read())
                         {
-                            return MapToSmartphone(reader);
+                            sp = MapToSmartphone(reader);
                         }
                     }
                 }
+
+                if (sp != null)
+                {
+                    CarregarIMEIs(connection, sp);
+                }
+                return sp;
             }
-            return null;
+        }
+
+        private void CarregarIMEIs(IDbConnection connection, Smartphone smartphone)
+        {
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = "SELECT IMEI, Ordem FROM SmartphoneIMEIs WHERE SmartphoneId = @SmartphoneId ORDER BY Ordem";
+                var p = cmd.CreateParameter(); p.ParameterName = "@SmartphoneId"; p.Value = smartphone.Id; cmd.Parameters.Add(p);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        int ordem = Convert.ToInt32(reader["Ordem"]);
+                        string imei = reader["IMEI"].ToString();
+                        if (ordem == 1) smartphone.IMEI1 = imei;
+                        else if (ordem == 2) smartphone.IMEI2 = imei;
+                    }
+                }
+            }
         }
 
         public async Task CreateAsync(Smartphone smartphone)
@@ -67,11 +97,9 @@ namespace Web.Services
                 int insertedId = 0;
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "INSERT INTO Smartphones (Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC, DataGarantia) VALUES (@Modelo, @IMEI1, @IMEI2, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC, @DataGarantia); SELECT last_insert_rowid();";
+                    command.CommandText = "INSERT INTO Smartphones (Modelo, Usuario, Filial, DataCriacao, ContaGoogle, SenhaGoogle, MAC, DataGarantia) VALUES (@Modelo, @Usuario, @Filial, @DataCriacao, @ContaGoogle, @SenhaGoogle, @MAC, @DataGarantia); SELECT last_insert_rowid();";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Modelo"; p1.Value = smartphone.Modelo; command.Parameters.Add(p1);
-                    var p2 = command.CreateParameter(); p2.ParameterName = "@IMEI1"; p2.Value = smartphone.IMEI1; command.Parameters.Add(p2);
-                    var p3 = command.CreateParameter(); p3.ParameterName = "@IMEI2"; p3.Value = (object)smartphone.IMEI2 ?? DBNull.Value; command.Parameters.Add(p3);
                     var p4 = command.CreateParameter(); p4.ParameterName = "@Usuario"; p4.Value = (object)smartphone.Usuario ?? DBNull.Value; command.Parameters.Add(p4);
                     var p5 = command.CreateParameter(); p5.ParameterName = "@Filial"; p5.Value = (object)smartphone.Filial ?? DBNull.Value; command.Parameters.Add(p5);
                     var p6 = command.CreateParameter(); p6.ParameterName = "@DataCriacao"; p6.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p6);
@@ -131,12 +159,10 @@ namespace Web.Services
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "UPDATE Smartphones SET Modelo = @Modelo, IMEI1 = @IMEI1, IMEI2 = @IMEI2, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle, MAC = @MAC, DataGarantia = @DataGarantia WHERE Id = @Id";
+                    command.CommandText = "UPDATE Smartphones SET Modelo = @Modelo, Usuario = @Usuario, Filial = @Filial, DataAlteracao = @DataAlteracao, ContaGoogle = @ContaGoogle, SenhaGoogle = @SenhaGoogle, MAC = @MAC, DataGarantia = @DataGarantia WHERE Id = @Id";
 
                     var p1 = command.CreateParameter(); p1.ParameterName = "@Id"; p1.Value = smartphone.Id; command.Parameters.Add(p1);
                     var p2 = command.CreateParameter(); p2.ParameterName = "@Modelo"; p2.Value = smartphone.Modelo; command.Parameters.Add(p2);
-                    var p3 = command.CreateParameter(); p3.ParameterName = "@IMEI1"; p3.Value = smartphone.IMEI1; command.Parameters.Add(p3);
-                    var p4 = command.CreateParameter(); p4.ParameterName = "@IMEI2"; p4.Value = (object)smartphone.IMEI2 ?? DBNull.Value; command.Parameters.Add(p4);
                     var p5 = command.CreateParameter(); p5.ParameterName = "@Usuario"; p5.Value = (object)smartphone.Usuario ?? DBNull.Value; command.Parameters.Add(p5);
                     var p6 = command.CreateParameter(); p6.ParameterName = "@Filial"; p6.Value = (object)smartphone.Filial ?? DBNull.Value; command.Parameters.Add(p6);
                     var p7 = command.CreateParameter(); p7.ParameterName = "@DataAlteracao"; p7.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); command.Parameters.Add(p7);
@@ -174,8 +200,6 @@ namespace Web.Services
             {
                 Id = Convert.ToInt32(reader["Id"]),
                 Modelo = reader["Modelo"].ToString(),
-                IMEI1 = reader["IMEI1"].ToString(),
-                IMEI2 = reader["IMEI2"] != DBNull.Value ? reader["IMEI2"].ToString() : null,
                 Usuario = reader["Usuario"] != DBNull.Value ? reader["Usuario"].ToString() : null,
                 Filial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : null,
                 DataCriacao = Convert.ToDateTime(reader["DataCriacao"]),

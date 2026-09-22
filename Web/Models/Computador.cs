@@ -26,11 +26,17 @@ namespace Web.Models
         public string? RamVelocidade { get; set; }
         public string? RamVoltagem { get; set; }
         public string? RamPorModule { get; set; }
+        [NotMapped]
         public string? ArmazenamentoC { get; set; }
+        [NotMapped]
         public string? ArmazenamentoCTotal { get; set; }
+        [NotMapped]
         public string? ArmazenamentoCLivre { get; set; }
+        [NotMapped]
         public string? ArmazenamentoD { get; set; }
+        [NotMapped]
         public string? ArmazenamentoDTotal { get; set; }
+        [NotMapped]
         public string? ArmazenamentoDLivre { get; set; }
         public string? ConsumoCPU { get; set; }
         public string? ProcessadorTemperatura { get; set; }

@@ -166,9 +166,7 @@ namespace Web.Controllers
                             comp.MAC, comp.IP, comp.ColaboradorCPF, col.Nome as ColaboradorNome, comp.Hostname,
                             comp.Fabricante, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore,
                             comp.ProcessadorThread, comp.ProcessadorClock, comp.Ram, comp.RamTipo,
-                            comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ArmazenamentoC,
-                            comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre, comp.ArmazenamentoD,
-                            comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre, comp.ConsumoCPU, comp.SO,
+                            comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ConsumoCPU, comp.SO,
                             comp.DataColeta, comp.PartNumber, comp.ProcessadorTemperatura, comp.DataGarantia,
                             comp.BateriaWearLevel, comp.TempoAtividade, comp.Localizacao, comp.Backup
                     ";
@@ -211,12 +209,6 @@ namespace Web.Controllers
                                     RamVelocidade = reader["RamVelocidade"].ToString(),
                                     RamVoltagem = reader["RamVoltagem"].ToString(),
                                     RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
                                     DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
@@ -231,6 +223,7 @@ namespace Web.Controllers
                             }
                         }
                     }
+
                 }
             }
             catch (Exception ex)
@@ -348,9 +341,7 @@ namespace Web.Controllers
                                                        Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore,
                                                        ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram,
                                                        RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem,
-                                                       RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal,
-                                                       ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal,
-                                                       ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber,
+                                                       RamPorModule = @RamPorModule, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber,
                                                        DataGarantia = @DataGarantia, Backup = @Backup, ProcessadorTemperatura = @ProcessadorTemperatura, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao
                                                        WHERE MAC = @MAC";
                                     using (var cmd = connection.CreateCommand())
@@ -361,12 +352,13 @@ namespace Web.Controllers
                                         var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
                                         cmd.ExecuteNonQuery();
                                     }
+                                    SalvarDiscos(connection, transaction, computador);
                                     atualizados++;
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao)
-                                    VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao)
+                                    VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -375,6 +367,7 @@ namespace Web.Controllers
                                         var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
                                         cmd.ExecuteNonQuery();
                                     }
+                                    SalvarDiscos(connection, transaction, computador);
                                     adicionados++;
                                 }
                             }
@@ -403,6 +396,72 @@ namespace Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        private void CarregarDiscos(IDbConnection connection, IDbTransaction transaction, Computador comp)
+        {
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.Transaction = transaction;
+                cmd.CommandText = "SELECT Letra, TotalGB, LivreGB FROM ComputadorDiscos WHERE ComputadorMAC = @MAC";
+                var p = cmd.CreateParameter(); p.ParameterName = "@MAC"; p.Value = comp.MAC; cmd.Parameters.Add(p);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string letra = reader["Letra"].ToString();
+                        string total = reader["TotalGB"] != DBNull.Value ? reader["TotalGB"].ToString() : null;
+                        string livre = reader["LivreGB"] != DBNull.Value ? reader["LivreGB"].ToString() : null;
+
+                        if (letra.StartsWith("C", StringComparison.OrdinalIgnoreCase))
+                        {
+                            comp.ArmazenamentoC = letra;
+                            comp.ArmazenamentoCTotal = total;
+                            comp.ArmazenamentoCLivre = livre;
+                        }
+                        else if (letra.StartsWith("D", StringComparison.OrdinalIgnoreCase))
+                        {
+                            comp.ArmazenamentoD = letra;
+                            comp.ArmazenamentoDTotal = total;
+                            comp.ArmazenamentoDLivre = livre;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void SalvarDiscos(IDbConnection connection, IDbTransaction transaction, Computador comp)
+        {
+            using (var delCmd = connection.CreateCommand())
+            {
+                delCmd.Transaction = transaction;
+                delCmd.CommandText = "DELETE FROM ComputadorDiscos WHERE ComputadorMAC = @MAC";
+                var p = delCmd.CreateParameter(); p.ParameterName = "@MAC"; p.Value = comp.MAC; delCmd.Parameters.Add(p);
+                delCmd.ExecuteNonQuery();
+            }
+
+            var discos = new (string Letra, string Total, string Livre)[]
+            {
+                (comp.ArmazenamentoC ?? "C:", comp.ArmazenamentoCTotal, comp.ArmazenamentoCLivre),
+                (comp.ArmazenamentoD ?? "D:", comp.ArmazenamentoDTotal, comp.ArmazenamentoDLivre)
+            };
+
+            foreach (var (letra, total, livre) in discos)
+            {
+                if (!string.IsNullOrWhiteSpace(total) || !string.IsNullOrWhiteSpace(livre))
+                {
+                    using (var insCmd = connection.CreateCommand())
+                    {
+                        insCmd.Transaction = transaction;
+                        insCmd.CommandText = "INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB) VALUES (@MAC, @Letra, @TotalGB, @LivreGB)";
+                        var p1 = insCmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = comp.MAC; insCmd.Parameters.Add(p1);
+                        var p2 = insCmd.CreateParameter(); p2.ParameterName = "@Letra"; p2.Value = letra; insCmd.Parameters.Add(p2);
+                        var p3 = insCmd.CreateParameter(); p3.ParameterName = "@TotalGB"; p3.Value = (object)total ?? DBNull.Value; insCmd.Parameters.Add(p3);
+                        var p4 = insCmd.CreateParameter(); p4.ParameterName = "@LivreGB"; p4.Value = (object)livre ?? DBNull.Value; insCmd.Parameters.Add(p4);
+                        insCmd.ExecuteNonQuery();
+                    }
+                }
+            }
+        }
+
         private void AddComputadorParameters(IDbCommand cmd, Computador computador)
         {
             var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = computador.MAC; cmd.Parameters.Add(p1);
@@ -420,12 +479,6 @@ namespace Web.Controllers
             var p13 = cmd.CreateParameter(); p13.ParameterName = "@RamVelocidade"; p13.Value = (object)computador.RamVelocidade ?? DBNull.Value; cmd.Parameters.Add(p13);
             var p14 = cmd.CreateParameter(); p14.ParameterName = "@RamVoltagem"; p14.Value = (object)computador.RamVoltagem ?? DBNull.Value; cmd.Parameters.Add(p14);
             var p15 = cmd.CreateParameter(); p15.ParameterName = "@RamPorModule"; p15.Value = (object)computador.RamPorModule ?? DBNull.Value; cmd.Parameters.Add(p15);
-            var p16 = cmd.CreateParameter(); p16.ParameterName = "@ArmazenamentoC"; p16.Value = (object)computador.ArmazenamentoC ?? DBNull.Value; cmd.Parameters.Add(p16);
-            var p17 = cmd.CreateParameter(); p17.ParameterName = "@ArmazenamentoCTotal"; p17.Value = (object)computador.ArmazenamentoCTotal ?? DBNull.Value; cmd.Parameters.Add(p17);
-            var p18 = cmd.CreateParameter(); p18.ParameterName = "@ArmazenamentoCLivre"; p18.Value = (object)computador.ArmazenamentoCLivre ?? DBNull.Value; cmd.Parameters.Add(p18);
-            var p19 = cmd.CreateParameter(); p19.ParameterName = "@ArmazenamentoD"; p19.Value = (object)computador.ArmazenamentoD ?? DBNull.Value; cmd.Parameters.Add(p19);
-            var p20 = cmd.CreateParameter(); p20.ParameterName = "@ArmazenamentoDTotal"; p20.Value = (object)computador.ArmazenamentoDTotal ?? DBNull.Value; cmd.Parameters.Add(p20);
-            var p21 = cmd.CreateParameter(); p21.ParameterName = "@ArmazenamentoDLivre"; p21.Value = (object)computador.ArmazenamentoDLivre ?? DBNull.Value; cmd.Parameters.Add(p21);
             var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = (object)computador.ConsumoCPU ?? DBNull.Value; cmd.Parameters.Add(p22);
             var p23 = cmd.CreateParameter(); p23.ParameterName = "@SO"; p23.Value = (object)computador.SO ?? DBNull.Value; cmd.Parameters.Add(p23);
             var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = (object)computador.PartNumber ?? DBNull.Value; cmd.Parameters.Add(p24);
@@ -538,48 +591,54 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ArmazenamentoC, @ArmazenamentoCTotal, @ArmazenamentoCLivre, @ArmazenamentoD, @ArmazenamentoDTotal, @ArmazenamentoDLivre, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
 
-                        using (var cmd = connection.CreateCommand())
+                        var comp = new Computador
                         {
-                            cmd.CommandText = sql;
-                            var comp = new Computador
+                            MAC = viewModel.MAC,
+                            IP = viewModel.IP,
+                            ColaboradorCPF = viewModel.ColaboradorCPF,
+                            Hostname = viewModel.Hostname,
+                            Fabricante = viewModel.Fabricante,
+                            Processador = viewModel.Processador,
+                            ProcessadorFabricante = viewModel.ProcessadorFabricante,
+                            ProcessadorCore = viewModel.ProcessadorCore,
+                            ProcessadorThread = viewModel.ProcessadorThread,
+                            ProcessadorClock = viewModel.ProcessadorClock,
+                            Ram = viewModel.Ram,
+                            RamTipo = viewModel.RamTipo,
+                            RamVelocidade = viewModel.RamVelocidade,
+                            RamVoltagem = viewModel.RamVoltagem,
+                            RamPorModule = viewModel.RamPorModule,
+                            ArmazenamentoC = viewModel.ArmazenamentoC,
+                            ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
+                            ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
+                            ArmazenamentoD = viewModel.ArmazenamentoD,
+                            ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
+                            ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
+                            ConsumoCPU = viewModel.ConsumoCPU,
+                            SO = viewModel.SO,
+                            PartNumber = viewModel.PartNumber,
+                            DataGarantia = viewModel.DataGarantia,
+                            BateriaWearLevel = viewModel.BateriaWearLevel,
+                            TempoAtividade = viewModel.TempoAtividade,
+                            Localizacao = viewModel.Localizacao,
+                            Backup = viewModel.Backup,
+                            ProcessadorTemperatura = viewModel.ProcessadorTemperatura
+                        };
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            using (var cmd = connection.CreateCommand())
                             {
-                                MAC = viewModel.MAC,
-                                IP = viewModel.IP,
-                                ColaboradorCPF = viewModel.ColaboradorCPF,
-                                Hostname = viewModel.Hostname,
-                                Fabricante = viewModel.Fabricante,
-                                Processador = viewModel.Processador,
-                                ProcessadorFabricante = viewModel.ProcessadorFabricante,
-                                ProcessadorCore = viewModel.ProcessadorCore,
-                                ProcessadorThread = viewModel.ProcessadorThread,
-                                ProcessadorClock = viewModel.ProcessadorClock,
-                                Ram = viewModel.Ram,
-                                RamTipo = viewModel.RamTipo,
-                                RamVelocidade = viewModel.RamVelocidade,
-                                RamVoltagem = viewModel.RamVoltagem,
-                                RamPorModule = viewModel.RamPorModule,
-                                ArmazenamentoC = viewModel.ArmazenamentoC,
-                                ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
-                                ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
-                                ArmazenamentoD = viewModel.ArmazenamentoD,
-                                ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
-                                ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
-                                ConsumoCPU = viewModel.ConsumoCPU,
-                                SO = viewModel.SO,
-                                PartNumber = viewModel.PartNumber,
-                                DataGarantia = viewModel.DataGarantia,
-                                BateriaWearLevel = viewModel.BateriaWearLevel,
-                                TempoAtividade = viewModel.TempoAtividade,
-                                Localizacao = viewModel.Localizacao,
-                                Backup = viewModel.Backup,
-                                ProcessadorTemperatura = viewModel.ProcessadorTemperatura
-                            };
-                            AddComputadorParameters(cmd, comp);
-                            var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
+                                cmd.Transaction = transaction;
+                                cmd.CommandText = sql;
+                                AddComputadorParameters(cmd, comp);
+                                var pDate = cmd.CreateParameter(); pDate.ParameterName = "@DataColeta"; pDate.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(pDate);
 
-                            cmd.ExecuteNonQuery();
+                                cmd.ExecuteNonQuery();
+                            }
+                            SalvarDiscos(connection, transaction, comp);
+                            transaction.Commit();
                         }
                     }
 
@@ -673,47 +732,53 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ArmazenamentoC = @ArmazenamentoC, ArmazenamentoCTotal = @ArmazenamentoCTotal, ArmazenamentoCLivre = @ArmazenamentoCLivre, ArmazenamentoD = @ArmazenamentoD, ArmazenamentoDTotal = @ArmazenamentoDTotal, ArmazenamentoDLivre = @ArmazenamentoDLivre, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao WHERE MAC = @MAC";
 
-                        using (var cmd = connection.CreateCommand())
+                        var comp = new Computador
                         {
-                            cmd.CommandText = sql;
-                            var comp = new Computador
+                            MAC = viewModel.MAC,
+                            IP = viewModel.IP,
+                            ColaboradorCPF = viewModel.ColaboradorCPF,
+                            Hostname = viewModel.Hostname,
+                            Fabricante = viewModel.Fabricante,
+                            Processador = viewModel.Processador,
+                            ProcessadorFabricante = viewModel.ProcessadorFabricante,
+                            ProcessadorCore = viewModel.ProcessadorCore,
+                            ProcessadorThread = viewModel.ProcessadorThread,
+                            ProcessadorClock = viewModel.ProcessadorClock,
+                            Ram = viewModel.Ram,
+                            RamTipo = viewModel.RamTipo,
+                            RamVelocidade = viewModel.RamVelocidade,
+                            RamVoltagem = viewModel.RamVoltagem,
+                            RamPorModule = viewModel.RamPorModule,
+                            ArmazenamentoC = viewModel.ArmazenamentoC,
+                            ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
+                            ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
+                            ArmazenamentoD = viewModel.ArmazenamentoD,
+                            ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
+                            ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
+                            ConsumoCPU = viewModel.ConsumoCPU,
+                            SO = viewModel.SO,
+                            PartNumber = viewModel.PartNumber,
+                            DataGarantia = viewModel.DataGarantia,
+                            BateriaWearLevel = viewModel.BateriaWearLevel,
+                            TempoAtividade = viewModel.TempoAtividade,
+                            Localizacao = viewModel.Localizacao,
+                            Backup = viewModel.Backup,
+                            ProcessadorTemperatura = viewModel.ProcessadorTemperatura
+                        };
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            using (var cmd = connection.CreateCommand())
                             {
-                                MAC = viewModel.MAC,
-                                IP = viewModel.IP,
-                                ColaboradorCPF = viewModel.ColaboradorCPF,
-                                Hostname = viewModel.Hostname,
-                                Fabricante = viewModel.Fabricante,
-                                Processador = viewModel.Processador,
-                                ProcessadorFabricante = viewModel.ProcessadorFabricante,
-                                ProcessadorCore = viewModel.ProcessadorCore,
-                                ProcessadorThread = viewModel.ProcessadorThread,
-                                ProcessadorClock = viewModel.ProcessadorClock,
-                                Ram = viewModel.Ram,
-                                RamTipo = viewModel.RamTipo,
-                                RamVelocidade = viewModel.RamVelocidade,
-                                RamVoltagem = viewModel.RamVoltagem,
-                                RamPorModule = viewModel.RamPorModule,
-                                ArmazenamentoC = viewModel.ArmazenamentoC,
-                                ArmazenamentoCTotal = viewModel.ArmazenamentoCTotal,
-                                ArmazenamentoCLivre = viewModel.ArmazenamentoCLivre,
-                                ArmazenamentoD = viewModel.ArmazenamentoD,
-                                ArmazenamentoDTotal = viewModel.ArmazenamentoDTotal,
-                                ArmazenamentoDLivre = viewModel.ArmazenamentoDLivre,
-                                ConsumoCPU = viewModel.ConsumoCPU,
-                                SO = viewModel.SO,
-                                PartNumber = viewModel.PartNumber,
-                                DataGarantia = viewModel.DataGarantia,
-                                BateriaWearLevel = viewModel.BateriaWearLevel,
-                                TempoAtividade = viewModel.TempoAtividade,
-                                Localizacao = viewModel.Localizacao,
-                                Backup = viewModel.Backup,
-                                ProcessadorTemperatura = viewModel.ProcessadorTemperatura
-                            };
-                            AddComputadorParameters(cmd, comp);
+                                cmd.Transaction = transaction;
+                                cmd.CommandText = sql;
+                                AddComputadorParameters(cmd, comp);
 
-                            cmd.ExecuteNonQuery();
+                                cmd.ExecuteNonQuery();
+                            }
+                            SalvarDiscos(connection, transaction, comp);
+                            transaction.Commit();
                         }
                     }
 
@@ -829,12 +894,6 @@ namespace Web.Controllers
                                     RamVelocidade = reader["RamVelocidade"].ToString(),
                                     RamVoltagem = reader["RamVoltagem"].ToString(),
                                     RamPorModule = reader["RamPorModule"].ToString(),
-                                    ArmazenamentoC = reader["ArmazenamentoC"].ToString(),
-                                    ArmazenamentoCTotal = reader["ArmazenamentoCTotal"].ToString(),
-                                    ArmazenamentoCLivre = reader["ArmazenamentoCLivre"].ToString(),
-                                    ArmazenamentoD = reader["ArmazenamentoD"].ToString(),
-                                    ArmazenamentoDTotal = reader["ArmazenamentoDTotal"].ToString(),
-                                    ArmazenamentoDLivre = reader["ArmazenamentoDLivre"].ToString(),
                                     ConsumoCPU = reader["ConsumoCPU"].ToString(),
                                     SO = reader["SO"].ToString(),
                                     DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
@@ -848,6 +907,11 @@ namespace Web.Controllers
                                 };
                             }
                         }
+                    }
+
+                    if (computador != null)
+                    {
+                        CarregarDiscos(connection, null, computador);
                     }
                 }
             }

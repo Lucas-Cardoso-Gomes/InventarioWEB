@@ -213,7 +213,7 @@ namespace Web.Controllers
                                 parameters.Add("@userCpf", userCpf);
                             }
 
-                            string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                            string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ConsumoCPU", "SO", "PartNumber" };
                             for (int i = 0; i < computerHeader.Length; i++) worksheet.Cells[1, i + 1].Value = computerHeader[i];
 
                             sql = $"SELECT c.* FROM Computadores c" + (isRestricted ? " LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF" : "");
@@ -251,7 +251,7 @@ namespace Web.Controllers
                             break;
 
                         case DeviceType.Smartphones:
-                            string[] spHeader = { "Id", "Modelo", "IMEI1", "IMEI2", "Usuario", "Filial", "DataCriacao", "ContaGoogle", "SenhaGoogle", "MAC", "DataGarantia" };
+                            string[] spHeader = { "Id", "Modelo", "Usuario", "Filial", "DataCriacao", "ContaGoogle", "SenhaGoogle", "MAC", "DataGarantia" };
                             for (int i = 0; i < spHeader.Length; i++) worksheet.Cells[1, i + 1].Value = spHeader[i];
 
                             sql = $"SELECT * FROM Smartphones";
@@ -446,7 +446,7 @@ namespace Web.Controllers
                             break;
 
                         case DeviceType.Colaboradores:
-                            string[] colabHeader = { "CPF", "Nome", "Email", "SenhaEmail", "Teams", "SenhaTeams", "EDespacho", "SenhaEDespacho", "Genius", "SenhaGenius", "Ibrooker", "SenhaIbrooker", "Adicional", "SenhaAdicional", "Filial", "Setor", "Smartphone", "TelefoneFixo", "Ramal", "Alarme", "Videoporteiro", "Obs", "CoordenadorCPF" };
+                            string[] colabHeader = { "CPF", "Nome", "Email", "Filial", "Setor", "Alarme", "Videoporteiro", "Obs", "CoordenadorCPF" };
                             for (int i = 0; i < colabHeader.Length; i++) worksheet.Cells[1, i + 1].Value = colabHeader[i];
 
                             sql = $"SELECT * FROM Colaboradores";
@@ -505,7 +505,7 @@ namespace Web.Controllers
                     fileName = $"export_colaborador_{viewModel.SelectedColaboradorCPF}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
 
                     var wsComputadores = package.Workbook.Worksheets.Add("Computadores");
-                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ConsumoCPU", "SO", "PartNumber" };
                     for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
 
                     string sqlComputadores = "SELECT * FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";

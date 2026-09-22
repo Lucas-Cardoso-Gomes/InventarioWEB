@@ -46,7 +46,7 @@ namespace Web.Services
                             try
                             {
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Colaboradores",
-                                    "CPF, Nome, Email, SenhaEmail, Teams, SenhaTeams, EDespacho, SenhaEDespacho, Genius, SenhaGenius, Ibrooker, SenhaIbrooker, Adicional, SenhaAdicional, Filial, Setor, Smartphone, TelefoneFixo, Ramal, Alarme, Videoporteiro, Obs, DataInclusao, DataAlteracao, CoordenadorCPF");
+                                    "CPF, Nome, Email, Filial, Setor, Alarme, Videoporteiro, Obs, DataInclusao, DataAlteracao, CoordenadorCPF");
 
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Usuarios",
                                     "Id, Nome, Login, PasswordHash, Role, ColaboradorCPF, IsCoordinator", identityInsert: true);
@@ -55,10 +55,10 @@ namespace Web.Services
                                     "Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao", identityInsert: true);
 
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Smartphones",
-                                    "Id, Modelo, IMEI1, IMEI2, Usuario, Filial, DataCriacao, DataAlteracao, ContaGoogle, SenhaGoogle, MAC", identityInsert: true);
+                                    "Id, Modelo, Usuario, Filial, DataCriacao, DataAlteracao, ContaGoogle, SenhaGoogle, MAC", identityInsert: true);
 
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Computadores",
-                                    "MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ArmazenamentoC, ArmazenamentoCTotal, ArmazenamentoCLivre, ArmazenamentoD, ArmazenamentoDTotal, ArmazenamentoDLivre, ConsumoCPU, SO, DataColeta, PartNumber");
+                                    "MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber");
 
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Monitores",
                                     "PartNumber, ColaboradorCPF, Marca, Modelo, Tamanho");

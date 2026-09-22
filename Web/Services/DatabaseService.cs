@@ -304,6 +304,49 @@ namespace Web.Services
                             ";
                             command.ExecuteNonQuery();
                         }
+
+                        // Tentar remover colunas legadas se existirem
+                        var dropColumns = new[]
+                        {
+                            "ALTER TABLE Smartphones DROP COLUMN IMEI1;",
+                            "ALTER TABLE Smartphones DROP COLUMN IMEI2;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoC;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoCTotal;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoCLivre;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoD;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoDTotal;",
+                            "ALTER TABLE Computadores DROP COLUMN ArmazenamentoDLivre;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaEmail;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Teams;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaTeams;",
+                            "ALTER TABLE Colaboradores DROP COLUMN EDespacho;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaEDespacho;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Genius;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaGenius;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Ibrooker;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaIbrooker;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Adicional;",
+                            "ALTER TABLE Colaboradores DROP COLUMN SenhaAdicional;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Smartphone;",
+                            "ALTER TABLE Colaboradores DROP COLUMN TelefoneFixo;",
+                            "ALTER TABLE Colaboradores DROP COLUMN Ramal;"
+                        };
+
+                        foreach (var dropStmt in dropColumns)
+                        {
+                            try
+                            {
+                                using (var cmd = connection.CreateCommand())
+                                {
+                                    cmd.CommandText = dropStmt;
+                                    cmd.ExecuteNonQuery();
+                                }
+                            }
+                            catch
+                            {
+                                // Safe to ignore if column is already dropped or not supported
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
