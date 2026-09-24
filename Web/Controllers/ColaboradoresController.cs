@@ -106,11 +106,26 @@ namespace Web.Controllers
                         }
                     };
 
+                    Action<string, List<string>> addPhoneInClause = (tipo, values) =>
+                    {
+                        if (values != null && values.Any())
+                        {
+                            var paramNames = new List<string>();
+                            for (int i = 0; i < values.Count; i++)
+                            {
+                                var paramName = $"@{tipo.ToLower()}{i}";
+                                paramNames.Add(paramName);
+                                parameters.Add(paramName, values[i]);
+                            }
+                            whereClauses.Add($"c.CPF IN (SELECT ColaboradorCPF FROM ColaboradorTelefones WHERE Tipo = '{tipo}' AND Numero IN ({string.Join(", ", paramNames)}))");
+                        }
+                    };
+
                     addInClause("c.Filial", viewModel.CurrentFiliais);
                     addInClause("c.Setor", viewModel.CurrentSetores);
-                    addInClause("c.Smartphone", viewModel.CurrentSmartphones);
-                    addInClause("c.TelefoneFixo", viewModel.CurrentTelefoneFixos);
-                    addInClause("c.Ramal", viewModel.CurrentRamais);
+                    addPhoneInClause("Smartphone", viewModel.CurrentSmartphones);
+                    addPhoneInClause("TelefoneFixo", viewModel.CurrentTelefoneFixos);
+                    addPhoneInClause("Ramal", viewModel.CurrentRamais);
                     addInClause("co.Nome", viewModel.CurrentCoordenadores);
 
                     // Add role-based filtering
@@ -390,7 +405,7 @@ namespace Web.Controllers
                 // Computadores
                 using (var cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT Hostname, Fabricante, Processador, Ram, SO, MAC FROM Computadores WHERE ColaboradorCPF = @CPF";
+                    cmd.CommandText = "SELECT c.Hostname, c.Fabricante, COALESCE(p.Nome, c.Processador) AS Processador, c.Ram, c.SO, c.MAC FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id WHERE c.ColaboradorCPF = @CPF";
                     var p = cmd.CreateParameter();
                     p.ParameterName = "@CPF";
                     p.Value = colaborador.CPF;
@@ -904,12 +919,27 @@ namespace Web.Controllers
             var values = new List<string>();
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = $"SELECT DISTINCT {columnName} FROM Colaboradores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+                if (columnName.Equals("Smartphone", StringComparison.OrdinalIgnoreCase) ||
+                    columnName.Equals("TelefoneFixo", StringComparison.OrdinalIgnoreCase) ||
+                    columnName.Equals("Ramal", StringComparison.OrdinalIgnoreCase))
+                {
+                    command.CommandText = "SELECT DISTINCT Numero FROM ColaboradorTelefones WHERE Tipo = @tipo AND Numero IS NOT NULL AND TRIM(Numero) != '' ORDER BY Numero";
+                    var p = command.CreateParameter();
+                    p.ParameterName = "@tipo";
+                    p.Value = columnName;
+                    command.Parameters.Add(p);
+                }
+                else
+                {
+                    command.CommandText = $"SELECT DISTINCT {columnName} FROM Colaboradores WHERE {columnName} IS NOT NULL AND TRIM({columnName}) != '' ORDER BY {columnName}";
+                }
+
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        values.Add(reader.GetString(0));
+                        if (!reader.IsDBNull(0))
+                            values.Add(reader.GetString(0));
                     }
                 }
             }

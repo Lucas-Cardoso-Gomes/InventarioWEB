@@ -16,6 +16,7 @@ namespace Web.Models
         [Required(ErrorMessage = "O Hostname é obrigatório.")]
         public string Hostname { get; set; }
         public string? Fabricante { get; set; }
+        public int? ProcessadorId { get; set; }
         public string? Processador { get; set; }
         public string? ProcessadorFabricante { get; set; }
         public string? ProcessadorCore { get; set; }

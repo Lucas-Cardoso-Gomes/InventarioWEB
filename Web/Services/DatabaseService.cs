@@ -115,7 +115,9 @@ namespace Web.Services
 
                         "ALTER TABLE Usuarios ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1;",
                         
-                        "ALTER TABLE Feedbacks ADD COLUMN Protocolo TEXT;"
+                        "ALTER TABLE Feedbacks ADD COLUMN Protocolo TEXT;",
+
+                        "ALTER TABLE Computadores ADD COLUMN ProcessadorId INTEGER;"
                     };
 
                     foreach (var stmt in columnsToAdd)
@@ -236,6 +238,16 @@ namespace Web.Services
                                     Tipo TEXT NOT NULL,
                                     Numero TEXT NOT NULL,
                                     FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF) ON DELETE CASCADE
+                                );
+
+                                CREATE TABLE IF NOT EXISTS Processadores (
+                                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    Nome TEXT NOT NULL,
+                                    Fabricante TEXT,
+                                    Cores TEXT,
+                                    Threads TEXT,
+                                    Clock TEXT,
+                                    CONSTRAINT UQ_Processador UNIQUE (Nome, Fabricante, Cores, Threads, Clock)
                                 );";
                             command.ExecuteNonQuery();
                         }
@@ -301,6 +313,32 @@ namespace Web.Services
                                 INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
                                 SELECT CPF, 'Ramal', Ramal FROM Colaboradores WHERE Ramal IS NOT NULL AND Ramal != ''
                                 AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'Ramal');
+
+                                -- Migrar Processadores para a tabela Processadores
+                                INSERT OR IGNORE INTO Processadores (Nome, Fabricante, Cores, Threads, Clock)
+                                SELECT DISTINCT 
+                                    COALESCE(NULLIF(TRIM(Processador), ''), 'Desconhecido') AS Nome,
+                                    ProcessadorFabricante,
+                                    ProcessadorCore,
+                                    ProcessadorThread,
+                                    ProcessadorClock
+                                FROM Computadores
+                                WHERE (Processador IS NOT NULL AND TRIM(Processador) != '')
+                                   OR ProcessadorFabricante IS NOT NULL;
+
+                                -- Atualizar ProcessadorId na tabela Computadores
+                                UPDATE Computadores
+                                SET ProcessadorId = (
+                                    SELECT p.Id 
+                                    FROM Processadores p 
+                                    WHERE p.Nome = COALESCE(NULLIF(TRIM(Computadores.Processador), ''), 'Desconhecido')
+                                      AND (p.Fabricante = Computadores.ProcessadorFabricante OR (p.Fabricante IS NULL AND Computadores.ProcessadorFabricante IS NULL))
+                                      AND (p.Cores = Computadores.ProcessadorCore OR (p.Cores IS NULL AND Computadores.ProcessadorCore IS NULL))
+                                      AND (p.Threads = Computadores.ProcessadorThread OR (p.Threads IS NULL AND Computadores.ProcessadorThread IS NULL))
+                                      AND (p.Clock = Computadores.ProcessadorClock OR (p.Clock IS NULL AND Computadores.ProcessadorClock IS NULL))
+                                    LIMIT 1
+                                )
+                                WHERE ProcessadorId IS NULL AND (Processador IS NOT NULL OR ProcessadorFabricante IS NOT NULL);
                             ";
                             command.ExecuteNonQuery();
                         }

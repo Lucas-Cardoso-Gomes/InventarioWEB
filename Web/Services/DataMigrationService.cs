@@ -57,6 +57,16 @@ namespace Web.Services
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Smartphones",
                                     "Id, Modelo, Usuario, Filial, DataCriacao, DataAlteracao, ContaGoogle, SenhaGoogle, MAC", identityInsert: true);
 
+                                try
+                                {
+                                    await MigrateTableAsync(sourceConnection, destConnection, transaction, "Processadores",
+                                        "Id, Nome, Fabricante, Cores, Threads, Clock", identityInsert: true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning($"Skipping Processadores table migration from source (not present on legacy SQL server): {ex.Message}");
+                                }
+
                                 await MigrateTableAsync(sourceConnection, destConnection, transaction, "Computadores",
                                     "MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber");
 

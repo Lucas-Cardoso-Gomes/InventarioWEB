@@ -84,6 +84,7 @@ namespace Web.Controllers
                     string baseSql = @"
                         FROM Computadores comp
                         LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF
+                        LEFT JOIN Processadores p ON comp.ProcessadorId = p.Id
                     ";
 
                     if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
@@ -121,9 +122,9 @@ namespace Web.Controllers
 
                     addInClause("comp.Fabricante", currentFabricantes);
                     addInClause("comp.SO", currentSOs);
-                    addInClause("comp.ProcessadorFabricante", currentProcessadorFabricantes);
+                    addInClause("COALESCE(p.Fabricante, comp.ProcessadorFabricante)", currentProcessadorFabricantes);
                     addInClause("comp.RamTipo", currentRamTipos);
-                    addInClause("comp.Processador", currentProcessadores);
+                    addInClause("COALESCE(p.Nome, comp.Processador)", currentProcessadores);
                     addInClause("comp.Ram", currentRams);
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
@@ -164,8 +165,12 @@ namespace Web.Controllers
                     string sqlFields = @"
                         SELECT
                             comp.MAC, comp.IP, comp.ColaboradorCPF, col.Nome as ColaboradorNome, comp.Hostname,
-                            comp.Fabricante, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore,
-                            comp.ProcessadorThread, comp.ProcessadorClock, comp.Ram, comp.RamTipo,
+                            comp.Fabricante, COALESCE(p.Nome, comp.Processador) AS Processador,
+                            COALESCE(p.Fabricante, comp.ProcessadorFabricante) AS ProcessadorFabricante,
+                            COALESCE(p.Cores, comp.ProcessadorCore) AS ProcessadorCore,
+                            COALESCE(p.Threads, comp.ProcessadorThread) AS ProcessadorThread,
+                            COALESCE(p.Clock, comp.ProcessadorClock) AS ProcessadorClock,
+                            comp.ProcessadorId, comp.Ram, comp.RamTipo,
                             comp.RamVelocidade, comp.RamVoltagem, comp.RamPorModule, comp.ConsumoCPU, comp.SO,
                             comp.DataColeta, comp.PartNumber, comp.ProcessadorTemperatura, comp.DataGarantia,
                             comp.BateriaWearLevel, comp.TempoAtividade, comp.Localizacao, comp.Backup
@@ -199,6 +204,7 @@ namespace Web.Controllers
                                     ColaboradorNome = reader["ColaboradorNome"] != DBNull.Value ? reader["ColaboradorNome"].ToString() : null,
                                     Hostname = reader["Hostname"].ToString(),
                                     Fabricante = reader["Fabricante"].ToString(),
+                                    ProcessadorId = reader["ProcessadorId"] != DBNull.Value ? Convert.ToInt32(reader["ProcessadorId"]) : null,
                                     Processador = reader["Processador"].ToString(),
                                     ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
                                     ProcessadorCore = reader["ProcessadorCore"].ToString(),
@@ -333,13 +339,15 @@ namespace Web.Controllers
                                     computador.ColaboradorCPF = null;
                                 }
 
+                                computador.ProcessadorId = EnsureProcessadorId(connection, transaction, computador.Processador, computador.ProcessadorFabricante, computador.ProcessadorCore, computador.ProcessadorThread, computador.ProcessadorClock);
+
                                 var existente = FindComputadorById(computador.MAC, connection, transaction);
                                 if (existente != null)
                                 {
                                     string updateSql = @"UPDATE Computadores SET
                                                        IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante,
                                                        Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore,
-                                                       ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram,
+                                                       ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, ProcessadorId = @ProcessadorId, Ram = @Ram,
                                                        RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem,
                                                        RamPorModule = @RamPorModule, ConsumoCPU = @ConsumoCPU, SO = @SO, DataColeta = @DataColeta, PartNumber = @PartNumber,
                                                        DataGarantia = @DataGarantia, Backup = @Backup, ProcessadorTemperatura = @ProcessadorTemperatura, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao
@@ -357,8 +365,8 @@ namespace Web.Controllers
                                 }
                                 else
                                 {
-                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao)
-                                    VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
+                                    string insertSql = @"INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorId, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao)
+                                    VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorId, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
                                     using (var cmd = connection.CreateCommand())
                                     {
                                         cmd.Transaction = transaction;
@@ -474,6 +482,7 @@ namespace Web.Controllers
             var p8 = cmd.CreateParameter(); p8.ParameterName = "@ProcessadorCore"; p8.Value = (object)computador.ProcessadorCore ?? DBNull.Value; cmd.Parameters.Add(p8);
             var p9 = cmd.CreateParameter(); p9.ParameterName = "@ProcessadorThread"; p9.Value = (object)computador.ProcessadorThread ?? DBNull.Value; cmd.Parameters.Add(p9);
             var p10 = cmd.CreateParameter(); p10.ParameterName = "@ProcessadorClock"; p10.Value = (object)computador.ProcessadorClock ?? DBNull.Value; cmd.Parameters.Add(p10);
+            var pProcId = cmd.CreateParameter(); pProcId.ParameterName = "@ProcessadorId"; pProcId.Value = (object)computador.ProcessadorId ?? DBNull.Value; cmd.Parameters.Add(pProcId);
             var p11 = cmd.CreateParameter(); p11.ParameterName = "@Ram"; p11.Value = (object)computador.Ram ?? DBNull.Value; cmd.Parameters.Add(p11);
             var p12 = cmd.CreateParameter(); p12.ParameterName = "@RamTipo"; p12.Value = (object)computador.RamTipo ?? DBNull.Value; cmd.Parameters.Add(p12);
             var p13 = cmd.CreateParameter(); p13.ParameterName = "@RamVelocidade"; p13.Value = (object)computador.RamVelocidade ?? DBNull.Value; cmd.Parameters.Add(p13);
@@ -497,7 +506,16 @@ namespace Web.Controllers
 
             try
             {
-                string sql = "SELECT * FROM Computadores WHERE MAC = @MAC";
+                string sql = @"
+                    SELECT comp.*, 
+                           COALESCE(p.Nome, comp.Processador) AS Processador,
+                           COALESCE(p.Fabricante, comp.ProcessadorFabricante) AS ProcessadorFabricante,
+                           COALESCE(p.Cores, comp.ProcessadorCore) AS ProcessadorCore,
+                           COALESCE(p.Threads, comp.ProcessadorThread) AS ProcessadorThread,
+                           COALESCE(p.Clock, comp.ProcessadorClock) AS ProcessadorClock
+                    FROM Computadores comp 
+                    LEFT JOIN Processadores p ON comp.ProcessadorId = p.Id 
+                    WHERE comp.MAC = @MAC";
                 using (var cmd = connection.CreateCommand())
                 {
                     cmd.Transaction = transaction;
@@ -514,6 +532,7 @@ namespace Web.Controllers
                                 ColaboradorCPF = reader["ColaboradorCPF"] != DBNull.Value ? reader["ColaboradorCPF"].ToString() : null,
                                 Hostname = reader["Hostname"].ToString(),
                                 Fabricante = reader["Fabricante"].ToString(),
+                                ProcessadorId = reader["ProcessadorId"] != DBNull.Value ? Convert.ToInt32(reader["ProcessadorId"]) : null,
                                 Processador = reader["Processador"].ToString(),
                                 ProcessadorFabricante = reader["ProcessadorFabricante"].ToString(),
                                 ProcessadorCore = reader["ProcessadorCore"].ToString(),
@@ -559,16 +578,70 @@ namespace Web.Controllers
             var values = new List<string>();
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = $"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+                if (columnName.Equals("Processador", StringComparison.OrdinalIgnoreCase))
+                {
+                    command.CommandText = "SELECT DISTINCT COALESCE(p.Nome, comp.Processador) FROM Computadores comp LEFT JOIN Processadores p ON comp.ProcessadorId = p.Id WHERE COALESCE(p.Nome, comp.Processador) IS NOT NULL AND TRIM(COALESCE(p.Nome, comp.Processador)) != '' ORDER BY 1";
+                }
+                else if (columnName.Equals("ProcessadorFabricante", StringComparison.OrdinalIgnoreCase))
+                {
+                    command.CommandText = "SELECT DISTINCT COALESCE(p.Fabricante, comp.ProcessadorFabricante) FROM Computadores comp LEFT JOIN Processadores p ON comp.ProcessadorId = p.Id WHERE COALESCE(p.Fabricante, comp.ProcessadorFabricante) IS NOT NULL AND TRIM(COALESCE(p.Fabricante, comp.ProcessadorFabricante)) != '' ORDER BY 1";
+                }
+                else
+                {
+                    command.CommandText = $"SELECT DISTINCT {columnName} FROM Computadores WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+                }
+
                 using (var reader = command.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        values.Add(reader.GetString(0));
+                        if (!reader.IsDBNull(0))
+                            values.Add(reader.GetString(0));
                     }
                 }
             }
             return values;
+        }
+
+        private int? EnsureProcessadorId(IDbConnection connection, IDbTransaction transaction, string nome, string fabricante, string cores, string threads, string clock)
+        {
+            if (string.IsNullOrWhiteSpace(nome) && string.IsNullOrWhiteSpace(fabricante))
+                return null;
+
+            string procNome = string.IsNullOrWhiteSpace(nome) ? "Desconhecido" : nome.Trim();
+            string procFab = string.IsNullOrWhiteSpace(fabricante) ? null : fabricante.Trim();
+            string procCore = string.IsNullOrWhiteSpace(cores) ? null : cores.Trim();
+            string procThread = string.IsNullOrWhiteSpace(threads) ? null : threads.Trim();
+            string procClock = string.IsNullOrWhiteSpace(clock) ? null : clock.Trim();
+
+            using (var procCmd = connection.CreateCommand())
+            {
+                procCmd.Transaction = transaction;
+                procCmd.CommandText = @"
+                    INSERT OR IGNORE INTO Processadores (Nome, Fabricante, Cores, Threads, Clock)
+                    VALUES (@Nome, @Fabricante, @Cores, @Threads, @Clock);
+                    
+                    SELECT Id FROM Processadores 
+                    WHERE Nome = @Nome 
+                      AND (Fabricante = @Fabricante OR (Fabricante IS NULL AND @Fabricante IS NULL))
+                      AND (Cores = @Cores OR (Cores IS NULL AND @Cores IS NULL))
+                      AND (Threads = @Threads OR (Threads IS NULL AND @Threads IS NULL))
+                      AND (Clock = @Clock OR (Clock IS NULL AND @Clock IS NULL))
+                    LIMIT 1;";
+
+                var pName = procCmd.CreateParameter(); pName.ParameterName = "@Nome"; pName.Value = procNome; procCmd.Parameters.Add(pName);
+                var pFab = procCmd.CreateParameter(); pFab.ParameterName = "@Fabricante"; pFab.Value = (object)procFab ?? DBNull.Value; procCmd.Parameters.Add(pFab);
+                var pCore = procCmd.CreateParameter(); pCore.ParameterName = "@Cores"; pCore.Value = (object)procCore ?? DBNull.Value; procCmd.Parameters.Add(pCore);
+                var pThread = procCmd.CreateParameter(); pThread.ParameterName = "@Threads"; pThread.Value = (object)procThread ?? DBNull.Value; procCmd.Parameters.Add(pThread);
+                var pClock = procCmd.CreateParameter(); pClock.ParameterName = "@Clock"; pClock.Value = (object)procClock ?? DBNull.Value; procCmd.Parameters.Add(pClock);
+
+                var res = procCmd.ExecuteScalar();
+                if (res != null && res != DBNull.Value)
+                {
+                    return Convert.ToInt32(res);
+                }
+            }
+            return null;
         }
 
         [Authorize(Roles = "Admin")]
@@ -591,7 +664,7 @@ namespace Web.Controllers
                     {
                         connection.Open();
 
-                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
+                        string sql = "INSERT INTO Computadores (MAC, IP, ColaboradorCPF, Hostname, Fabricante, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorId, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, ConsumoCPU, SO, DataColeta, PartNumber, DataGarantia, Backup, BateriaWearLevel, TempoAtividade, Localizacao) VALUES (@MAC, @IP, @ColaboradorCPF, @Hostname, @Fabricante, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorId, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @ConsumoCPU, @SO, @DataColeta, @PartNumber, @DataGarantia, @Backup, @BateriaWearLevel, @TempoAtividade, @Localizacao)";
 
                         var comp = new Computador
                         {
@@ -628,6 +701,7 @@ namespace Web.Controllers
                         };
                         using (var transaction = connection.BeginTransaction())
                         {
+                            comp.ProcessadorId = EnsureProcessadorId(connection, transaction, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore, comp.ProcessadorThread, comp.ProcessadorClock);
                             using (var cmd = connection.CreateCommand())
                             {
                                 cmd.Transaction = transaction;
@@ -732,7 +806,7 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao WHERE MAC = @MAC";
+                        string sql = "UPDATE Computadores SET IP = @IP, ColaboradorCPF = @ColaboradorCPF, Hostname = @Hostname, Fabricante = @Fabricante, Processador = @Processador, ProcessadorFabricante = @ProcessadorFabricante, ProcessadorCore = @ProcessadorCore, ProcessadorThread = @ProcessadorThread, ProcessadorClock = @ProcessadorClock, ProcessadorId = @ProcessadorId, Ram = @Ram, RamTipo = @RamTipo, RamVelocidade = @RamVelocidade, RamVoltagem = @RamVoltagem, RamPorModule = @RamPorModule, ConsumoCPU = @ConsumoCPU, SO = @SO, PartNumber = @PartNumber, DataGarantia = @DataGarantia, Backup = @Backup, BateriaWearLevel = @BateriaWearLevel, TempoAtividade = @TempoAtividade, Localizacao = @Localizacao WHERE MAC = @MAC";
 
                         var comp = new Computador
                         {
@@ -769,6 +843,7 @@ namespace Web.Controllers
                         };
                         using (var transaction = connection.BeginTransaction())
                         {
+                            comp.ProcessadorId = EnsureProcessadorId(connection, transaction, comp.Processador, comp.ProcessadorFabricante, comp.ProcessadorCore, comp.ProcessadorThread, comp.ProcessadorClock);
                             using (var cmd = connection.CreateCommand())
                             {
                                 cmd.Transaction = transaction;

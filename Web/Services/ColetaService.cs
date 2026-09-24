@@ -134,10 +134,48 @@ namespace Web.Services
             {
                 connection.Open();
 
+                // 0. Obter ou inserir o ID do Processador na tabela normalizada Processadores
+                object processadorIdObj = DBNull.Value;
+                string procNome = hardwareInfo.Processador?.Nome ?? "Desconhecido";
+                string procFab = hardwareInfo.Processador?.Fabricante;
+                string procCore = hardwareInfo.Processador?.Cores.ToString();
+                string procThread = hardwareInfo.Processador?.Threads.ToString();
+                string procClock = hardwareInfo.Processador?.ClockSpeed;
+
+                if (!string.IsNullOrWhiteSpace(procNome) || !string.IsNullOrWhiteSpace(procFab))
+                {
+                    using (var procCmd = connection.CreateCommand())
+                    {
+                        procCmd.CommandText = @"
+                            INSERT OR IGNORE INTO Processadores (Nome, Fabricante, Cores, Threads, Clock)
+                            VALUES (@Nome, @Fabricante, @Cores, @Threads, @Clock);
+                            
+                            SELECT Id FROM Processadores 
+                            WHERE Nome = @Nome 
+                              AND (Fabricante = @Fabricante OR (Fabricante IS NULL AND @Fabricante IS NULL))
+                              AND (Cores = @Cores OR (Cores IS NULL AND @Cores IS NULL))
+                              AND (Threads = @Threads OR (Threads IS NULL AND @Threads IS NULL))
+                              AND (Clock = @Clock OR (Clock IS NULL AND @Clock IS NULL))
+                            LIMIT 1;";
+
+                        var pName = procCmd.CreateParameter(); pName.ParameterName = "@Nome"; pName.Value = procNome; procCmd.Parameters.Add(pName);
+                        var pFab = procCmd.CreateParameter(); pFab.ParameterName = "@Fabricante"; pFab.Value = procFab ?? (object)DBNull.Value; procCmd.Parameters.Add(pFab);
+                        var pCore = procCmd.CreateParameter(); pCore.ParameterName = "@Cores"; pCore.Value = procCore ?? (object)DBNull.Value; procCmd.Parameters.Add(pCore);
+                        var pThread = procCmd.CreateParameter(); pThread.ParameterName = "@Threads"; pThread.Value = procThread ?? (object)DBNull.Value; procCmd.Parameters.Add(pThread);
+                        var pClock = procCmd.CreateParameter(); pClock.ParameterName = "@Clock"; pClock.Value = procClock ?? (object)DBNull.Value; procCmd.Parameters.Add(pClock);
+
+                        var res = procCmd.ExecuteScalar();
+                        if (res != null && res != DBNull.Value)
+                        {
+                            processadorIdObj = Convert.ToInt32(res);
+                        }
+                    }
+                }
+
                 // 1. Inserir ou atualizar primeiro a tabela pai 'Computadores' para garantir a chave primária MAC
                 string upsertQuery = @"
-                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
-                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorId, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorId, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
                     ON CONFLICT(MAC) DO UPDATE SET
                         IP = excluded.IP,
                         Processador = excluded.Processador,
@@ -145,6 +183,7 @@ namespace Web.Services
                         ProcessadorCore = excluded.ProcessadorCore,
                         ProcessadorThread = excluded.ProcessadorThread,
                         ProcessadorClock = excluded.ProcessadorClock,
+                        ProcessadorId = excluded.ProcessadorId,
                         ProcessadorTemperatura = excluded.ProcessadorTemperatura,
                         Ram = excluded.Ram,
                         RamTipo = excluded.RamTipo,
@@ -172,6 +211,7 @@ namespace Web.Services
                     var p5 = cmd.CreateParameter(); p5.ParameterName = "@ProcessadorCore"; p5.Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p5);
                     var p6 = cmd.CreateParameter(); p6.ParameterName = "@ProcessadorThread"; p6.Value = hardwareInfo.Processador?.Threads.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p6);
                     var p7 = cmd.CreateParameter(); p7.ParameterName = "@ProcessadorClock"; p7.Value = hardwareInfo.Processador?.ClockSpeed ?? (object)DBNull.Value; cmd.Parameters.Add(p7);
+                    var pProcId = cmd.CreateParameter(); pProcId.ParameterName = "@ProcessadorId"; pProcId.Value = processadorIdObj; cmd.Parameters.Add(pProcId);
                     var pTemp = cmd.CreateParameter(); pTemp.ParameterName = "@ProcessadorTemperatura"; pTemp.Value = hardwareInfo.Processador?.Temperatura ?? (object)DBNull.Value; cmd.Parameters.Add(pTemp);
                     var p8 = cmd.CreateParameter(); p8.ParameterName = "@Ram"; p8.Value = hardwareInfo.Ram?.RamTotal ?? (object)DBNull.Value; cmd.Parameters.Add(p8);
                     var p9 = cmd.CreateParameter(); p9.ParameterName = "@RamTipo"; p9.Value = hardwareInfo.Ram?.Tipo ?? (object)DBNull.Value; cmd.Parameters.Add(p9);

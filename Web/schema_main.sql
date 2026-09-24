@@ -58,6 +58,16 @@ CREATE TABLE IF NOT EXISTS ProgramasInstalados (
     FOREIGN KEY (ComputadorMAC) REFERENCES Computadores(MAC) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS Processadores (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Nome TEXT NOT NULL,
+    Fabricante TEXT,
+    Cores TEXT,
+    Threads TEXT,
+    Clock TEXT,
+    CONSTRAINT UQ_Processador UNIQUE (Nome, Fabricante, Cores, Threads, Clock)
+);
+
 CREATE TABLE IF NOT EXISTS Computadores (
     MAC TEXT PRIMARY KEY,
     IP TEXT,
@@ -69,6 +79,7 @@ CREATE TABLE IF NOT EXISTS Computadores (
     ProcessadorCore TEXT,
     ProcessadorThread TEXT,
     ProcessadorClock TEXT,
+    ProcessadorId INTEGER,
     ProcessadorTemperatura TEXT,
     Ram TEXT,
     RamTipo TEXT,
@@ -84,7 +95,8 @@ CREATE TABLE IF NOT EXISTS Computadores (
     BateriaWearLevel TEXT,
     TempoAtividade TEXT,
     Localizacao TEXT,
-    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF)
+    FOREIGN KEY (ColaboradorCPF) REFERENCES Colaboradores(CPF),
+    FOREIGN KEY (ProcessadorId) REFERENCES Processadores(Id)
 );
 
 CREATE TABLE IF NOT EXISTS Monitores (

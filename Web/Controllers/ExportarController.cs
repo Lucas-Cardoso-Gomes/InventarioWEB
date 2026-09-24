@@ -143,7 +143,20 @@ namespace Web.Controllers
         private List<string> GetDistinctValues(IDbConnection connection, string tableName, string columnName)
         {
             var values = new List<string>();
-            var sql = $"SELECT DISTINCT {columnName} FROM {tableName} WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            string sql;
+            if (tableName.Equals("Computadores", StringComparison.OrdinalIgnoreCase) && columnName.Equals("Processador", StringComparison.OrdinalIgnoreCase))
+            {
+                sql = "SELECT DISTINCT COALESCE(p.Nome, c.Processador) FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id WHERE COALESCE(p.Nome, c.Processador) IS NOT NULL AND TRIM(COALESCE(p.Nome, c.Processador)) != '' ORDER BY 1";
+            }
+            else if (tableName.Equals("Computadores", StringComparison.OrdinalIgnoreCase) && columnName.Equals("ProcessadorFabricante", StringComparison.OrdinalIgnoreCase))
+            {
+                sql = "SELECT DISTINCT COALESCE(p.Fabricante, c.ProcessadorFabricante) FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id WHERE COALESCE(p.Fabricante, c.ProcessadorFabricante) IS NOT NULL AND TRIM(COALESCE(p.Fabricante, c.ProcessadorFabricante)) != '' ORDER BY 1";
+            }
+            else
+            {
+                sql = $"SELECT DISTINCT {columnName} FROM {tableName} WHERE {columnName} IS NOT NULL ORDER BY {columnName}";
+            }
+
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = sql;
@@ -151,7 +164,8 @@ namespace Web.Controllers
                 {
                     while (reader.Read())
                     {
-                        values.Add(reader[0].ToString());
+                        if (!reader.IsDBNull(0))
+                            values.Add(reader[0].ToString());
                     }
                 }
             }
@@ -202,9 +216,9 @@ namespace Web.Controllers
                         case DeviceType.Computadores:
                             addInClause("c.Fabricante", viewModel.CurrentFabricantes);
                             addInClause("c.SO", viewModel.CurrentSOs);
-                            addInClause("c.ProcessadorFabricante", viewModel.CurrentProcessadorFabricantes);
+                            addInClause("COALESCE(p.Fabricante, c.ProcessadorFabricante)", viewModel.CurrentProcessadorFabricantes);
                             addInClause("c.RamTipo", viewModel.CurrentRamTipos);
-                            addInClause("c.Processador", viewModel.CurrentProcessadores);
+                            addInClause("COALESCE(p.Nome, c.Processador)", viewModel.CurrentProcessadores);
                             addInClause("c.Ram", viewModel.CurrentRams);
 
                             if (isRestricted)
@@ -216,7 +230,7 @@ namespace Web.Controllers
                             string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ConsumoCPU", "SO", "PartNumber" };
                             for (int i = 0; i < computerHeader.Length; i++) worksheet.Cells[1, i + 1].Value = computerHeader[i];
 
-                            sql = $"SELECT c.* FROM Computadores c" + (isRestricted ? " LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF" : "");
+                            sql = $"SELECT c.MAC, c.IP, c.ColaboradorCPF, c.Hostname, c.Fabricante, COALESCE(p.Nome, c.Processador) AS Processador, COALESCE(p.Fabricante, c.ProcessadorFabricante) AS ProcessadorFabricante, COALESCE(p.Cores, c.ProcessadorCore) AS ProcessadorCore, COALESCE(p.Threads, c.ProcessadorThread) AS ProcessadorThread, COALESCE(p.Clock, c.ProcessadorClock) AS ProcessadorClock, c.Ram, c.RamTipo, c.RamVelocidade, c.RamVoltagem, c.RamPorModule, c.ConsumoCPU, c.SO, c.PartNumber FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id" + (isRestricted ? " LEFT JOIN Colaboradores col ON c.ColaboradorCPF = col.CPF" : "");
 
                             if (whereClauses.Any())
                             {
@@ -508,7 +522,7 @@ namespace Web.Controllers
                     string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ConsumoCPU", "SO", "PartNumber" };
                     for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
 
-                    string sqlComputadores = "SELECT * FROM Computadores c WHERE c.ColaboradorCPF = @colaboradorCpf";
+                    string sqlComputadores = "SELECT c.MAC, c.IP, c.ColaboradorCPF, c.Hostname, c.Fabricante, COALESCE(p.Nome, c.Processador) AS Processador, COALESCE(p.Fabricante, c.ProcessadorFabricante) AS ProcessadorFabricante, COALESCE(p.Cores, c.ProcessadorCore) AS ProcessadorCore, COALESCE(p.Threads, c.ProcessadorThread) AS ProcessadorThread, COALESCE(p.Clock, c.ProcessadorClock) AS ProcessadorClock, c.Ram, c.RamTipo, c.RamVelocidade, c.RamVoltagem, c.RamPorModule, c.ConsumoCPU, c.SO, c.PartNumber FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id WHERE c.ColaboradorCPF = @colaboradorCpf";
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandText = sqlComputadores;
@@ -639,8 +653,9 @@ namespace Web.Controllers
                     for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
 
                     string sql = $@"
-                        SELECT c.*
+                        SELECT c.MAC, c.IP, c.ColaboradorCPF, c.Hostname, c.Fabricante, COALESCE(p.Nome, c.Processador) AS Processador, COALESCE(p.Fabricante, c.ProcessadorFabricante) AS ProcessadorFabricante, COALESCE(p.Cores, c.ProcessadorCore) AS ProcessadorCore, COALESCE(p.Threads, c.ProcessadorThread) AS ProcessadorThread, COALESCE(p.Clock, c.ProcessadorClock) AS ProcessadorClock, c.Ram, c.RamTipo, c.RamVelocidade, c.RamVoltagem, c.RamPorModule, c.ConsumoCPU, c.SO, c.PartNumber
                         FROM Computadores c
+                        LEFT JOIN Processadores p ON c.ProcessadorId = p.Id
                         INNER JOIN Colaboradores colab ON c.ColaboradorCPF = colab.CPF
                         WHERE colab.CoordenadorCPF = @coordenadorCpf OR colab.CPF = @coordenadorCpf";
 
