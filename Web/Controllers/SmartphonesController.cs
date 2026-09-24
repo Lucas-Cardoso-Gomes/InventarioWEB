@@ -219,7 +219,7 @@ namespace Web.Controllers
 
                 TempData["SuccessMessage"] = $"{adicionados} smartphones adicionados e {atualizados} atualizados com sucesso.";
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // In a real app we might inject a logger to log this.
                 TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";

@@ -1,35 +1,37 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Web.Models;
-using Web.Services;
-using System.Security.Claims;
-using System.Data;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using OfficeOpenXml;
 using System.IO;
 using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Logging;
+using OfficeOpenXml;
+using Web.Models;
+using Web.Services;
 
 namespace Web.Controllers
 {
     [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria")]
     public class PerifericosController : Controller
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly IPerifericoService _perifericoService;
         private readonly ILogger<PerifericosController> _logger;
         private readonly PersistentLogService _persistentLogService;
         private readonly IHistoricoTrocasService _historicoTrocasService;
         private readonly ManutencaoService _manutencaoService;
 
-        public PerifericosController(IDatabaseService databaseService, ILogger<PerifericosController> logger, PersistentLogService persistentLogService, IHistoricoTrocasService historicoTrocasService, ManutencaoService manutencaoService)
+        public PerifericosController(
+            IPerifericoService perifericoService,
+            ILogger<PerifericosController> logger,
+            PersistentLogService persistentLogService,
+            IHistoricoTrocasService historicoTrocasService,
+            ManutencaoService manutencaoService)
         {
-            _databaseService = databaseService;
+            _perifericoService = perifericoService;
             _logger = logger;
             _persistentLogService = persistentLogService;
             _historicoTrocasService = historicoTrocasService;
@@ -40,79 +42,27 @@ namespace Web.Controllers
         public IActionResult Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
-            var perifericos = new List<Periferico>();
             try
             {
-                using (var connection = _databaseService.CreateConnection())
-                {
-                    connection.Open();
+                var userCpf = User.FindFirstValue("ColaboradorCPF");
+                bool isColaboradorOnly = User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria");
+                bool isCoordenadorOnly = User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria");
 
-                    var sqlBuilder = new System.Text.StringBuilder("SELECT p.*, c.Nome as ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF");
-                    var whereClauses = new List<string>();
-                    var parameters = new Dictionary<string, object>();
-                    var userCpf = User.FindFirstValue("ColaboradorCPF");
-
-                    if (User.IsInRole("Colaborador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                    {
-                        whereClauses.Add("p.ColaboradorCPF = @UserCpf");
-                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
-                    }
-                    else if (User.IsInRole("Coordenador") && !User.IsInRole("Admin") && !User.IsInRole("Diretoria"))
-                    {
-                        whereClauses.Add("(c.CoordenadorCPF = @UserCpf OR p.ColaboradorCPF = @UserCpf)");
-                        parameters.Add("@UserCpf", (object)userCpf ?? DBNull.Value);
-                    }
-
-                    if (!string.IsNullOrEmpty(searchString))
-                    {
-                        whereClauses.Add("(c.Nome LIKE @search OR p.Tipo LIKE @search OR p.PartNumber LIKE @search)");
-                        parameters.Add("@search", $"%{searchString}%");
-                    }
-
-                    if (whereClauses.Count > 0)
-                    {
-                        sqlBuilder.Append(" WHERE " + string.Join(" AND ", whereClauses));
-                    }
-
-                    using (var cmd = connection.CreateCommand())
-                    {
-                        cmd.CommandText = sqlBuilder.ToString();
-                        foreach(var p in parameters)
-                        {
-                            var param = cmd.CreateParameter();
-                            param.ParameterName = p.Key;
-                            param.Value = p.Value;
-                            cmd.Parameters.Add(param);
-                        }
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                perifericos.Add(new Periferico
-                                {
-                                    PartNumber = reader["PartNumber"].ToString(),
-                                    ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                    ColaboradorNome = reader["ColaboradorNome"] as string,
-                                    Tipo = reader["Tipo"].ToString(),
-                                    DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null
-                                });
-                            }
-                        }
-                    }
-                }
+                var perifericos = _perifericoService.GetFilteredPerifericos(searchString, userCpf, isColaboradorOnly, isCoordenadorOnly);
+                return View(perifericos);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao obter a lista de periféricos.");
+                return View(new List<Periferico>());
             }
-            return View(perifericos);
         }
 
         // GET: Perifericos/Create
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome");
+            ViewData["Colaboradores"] = new SelectList(_perifericoService.GetColaboradores(), "CPF", "Nome");
             return View();
         }
 
@@ -126,21 +76,7 @@ namespace Web.Controllers
             {
                 try
                 {
-                    using (var connection = _databaseService.CreateConnection())
-                    {
-                        connection.Open();
-                        string sql = "INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega, DataGarantia) VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega, @DataGarantia)";
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
-                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
-                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
-                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
-                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    _perifericoService.Create(periferico);
                     await _persistentLogService.LogChangeAsync("Periferico", "Create", User.Identity.Name, null, periferico);
                     return RedirectToAction(nameof(Index));
                 }
@@ -150,14 +86,14 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao criar o periférico.");
                 }
             }
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            ViewData["Colaboradores"] = new SelectList(_perifericoService.GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
         public IActionResult Details(string id)
         {
             if (id == null) return NotFound();
-            Periferico periferico = FindPerifericoById(id);
+            Periferico periferico = _perifericoService.FindById(id);
             if (periferico == null) return NotFound();
 
             var viewModel = new PerifericoDetailsViewModel
@@ -174,9 +110,10 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
-            Periferico periferico = FindPerifericoById(id);
+            if (id == null) return NotFound();
+            Periferico periferico = _perifericoService.FindById(id);
             if (periferico == null) return NotFound();
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            ViewData["Colaboradores"] = new SelectList(_perifericoService.GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
@@ -192,22 +129,8 @@ namespace Web.Controllers
             {
                 try
                 {
-                    var oldPeriferico = FindPerifericoById(id);
-                    using (var connection = _databaseService.CreateConnection())
-                    {
-                        connection.Open();
-                        string sql = "UPDATE Perifericos SET ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega, DataGarantia = @DataGarantia WHERE PartNumber = @PartNumber";
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
-                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
-                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
-                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
-                            var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    var oldPeriferico = _perifericoService.FindById(id);
+                    _perifericoService.Update(periferico);
 
                     if (oldPeriferico != null)
                     {
@@ -225,7 +148,7 @@ namespace Web.Controllers
                     ModelState.AddModelError(string.Empty, "Ocorreu um erro ao editar o periférico.");
                 }
             }
-            ViewData["Colaboradores"] = new SelectList(GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
+            ViewData["Colaboradores"] = new SelectList(_perifericoService.GetColaboradores(), "CPF", "Nome", periferico.ColaboradorCPF);
             return View(periferico);
         }
 
@@ -233,7 +156,8 @@ namespace Web.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
-            Periferico periferico = FindPerifericoById(id);
+            if (id == null) return NotFound();
+            Periferico periferico = _perifericoService.FindById(id);
             if (periferico == null) return NotFound();
             return View(periferico);
         }
@@ -246,20 +170,10 @@ namespace Web.Controllers
         {
             try
             {
-                var periferico = FindPerifericoById(id);
+                var periferico = _perifericoService.FindById(id);
                 if (periferico != null)
                 {
-                    using (var connection = _databaseService.CreateConnection())
-                    {
-                        connection.Open();
-                        string sql = "DELETE FROM Perifericos WHERE PartNumber = @PartNumber";
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                    _perifericoService.Delete(id);
                     await _persistentLogService.LogChangeAsync("Periferico", "Delete", User.Identity.Name, periferico, null);
                 }
                 return RedirectToAction(nameof(Index));
@@ -268,75 +182,8 @@ namespace Web.Controllers
             {
                 _logger.LogError(ex, "Erro ao excluir periférico.");
                 ViewBag.ErrorMessage = "Ocorreu um erro ao excluir o periférico.";
-                return View(FindPerifericoById(id));
+                return View(_perifericoService.FindById(id));
             }
-        }
-
-        private Periferico FindPerifericoById(string id)
-        {
-            Periferico periferico = null;
-            using (var connection = _databaseService.CreateConnection())
-            {
-                connection.Open();
-                string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = sql;
-                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            periferico = new Periferico
-                            {
-                                PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                ColaboradorNome = reader["ColaboradorNome"] as string,
-                                Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
-                            };
-                        }
-                    }
-                }
-            }
-            return periferico;
-        }
-
-        private Periferico FindPerifericoById(string id, IDbConnection connection, IDbTransaction transaction)
-        {
-            Periferico periferico = null;
-            try
-            {
-                string sql = "SELECT p.*, c.Nome AS ColaboradorNome FROM Perifericos p LEFT JOIN Colaboradores c ON p.ColaboradorCPF = c.CPF WHERE p.PartNumber = @PartNumber";
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = sql;
-                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = id; cmd.Parameters.Add(p1);
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            periferico = new Periferico
-                            {
-                                PartNumber = reader["PartNumber"].ToString(),
-                                ColaboradorCPF = reader["ColaboradorCPF"] as string,
-                                ColaboradorNome = reader["ColaboradorNome"] as string,
-                                Tipo = reader["Tipo"].ToString(),
-                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : (DateTime?)null,
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
-                            };
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao encontrar periferico por ID.");
-                if (transaction != null) throw;
-            }
-            return periferico;
         }
 
         private string SanitizeCpf(string cpf)
@@ -374,7 +221,7 @@ namespace Web.Controllers
                         for (int row = 2; row <= rowCount; row++)
                         {
                             var sanitizedCpf = SanitizeCpf(worksheet.Cells[row, 2].Value?.ToString().Trim());
-                            
+
                             DateTime? dataEntrega = null;
                             if (DateTime.TryParse(worksheet.Cells[row, 4].Value?.ToString()?.Trim(), out DateTime parsedDate))
                             {
@@ -397,90 +244,11 @@ namespace Web.Controllers
                     }
                 }
 
-                int adicionados = 0;
-                int atualizados = 0;
-                var invalidCpfs = new List<string>();
-
-                using (var connection = _databaseService.CreateConnection())
+                var (adicionados, atualizados, invalidCpfs) = _perifericoService.ImportList(perifericos);
+                TempData["SuccessMessage"] = $"{adicionados} periféricos adicionados e {atualizados} atualizados com sucesso.";
+                if (invalidCpfs.Any())
                 {
-                    connection.Open();
-
-                    var colaboradoresCpf = new HashSet<string>();
-                    using (var cmd = connection.CreateCommand())
-                    {
-                        cmd.CommandText = "SELECT CPF FROM Colaboradores";
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                colaboradoresCpf.Add(reader.GetString(0));
-                            }
-                        }
-                    }
-
-                    using (var transaction = connection.BeginTransaction())
-                    {
-                        try
-                        {
-                            foreach (var periferico in perifericos)
-                            {
-                                if (!string.IsNullOrEmpty(periferico.ColaboradorCPF) && !colaboradoresCpf.Contains(periferico.ColaboradorCPF))
-                                {
-                                    invalidCpfs.Add(periferico.PartNumber);
-                                    periferico.ColaboradorCPF = null;
-                                }
-
-                                var existente = FindPerifericoById(periferico.PartNumber, connection, transaction);
-                                if (existente != null)
-                                {
-                                    string updateSql = @"UPDATE Perifericos SET
-                                                       ColaboradorCPF = @ColaboradorCPF, Tipo = @Tipo, DataEntrega = @DataEntrega, DataGarantia = @DataGarantia
-                                                       WHERE PartNumber = @PartNumber";
-                                    using (var cmd = connection.CreateCommand())
-                                    {
-                                        cmd.Transaction = transaction;
-                                        cmd.CommandText = updateSql;
-                                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
-                                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
-                                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
-                                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
-                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
-                                        cmd.ExecuteNonQuery();
-                                    }
-                                    atualizados++;
-                                }
-                                else
-                                {
-                                    string insertSql = @"INSERT INTO Perifericos (PartNumber, ColaboradorCPF, Tipo, DataEntrega, DataGarantia)
-                                                       VALUES (@PartNumber, @ColaboradorCPF, @Tipo, @DataEntrega, @DataGarantia)";
-                                    using (var cmd = connection.CreateCommand())
-                                    {
-                                        cmd.Transaction = transaction;
-                                        cmd.CommandText = insertSql;
-                                        var p1 = cmd.CreateParameter(); p1.ParameterName = "@PartNumber"; p1.Value = periferico.PartNumber; cmd.Parameters.Add(p1);
-                                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)periferico.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
-                                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Tipo"; p3.Value = periferico.Tipo; cmd.Parameters.Add(p3);
-                                        var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataEntrega"; p4.Value = (object)periferico.DataEntrega ?? DBNull.Value; cmd.Parameters.Add(p4);
-                                        var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataGarantia"; p5.Value = periferico.DataGarantia.HasValue ? periferico.DataGarantia.Value.ToString("yyyy-MM-dd HH:mm:ss") : DBNull.Value; cmd.Parameters.Add(p5);
-                                        cmd.ExecuteNonQuery();
-                                    }
-                                    adicionados++;
-                                }
-                            }
-                            transaction.Commit();
-                            TempData["SuccessMessage"] = $"{adicionados} periféricos adicionados e {atualizados} atualizados com sucesso.";
-                            if (invalidCpfs.Any())
-                            {
-                                TempData["WarningMessage"] = $"Os seguintes periféricos (PartNumber) foram importados, mas o CPF do colaborador não foi encontrado: {string.Join(", ", invalidCpfs)}";
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            transaction.Rollback();
-                            _logger.LogError(ex, "Erro ao salvar os dados do Excel. A transação foi revertida.");
-                            TempData["ErrorMessage"] = "Ocorreu um erro ao salvar os dados. Nenhuma alteração foi feita.";
-                        }
-                    }
+                    TempData["WarningMessage"] = $"Os seguintes periféricos (PartNumber) foram importados, mas o CPF do colaborador não foi encontrado: {string.Join(", ", invalidCpfs)}";
                 }
             }
             catch (Exception ex)
@@ -490,31 +258,6 @@ namespace Web.Controllers
             }
 
             return RedirectToAction(nameof(Index));
-        }
-
-        private List<Colaborador> GetColaboradores()
-        {
-            var colaboradores = new List<Colaborador>();
-            using (var connection = _databaseService.CreateConnection())
-            {
-                connection.Open();
-                string sql = "SELECT CPF, Nome FROM Colaboradores ORDER BY Nome";
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = sql;
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            colaboradores.Add(new Colaborador {
-                                CPF = reader["CPF"].ToString(),
-                                Nome = reader["Nome"].ToString()
-                            });
-                        }
-                    }
-                }
-            }
-            return colaboradores;
         }
     }
 }

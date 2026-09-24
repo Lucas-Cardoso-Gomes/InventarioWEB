@@ -602,7 +602,16 @@ namespace Web.Controllers
             }
             else
             {
-                adminCpfValue = userCpf;
+                adminCpfValue = (object)userCpf ?? DBNull.Value;
+            }
+
+            if (string.IsNullOrEmpty(chamado.Status))
+            {
+                chamado.Status = "Aberto";
+            }
+            if (string.IsNullOrEmpty(chamado.Prioridade))
+            {
+                chamado.Prioridade = "Médio";
             }
 
             if (ModelState.IsValid)
@@ -620,12 +629,12 @@ namespace Web.Controllers
                         {
                             cmd.CommandText = sql;
                             var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = adminCpfValue; cmd.Parameters.Add(p1);
-                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p2);
-                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = chamado.Servico; cmd.Parameters.Add(p3);
-                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = chamado.Descricao; cmd.Parameters.Add(p4);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)chamado.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = (object)chamado.Servico ?? DBNull.Value; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = (object)chamado.Descricao ?? DBNull.Value; cmd.Parameters.Add(p4);
                             var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataCriacao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p5);
-                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = chamado.Status; cmd.Parameters.Add(p6);
-                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = chamado.Prioridade; cmd.Parameters.Add(p7);
+                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = (object)chamado.Status ?? "Aberto"; cmd.Parameters.Add(p6);
+                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = (object)chamado.Prioridade ?? "Médio"; cmd.Parameters.Add(p7);
 
                             var result = cmd.ExecuteScalar();
                             chamado.ID = Convert.ToInt32(result);
@@ -768,7 +777,7 @@ namespace Web.Controllers
                                 cmd.CommandText = sql;
                                 var p = cmd.CreateParameter();
                                 p.ParameterName = "@CPF";
-                                p.Value = chamado.ColaboradorCPF;
+                            p.Value = (object)chamado.ColaboradorCPF ?? DBNull.Value;
                                 cmd.Parameters.Add(p);
                                 var result = cmd.ExecuteScalar();
                                 if (result != DBNull.Value)
@@ -888,13 +897,14 @@ namespace Web.Controllers
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = User.FindFirstValue("ColaboradorCPF"); cmd.Parameters.Add(p1);
-                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p2);
-                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = chamado.Servico; cmd.Parameters.Add(p3);
-                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = chamado.Descricao; cmd.Parameters.Add(p4);
+                            var adminCpf = User.FindFirstValue("ColaboradorCPF");
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@AdminCPF"; p1.Value = (object)adminCpf ?? DBNull.Value; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@ColaboradorCPF"; p2.Value = (object)chamado.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@Servico"; p3.Value = (object)chamado.Servico ?? DBNull.Value; cmd.Parameters.Add(p3);
+                            var p4 = cmd.CreateParameter(); p4.ParameterName = "@Descricao"; p4.Value = (object)chamado.Descricao ?? DBNull.Value; cmd.Parameters.Add(p4);
                             var p5 = cmd.CreateParameter(); p5.ParameterName = "@DataAlteracao"; p5.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p5);
-                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = chamado.Status; cmd.Parameters.Add(p6);
-                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = chamado.Prioridade; cmd.Parameters.Add(p7);
+                            var p6 = cmd.CreateParameter(); p6.ParameterName = "@Status"; p6.Value = (object)chamado.Status ?? "Aberto"; cmd.Parameters.Add(p6);
+                            var p7 = cmd.CreateParameter(); p7.ParameterName = "@Prioridade"; p7.Value = (object)chamado.Prioridade ?? "Médio"; cmd.Parameters.Add(p7);
                             var p8 = cmd.CreateParameter(); p8.ParameterName = "@ID"; p8.Value = id; cmd.Parameters.Add(p8);
 
                             cmd.ExecuteNonQuery();
@@ -1418,8 +1428,8 @@ namespace Web.Controllers
                     {
                         cmd.CommandText = sql;
                         var p1 = cmd.CreateParameter(); p1.ParameterName = "@ChamadoID"; p1.Value = chamadoId; cmd.Parameters.Add(p1);
-                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@UsuarioCPF"; p2.Value = userCpf; cmd.Parameters.Add(p2);
-                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Mensagem"; p3.Value = message; cmd.Parameters.Add(p3);
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@UsuarioCPF"; p2.Value = (object)userCpf ?? DBNull.Value; cmd.Parameters.Add(p2);
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@Mensagem"; p3.Value = (object)message ?? DBNull.Value; cmd.Parameters.Add(p3);
                         var p4 = cmd.CreateParameter(); p4.ParameterName = "@DataCriacao"; p4.Value = timestamp.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p4);
 
                         var result = cmd.ExecuteScalar();
@@ -1471,7 +1481,7 @@ namespace Web.Controllers
                         using (var cmd = connection.CreateCommand())
                         {
                             cmd.CommandText = sql;
-                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = chamado.ColaboradorCPF; cmd.Parameters.Add(p1);
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@CPF"; p1.Value = (object)chamado.ColaboradorCPF ?? DBNull.Value; cmd.Parameters.Add(p1);
                             using (var reader = cmd.ExecuteReader())
                             {
                                 if (reader.Read())

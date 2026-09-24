@@ -252,69 +252,110 @@ namespace Web.Services
                             command.ExecuteNonQuery();
                         }
 
-                        // Migração de dados legados para tabelas normalizadas 1FN
+                        // Migração de dados legados para tabelas normalizadas 1FN (com verificação de colunas)
+                        void ExecuteConditionalMigration(string table, string column, string sql)
+                        {
+                            if (ColumnExists(connection, table, column))
+                            {
+                                try
+                                {
+                                    using (var cmd = connection.CreateCommand())
+                                    {
+                                        cmd.CommandText = sql;
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                }
+                                catch (SqliteException ex)
+                                {
+                                    _logger.LogWarning(ex, $"Conditional migration for {table}.{column} skipped or encountered an error.");
+                                }
+                            }
+                        }
+
+                        ExecuteConditionalMigration("Smartphones", "IMEI1", @"
+                            INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem)
+                            SELECT Id, IMEI1, 1 FROM Smartphones WHERE IMEI1 IS NOT NULL AND IMEI1 != ''
+                            AND NOT EXISTS (SELECT 1 FROM SmartphoneIMEIs WHERE SmartphoneId = Smartphones.Id AND IMEI = Smartphones.IMEI1);
+                        ");
+
+                        ExecuteConditionalMigration("Smartphones", "IMEI2", @"
+                            INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem)
+                            SELECT Id, IMEI2, 2 FROM Smartphones WHERE IMEI2 IS NOT NULL AND IMEI2 != ''
+                            AND NOT EXISTS (SELECT 1 FROM SmartphoneIMEIs WHERE SmartphoneId = Smartphones.Id AND IMEI = Smartphones.IMEI2);
+                        ");
+
+                        ExecuteConditionalMigration("Computadores", "ArmazenamentoC", @"
+                            INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB)
+                            SELECT MAC, COALESCE(ArmazenamentoC, 'C:'), ArmazenamentoCTotal, ArmazenamentoCLivre 
+                            FROM Computadores WHERE (ArmazenamentoCTotal IS NOT NULL OR ArmazenamentoC IS NOT NULL)
+                            AND NOT EXISTS (SELECT 1 FROM ComputadorDiscos WHERE ComputadorMAC = Computadores.MAC AND Letra = COALESCE(Computadores.ArmazenamentoC, 'C:'));
+                        ");
+
+                        ExecuteConditionalMigration("Computadores", "ArmazenamentoD", @"
+                            INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB)
+                            SELECT MAC, COALESCE(ArmazenamentoD, 'D:'), ArmazenamentoDTotal, ArmazenamentoDLivre 
+                            FROM Computadores WHERE (ArmazenamentoDTotal IS NOT NULL OR ArmazenamentoD IS NOT NULL)
+                            AND NOT EXISTS (SELECT 1 FROM ComputadorDiscos WHERE ComputadorMAC = Computadores.MAC AND Letra = COALESCE(Computadores.ArmazenamentoD, 'D:'));
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaEmail", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'Email', Email, SenhaEmail FROM Colaboradores WHERE SenhaEmail IS NOT NULL AND SenhaEmail != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Email');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaTeams", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'Teams', Teams, SenhaTeams FROM Colaboradores WHERE SenhaTeams IS NOT NULL AND SenhaTeams != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Teams');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaEDespacho", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'EDespacho', EDespacho, SenhaEDespacho FROM Colaboradores WHERE SenhaEDespacho IS NOT NULL AND SenhaEDespacho != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'EDespacho');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaGenius", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'Genius', Genius, SenhaGenius FROM Colaboradores WHERE SenhaGenius IS NOT NULL AND SenhaGenius != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Genius');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaIbrooker", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'Ibrooker', Ibrooker, SenhaIbrooker FROM Colaboradores WHERE SenhaIbrooker IS NOT NULL AND SenhaIbrooker != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Ibrooker');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "SenhaAdicional", @"
+                            INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
+                            SELECT CPF, 'Adicional', Adicional, SenhaAdicional FROM Colaboradores WHERE SenhaAdicional IS NOT NULL AND SenhaAdicional != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Adicional');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "Smartphone", @"
+                            INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
+                            SELECT CPF, 'Smartphone', Smartphone FROM Colaboradores WHERE Smartphone IS NOT NULL AND Smartphone != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'Smartphone');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "TelefoneFixo", @"
+                            INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
+                            SELECT CPF, 'TelefoneFixo', TelefoneFixo FROM Colaboradores WHERE TelefoneFixo IS NOT NULL AND TelefoneFixo != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'TelefoneFixo');
+                        ");
+
+                        ExecuteConditionalMigration("Colaboradores", "Ramal", @"
+                            INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
+                            SELECT CPF, 'Ramal', Ramal FROM Colaboradores WHERE Ramal IS NOT NULL AND Ramal != ''
+                            AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'Ramal');
+                        ");
+
+                        // Migrar Processadores para a tabela Processadores
                         using (var command = connection.CreateCommand())
                         {
                             command.CommandText = @"
-                                -- Migrar IMEIs de Smartphones
-                                INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem)
-                                SELECT Id, IMEI1, 1 FROM Smartphones WHERE IMEI1 IS NOT NULL AND IMEI1 != ''
-                                AND NOT EXISTS (SELECT 1 FROM SmartphoneIMEIs WHERE SmartphoneId = Smartphones.Id AND IMEI = Smartphones.IMEI1);
-
-                                INSERT INTO SmartphoneIMEIs (SmartphoneId, IMEI, Ordem)
-                                SELECT Id, IMEI2, 2 FROM Smartphones WHERE IMEI2 IS NOT NULL AND IMEI2 != ''
-                                AND NOT EXISTS (SELECT 1 FROM SmartphoneIMEIs WHERE SmartphoneId = Smartphones.Id AND IMEI = Smartphones.IMEI2);
-
-                                -- Migrar Discos de Computadores
-                                INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB)
-                                SELECT MAC, COALESCE(ArmazenamentoC, 'C:'), ArmazenamentoCTotal, ArmazenamentoCLivre 
-                                FROM Computadores WHERE (ArmazenamentoCTotal IS NOT NULL OR ArmazenamentoC IS NOT NULL)
-                                AND NOT EXISTS (SELECT 1 FROM ComputadorDiscos WHERE ComputadorMAC = Computadores.MAC AND Letra = COALESCE(Computadores.ArmazenamentoC, 'C:'));
-
-                                INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB)
-                                SELECT MAC, COALESCE(ArmazenamentoD, 'D:'), ArmazenamentoDTotal, ArmazenamentoDLivre 
-                                FROM Computadores WHERE (ArmazenamentoDTotal IS NOT NULL OR ArmazenamentoD IS NOT NULL)
-                                AND NOT EXISTS (SELECT 1 FROM ComputadorDiscos WHERE ComputadorMAC = Computadores.MAC AND Letra = COALESCE(Computadores.ArmazenamentoD, 'D:'));
-
-                                -- Migrar Credenciais de Colaboradores
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'Email', Email, SenhaEmail FROM Colaboradores WHERE SenhaEmail IS NOT NULL AND SenhaEmail != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Email');
-
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'Teams', Teams, SenhaTeams FROM Colaboradores WHERE SenhaTeams IS NOT NULL AND SenhaTeams != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Teams');
-
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'EDespacho', EDespacho, SenhaEDespacho FROM Colaboradores WHERE SenhaEDespacho IS NOT NULL AND SenhaEDespacho != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'EDespacho');
-
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'Genius', Genius, SenhaGenius FROM Colaboradores WHERE SenhaGenius IS NOT NULL AND SenhaGenius != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Genius');
-
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'Ibrooker', Ibrooker, SenhaIbrooker FROM Colaboradores WHERE SenhaIbrooker IS NOT NULL AND SenhaIbrooker != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Ibrooker');
-
-                                INSERT INTO ColaboradorCredenciais (ColaboradorCPF, Sistema, UsuarioSistema, SenhaSistema)
-                                SELECT CPF, 'Adicional', Adicional, SenhaAdicional FROM Colaboradores WHERE SenhaAdicional IS NOT NULL AND SenhaAdicional != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorCredenciais WHERE ColaboradorCPF = Colaboradores.CPF AND Sistema = 'Adicional');
-
-                                -- Migrar Telefones de Colaboradores
-                                INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
-                                SELECT CPF, 'Smartphone', Smartphone FROM Colaboradores WHERE Smartphone IS NOT NULL AND Smartphone != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'Smartphone');
-
-                                INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
-                                SELECT CPF, 'TelefoneFixo', TelefoneFixo FROM Colaboradores WHERE TelefoneFixo IS NOT NULL AND TelefoneFixo != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'TelefoneFixo');
-
-                                INSERT INTO ColaboradorTelefones (ColaboradorCPF, Tipo, Numero)
-                                SELECT CPF, 'Ramal', Ramal FROM Colaboradores WHERE Ramal IS NOT NULL AND Ramal != ''
-                                AND NOT EXISTS (SELECT 1 FROM ColaboradorTelefones WHERE ColaboradorCPF = Colaboradores.CPF AND Tipo = 'Ramal');
-
-                                -- Migrar Processadores para a tabela Processadores
                                 INSERT OR IGNORE INTO Processadores (Nome, Fabricante, Cores, Threads, Clock)
                                 SELECT DISTINCT 
                                     COALESCE(NULLIF(TRIM(Processador), ''), 'Desconhecido') AS Nome,
@@ -326,7 +367,6 @@ namespace Web.Services
                                 WHERE (Processador IS NOT NULL AND TRIM(Processador) != '')
                                    OR ProcessadorFabricante IS NOT NULL;
 
-                                -- Atualizar ProcessadorId na tabela Computadores
                                 UPDATE Computadores
                                 SET ProcessadorId = (
                                     SELECT p.Id 
@@ -447,6 +487,33 @@ namespace Web.Services
             {
                  _logger.LogInformation("Main Database file found at {Path}.", _dbFilePath);
             }
+        }
+
+        private bool ColumnExists(IDbConnection connection, string tableName, string columnName)
+        {
+            try
+            {
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = $"PRAGMA table_info('{tableName}');";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var name = reader["name"]?.ToString();
+                            if (string.Equals(name, columnName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback if table does not exist
+            }
+            return false;
         }
 
         private void InitializeLogsDatabase()

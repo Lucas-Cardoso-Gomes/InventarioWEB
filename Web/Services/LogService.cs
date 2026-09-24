@@ -38,6 +38,14 @@ namespace Web.Services
 
                         cmd.ExecuteNonQuery();
                     }
+
+                    // Limitar a tabela de Logs a no máximo 1000 registros mantendo os mais recentes
+                    string pruneSql = "DELETE FROM Logs WHERE Id NOT IN (SELECT Id FROM Logs ORDER BY Id DESC LIMIT 1000);";
+                    using (var pruneCmd = connection.CreateCommand())
+                    {
+                        pruneCmd.CommandText = pruneSql;
+                        pruneCmd.ExecuteNonQuery();
+                    }
                 }
             }
             catch (Exception ex)

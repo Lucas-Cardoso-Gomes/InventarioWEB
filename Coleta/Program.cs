@@ -70,8 +70,8 @@ namespace coleta
 
             Console.Clear();
 
-            // Fire and forget a coleta inicial de telemetria
-            _ = Task.Run(() => SendInitialTelemetryAsync(config, solicitarInformacoes));
+            // Iniciar loop de telemetria (espera 10 minutos para a primeira telemetria, e repete a cada 30 minutos)
+            _ = Task.Run(() => StartTelemetryLoopAsync(config, solicitarInformacoes));
 
             try
             {
@@ -441,11 +441,25 @@ $results | ConvertTo-Json -Compress
             Console.WriteLine("Fora do Loop, sistema finalizando operações...");
         }
 
-        static async Task SendInitialTelemetryAsync(IConfiguration config, string authKey)
+        static async Task StartTelemetryLoopAsync(IConfiguration config, string authKey)
+        {
+            Console.WriteLine("[INFO] Aguardando 10 minutos antes de enviar a telemetria inicial...");
+            await Task.Delay(TimeSpan.FromMinutes(10));
+
+            while (true)
+            {
+                await SendTelemetryAsync(config, authKey);
+
+                Console.WriteLine("[INFO] Próximo envio de telemetria agendado para daqui a 30 minutos.");
+                await Task.Delay(TimeSpan.FromMinutes(30));
+            }
+        }
+
+        static async Task SendTelemetryAsync(IConfiguration config, string authKey)
         {
             try
             {
-                Console.WriteLine("[INFO] Iniciando coleta de telemetria inicial...");
+                Console.WriteLine("[INFO] Iniciando coleta de telemetria...");
                 
                 var hardwareInfo = new HardwareInfo
                 {
@@ -464,7 +478,7 @@ $results | ConvertTo-Json -Compress
                 string serverUrl = config["Servidor:Url"];
                 if (string.IsNullOrEmpty(serverUrl))
                 {
-                    Console.WriteLine("[WARN] URL do Servidor não configurada. Telemetria inicial não enviada.");
+                    Console.WriteLine("[WARN] URL do Servidor não configurada. Telemetria não enviada.");
                     return;
                 }
 
@@ -473,7 +487,6 @@ $results | ConvertTo-Json -Compress
                 string authHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(authKey)));
 
                 string payload = JsonSerializer.Serialize(hardwareInfo);
-                var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
                 // Ignorar erros de certificado SSL auto-assinado/desenvolvimento
                 var handler = new HttpClientHandler
@@ -485,22 +498,44 @@ $results | ConvertTo-Json -Compress
                 {
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authHash);
                     
-                    Console.WriteLine($"[INFO] Enviando telemetria inicial para {endpoint}...");
-                    var response = await httpClient.PostAsync(endpoint, content);
-                    
-                    if (response.IsSuccessStatusCode)
+                    int maxRetries = 3;
+                    int delayMs = 2000;
+
+                    for (int attempt = 1; attempt <= maxRetries; attempt++)
                     {
-                        Console.WriteLine("[INFO] Telemetria inicial enviada com sucesso.");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[ERROR] Falha ao enviar telemetria inicial. Status: {response.StatusCode}");
+                        try
+                        {
+                            Console.WriteLine($"[INFO] Enviando telemetria para {endpoint} (tentativa {attempt}/{maxRetries})...");
+                            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                            var response = await httpClient.PostAsync(endpoint, content);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                Console.WriteLine("[INFO] Telemetria enviada com sucesso.");
+                                break;
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[ERROR] Falha ao enviar telemetria (tentativa {attempt}/{maxRetries}). Status: {response.StatusCode}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ERROR] Exceção ao enviar telemetria (tentativa {attempt}/{maxRetries}): {ex.Message}");
+                        }
+
+                        if (attempt < maxRetries)
+                        {
+                            Console.WriteLine($"[INFO] Aguardando {delayMs / 1000}s antes da próxima tentativa...");
+                            await Task.Delay(delayMs);
+                            delayMs *= 2;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Erro na coleta ou envio da telemetria inicial: {ex.Message}");
+                Console.WriteLine($"[ERROR] Erro na coleta ou envio da telemetria: {ex.Message}");
             }
         }
     }

@@ -68,6 +68,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 });
 
+builder.Services.AddScoped<IComputadorService, ComputadorService>();
+builder.Services.AddScoped<IMonitorService, MonitorService>();
+builder.Services.AddScoped<IPerifericoService, PerifericoService>();
 builder.Services.AddScoped<ColetaService>();
 builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<ComandoService>();

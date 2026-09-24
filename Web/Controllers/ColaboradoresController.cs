@@ -1008,7 +1008,7 @@ namespace Web.Controllers
                 delCmd.ExecuteNonQuery();
             }
 
-            var creds = new (string Sistema, string Usuario, string Senha)[]
+            var creds = new (string Sistema, string? Usuario, string? Senha)[]
             {
                 ("Email", colab.Email, colab.SenhaEmail),
                 ("Teams", colab.Teams, colab.SenhaTeams),
@@ -1044,7 +1044,7 @@ namespace Web.Controllers
                 delCmd.ExecuteNonQuery();
             }
 
-            var tels = new (string Tipo, string Numero)[]
+            var tels = new (string Tipo, string? Numero)[]
             {
                 ("Smartphone", colab.Smartphone),
                 ("TelefoneFixo", colab.TelefoneFixo),
