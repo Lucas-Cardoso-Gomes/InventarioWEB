@@ -56,6 +56,15 @@ Aplicação de console e serviço em segundo plano desenvolvida em **.NET 8.0**,
 
 ---
 
+## 📚 Documentação Detalhada dos Projetos
+
+Para informações aprofundadas sobre a arquitetura, estrutura de código, módulos e guias de cada componente do ecossistema, consulte as documentações dedicadas:
+
+* 📄 **[Documentação do Agente de Coleta (Coleta/README.md)](Coleta/README.md)** — Detalha a aplicação endpoint, serviço TCP SSL, captura de tela, controle remoto, coleta de telemetria WMI e inventário de softwares.
+* 📄 **[Documentação do Painel Web (Web/README.md)](Web/README.md)** — Detalha a aplicação ASP.NET Core MVC, Controllers, Services, SignalR Hubs, esquema de banco de dados SQLite ADO.NET, permissões RBAC e relatórios.
+
+---
+
 ## 🛠 Guia de Instalação e Execução
 
 ### Pré-requisitos
