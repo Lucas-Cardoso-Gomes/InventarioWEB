@@ -130,7 +130,7 @@
                                     <td>@comp.Ram</td>
                                     <td>@comp.SO</td>
                                     <td class="text-center">
-                                        <a asp-controller="Computadores" asp-action="Details" asp-route-id="@comp.MAC" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                        <a asp-controller="Computadores" asp-action="Details" asp-route-id="@comp.MAC" class="btn btn-sm btn-info text-white">Detalhes</a>
                                     </td>
                                 </tr>
                             }
@@ -166,7 +166,7 @@
                                     <td>@mon.Modelo</td>
                                     <td>@mon.Tamanho</td>
                                     <td class="text-center">
-                                        <a asp-controller="Monitores" asp-action="Details" asp-route-id="@mon.PartNumber" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                        <a asp-controller="Monitores" asp-action="Details" asp-route-id="@mon.PartNumber" class="btn btn-sm btn-info text-white">Detalhes</a>
                                     </td>
                                 </tr>
                             }
@@ -202,7 +202,7 @@
                                     <td>@per.DataEntrega?.ToString("dd/MM/yyyy")</td>
                                     <td>@per.DataGarantia?.ToString("dd/MM/yyyy")</td>
                                     <td class="text-center">
-                                        <a asp-controller="Perifericos" asp-action="Details" asp-route-id="@per.PartNumber" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                        <a asp-controller="Perifericos" asp-action="Details" asp-route-id="@per.PartNumber" class="btn btn-sm btn-info text-white">Detalhes</a>
                                     </td>
                                 </tr>
                             }
@@ -242,7 +242,7 @@
                                     <td>@smp.MAC</td>
                                     <td>@smp.DataGarantia?.ToString("dd/MM/yyyy")</td>
                                     <td class="text-center">
-                                        <a asp-controller="Smartphones" asp-action="Details" asp-route-id="@smp.Id" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                        <a asp-controller="Smartphones" asp-action="Details" asp-route-id="@smp.Id" class="btn btn-sm btn-info text-white">Detalhes</a>
                                     </td>
                                 </tr>
                             }
