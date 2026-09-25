@@ -25,8 +25,9 @@ Aplicação de console e serviço em segundo plano desenvolvida em **.NET 8.0**,
 
 * **Servidor TCP SSL com Certificate Pinning:** Escuta na porta TCP `27275` utilizando TLS/SSL. O certificado digital é gerado dinamicamente em memória com chave RSA estática importada do arquivo de configuração, permitindo a autenticação segura do agente e prevenindo ataques *Man-in-the-Middle* (MitM).
 * **Autenticação HMAC:** Desafio com Nonce gerado dinamicamente no aperto de mão (handshake) TCP e verificação HMAC-SHA256 de tokens de autorização.
-* **Telemetria de Hardware (Push Inicial & Polling):**
-  * Coleta automática e envio inicial de telemetria para o servidor Web no startup (`/api/agent/telemetry`).
+* **Telemetria de Hardware (Envio Agendado & Retry):**
+  * Coleta automática e envio de telemetria com aguardo de 10 minutos no startup e reenvio periódico a cada 30 minutos em segundo plano para o servidor Web (`/api/agent/telemetry`).
+  * Resiliência com política de até 3 tentativas e backoff exponencial (2s, 4s, 8s) em caso de oscilação de rede.
   * Consultas locais via WMI (`Win32_Processor`, `Win32_OperatingSystem`, `Win32_DiskDrive`, `Win32_PhysicalMemory`, `MSAcpi_ThermalZoneTemperature`, etc.).
   * Coleta avançada de softwares instalados via Registro do Windows (HKLM/HKCU) combinada com parsing de saída do `winget`.
 * **Acesso e Suporte Remoto Interativo:**
@@ -47,6 +48,7 @@ Aplicação de console e serviço em segundo plano desenvolvida em **.NET 8.0**,
   * **Redes & Impressoras:** Cadastro de IPs, MACs, tipo de dispositivo e equipamentos de rede.
 * 👨‍💼 **Gestão de Colaboradores e Credenciais:** Cadastro unificado por CPF, associando cargos, telefones, equipamentos em uso e credenciais/acessos atribuídos.
 * 🛠 **Manutenções e Histórico de Trocas:** Registro e auditoria completa de intervenções técnicas (hardware/software) e substituição de peças/máquinas.
+* 📝 **Gestão e Rotação de Logs:** Serviço de auditoria com limite automático de até 1.000 registros mantendo os eventos mais recentes no banco de dados.
 * 🔄 **Monitoramento de Disponibilidade (Ping):** Serviço de segundo plano (`PingService`) executando verificações contínuas de pacotes para ativos na rede.
 * 🎫 **Central de Suporte (Help Desk):**
   * Criação, priorização e acompanhamento de chamados técnicos.

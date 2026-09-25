@@ -19,11 +19,12 @@ Para prevenir ataques de reprodução (*Replay Attacks*):
    * **`SolicitarInformacoes`:** Autoriza a leitura dos dados de telemetria do sistema.
    * **`RealizarComandos`:** Autoriza a execução de comandos remotos, suporte interativo, controle de entrada e streaming de tela.
 
-### 3. Telemetria Ativa (Push Inicial no Startup)
-Ao ser iniciado, o agente executa a função `SendInitialTelemetryAsync` em uma thread em segundo plano (*fire-and-forget*):
-* Coleta o snapshot completo do hardware e SO.
-* Envia uma requisição HTTP POST para o endpoint `/api/agent/telemetry` do Painel Web configurado em `Servidor:Url`.
-* A requisição carrega o token Bearer derivado do hash da chave de autenticação.
+### 3. Telemetria Ativa e Agendada
+Ao ser iniciado, o agente executa a rotina `StartTelemetryLoopAsync` em uma thread em segundo plano:
+* **Aguardo Inicial de 10 minutos:** Aguarda 10 minutos após a inicialização antes de realizar a primeira transmissão de telemetria.
+* **Envio Periódico a cada 30 minutos:** Após a telemetria inicial, repete automaticamente o envio a cada 30 minutos em loop de segundo plano.
+* **Resiliência com Retry:** Tenta reenviar a telemetria até 3 vezes com backoff exponencial (intervalos de 2s, 4s, 8s) em caso de falha de conexão HTTP.
+* Envia a requisição HTTP POST para o endpoint `/api/agent/telemetry` do Painel Web configurado em `Servidor:Url` com o token Bearer derivado do hash HMAC da chave de autenticação.
 
 ---
 

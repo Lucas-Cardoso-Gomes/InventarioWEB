@@ -54,7 +54,10 @@ O **Painel Web Central** é a aplicação web de gerenciamento e monitoramento d
 
 | Serviço | Função e Responsabilidade |
 | :--- | :--- |
-| **`DatabaseService.cs`** | Gerencia a conexão com o SQLite, inicialização automática do banco e execução de scripts de alteração de tabela (`ApplySchemaUpdates`). |
+| **`DatabaseService.cs`** | Gerencia a conexão com o SQLite, inicialização automática do banco e execução de scripts de alteração de tabela (`ApplySchemaUpdates`) com checagem de colunas para evitar exceções. |
+| **`ComputadorService.cs`** | Serviço desacoplado para consulta paginada, inserção, atualização, remoção e importação de computadores e seus discos normalizados. |
+| **`MonitorService.cs`** | Serviço desacoplado para consulta filtrada, inserção, atualização e importação de monitores. |
+| **`PerifericoService.cs`** | Serviço desacoplado para consulta, gestão e importação de periféricos. |
 | **`ColetaService.cs`** | Comunica com o agente `Coleta` via TCP SSL (porta 27275), executando o handshake HMAC Nonce e persistindo a telemetria recebida no banco de dados. |
 | **`ComandoService.cs`** | Envia comandos remotos, scripts e solicitações ao agente de coleta. |
 | **`UserService.cs`** | Regras de negócio de usuários, criação, hash de senha e consulta de permissões. |
@@ -63,7 +66,7 @@ O **Painel Web Central** é a aplicação web de gerenciamento e monitoramento d
 | **`SmartphoneService.cs`** | Regras de negócio para cadastro de smartphones e relacionamento normalizado de IMEIs. |
 | **`PingService.cs`** | Serviço executado em segundo plano (`BackgroundService`) que realiza pings ICMP periódicos nos ativos de rede para monitorar disponibilidade. |
 | **`EmailService.cs` / `IEmailService.cs`** | Envio de e-mails de notificação do Help Desk e alertas utilizando **MailKit / MimeKit** (suporte a SSL/TLS implícito). |
-| **`LogService.cs` / `PersistentLogService.cs`** | Registro auditável de logs do sistema em banco de dados SQLite separado (`Web/Logs.db`). |
+| **`LogService.cs` / `PersistentLogService.cs`** | Registro auditável de logs do sistema em banco de dados SQLite separado (`Web/Logs.db`), com limitação/expurgo automático para manter até 1.000 registros mais recentes em `LogService`. |
 | **`DataMigrationService.cs`** | Auxiliar no processo de atualização e conversão de dados do banco de dados. |
 
 ---
