@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Linq;
 using Web.Models;
 using Web.Services;
 
@@ -17,148 +18,266 @@ namespace Web.Controllers
             _databaseService = databaseService;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string filial, string setor, string coordenador, string dispositivo, string statusGarantia)
         {
-            var viewModel = new DashboardViewModel();
+            var viewModel = new DashboardViewModel
+            {
+                SelectedFilial = filial,
+                SelectedSetor = setor,
+                SelectedCoordenador = coordenador,
+                SelectedDispositivo = dispositivo,
+                SelectedStatusGarantia = statusGarantia
+            };
 
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
 
-                // Computadores
+                // Get Filter Options
                 using (var cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, comp.BateriaWearLevel, comp.ConsumoCPU, col.Nome FROM Computadores comp LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
+                    cmd.CommandText = "SELECT DISTINCT Filial FROM Colaboradores WHERE Filial IS NOT NULL AND TRIM(Filial) != '' ORDER BY Filial";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) viewModel.Filiais.Add(reader.GetString(0));
+                    }
+                }
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT DISTINCT Setor FROM Colaboradores WHERE Setor IS NOT NULL AND TRIM(Setor) != '' ORDER BY Setor";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) viewModel.Setores.Add(reader.GetString(0));
+                    }
+                }
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT c.CPF, c.Nome FROM Colaboradores c INNER JOIN Usuarios u ON c.CPF = u.ColaboradorCPF WHERE u.Role = 'Coordenador' OR u.IsCoordinator = 1 ORDER BY c.Nome";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) viewModel.Coordenadores.Add(reader["Nome"].ToString());
+                    }
+                }
+
+                // Get Support Tickets Summary
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Status, COUNT(*) as Qtd FROM Chamados GROUP BY Status";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            viewModel.TotalComputadores++;
+                            string st = reader["Status"].ToString();
+                            int qtd = Convert.ToInt32(reader["Qtd"]);
+                            if (st == "Aberto") viewModel.TotalChamadosAbertos = qtd;
+                            else if (st == "Em Andamento") viewModel.TotalChamadosEmAndamento = qtd;
+                        }
+                    }
+                }
 
-                            double? bateriaWearLevel = null;
-                            if (reader["BateriaWearLevel"] != DBNull.Value)
+                // Computadores
+                if (string.IsNullOrEmpty(dispositivo) || dispositivo == "Computador")
+                {
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = @"SELECT comp.MAC, comp.Hostname, comp.DataGarantia, comp.Backup, comp.DataColeta, comp.BateriaWearLevel, comp.ConsumoCPU, col.Nome, col.Filial, col.Setor
+                                            FROM Computadores comp 
+                                            LEFT JOIN Colaboradores col ON comp.ColaboradorCPF = col.CPF";
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
                             {
-                                string wearLevelStr = reader["BateriaWearLevel"].ToString();
-                                // Parse format "Ciclo: X - Y% Desgaste"
-                                if (wearLevelStr.Contains("% Desgaste"))
+                                string colFilial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : "";
+                                string colSetor = reader["Setor"] != DBNull.Value ? reader["Setor"].ToString() : "";
+                                string colNome = reader["Nome"] != DBNull.Value ? reader["Nome"].ToString() : "";
+
+                                if (!string.IsNullOrEmpty(filial) && colFilial != filial) continue;
+                                if (!string.IsNullOrEmpty(setor) && colSetor != setor) continue;
+
+                                viewModel.TotalComputadores++;
+
+                                double? bateriaWearLevel = null;
+                                if (reader["BateriaWearLevel"] != DBNull.Value)
                                 {
-                                    var parts = wearLevelStr.Split('-');
-                                    if (parts.Length == 2)
+                                    string wearLevelStr = reader["BateriaWearLevel"].ToString();
+                                    if (wearLevelStr.Contains("% Desgaste"))
                                     {
-                                        string percStr = parts[1].Replace("% Desgaste", "").Trim();
-                                        if (double.TryParse(percStr, out double perc))
+                                        var parts = wearLevelStr.Split('-');
+                                        if (parts.Length == 2)
                                         {
-                                            bateriaWearLevel = perc;
+                                            string percStr = parts[1].Replace("% Desgaste", "").Trim();
+                                            if (double.TryParse(percStr, out double perc)) bateriaWearLevel = perc;
                                         }
                                     }
                                 }
-                            }
 
-                            double? cpuUsage = null;
-                            if (reader["ConsumoCPU"] != DBNull.Value)
-                            {
-                                string cpuStr = reader["ConsumoCPU"].ToString().Replace("%", "").Trim();
-                                if (double.TryParse(cpuStr, out double cVal))
+                                double? cpuUsage = null;
+                                if (reader["ConsumoCPU"] != DBNull.Value)
                                 {
-                                    cpuUsage = cVal;
+                                    string cpuStr = reader["ConsumoCPU"].ToString().Replace("%", "").Trim();
+                                    if (double.TryParse(cpuStr, out double cVal)) cpuUsage = cVal;
                                 }
-                            }
 
-                            viewModel.Equipamentos.Add(new EquipamentoDashboardItem
-                            {
-                                TipoEquipamento = "Computador",
-                                Identificador = reader["MAC"].ToString(),
-                                ModeloOuNome = reader["Hostname"].ToString(),
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
-                                Backup = reader["Backup"].ToString(),
-                                DataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null,
-                                ColaboradorNome = reader["Nome"].ToString(),
-                                BateriaWearLevel = bateriaWearLevel,
-                                CpuUsage = cpuUsage
-                            });
+                                DateTime? dataColeta = reader["DataColeta"] != DBNull.Value ? Convert.ToDateTime(reader["DataColeta"]) : (DateTime?)null;
+                                DateTime? dataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null;
+                                string backup = reader["Backup"] != DBNull.Value ? reader["Backup"].ToString() : "";
+
+                                // Risk checks
+                                if (!dataColeta.HasValue || (DateTime.Now - dataColeta.Value).TotalDays > 15) viewModel.TotalAgentesInativos++;
+                                if (string.IsNullOrEmpty(backup) || backup.Equals("Não", StringComparison.OrdinalIgnoreCase)) viewModel.TotalSemBackup++;
+                                if (dataGarantia.HasValue && dataGarantia.Value < DateTime.Now) viewModel.TotalGarantiasVencidas++;
+
+                                if (!string.IsNullOrEmpty(statusGarantia))
+                                {
+                                    if (statusGarantia == "Vencida" && (!dataGarantia.HasValue || dataGarantia.Value >= DateTime.Now)) continue;
+                                    if (statusGarantia == "Valida" && (!dataGarantia.HasValue || dataGarantia.Value < DateTime.Now)) continue;
+                                }
+
+                                viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                                {
+                                    TipoEquipamento = "Computador",
+                                    Identificador = reader["MAC"].ToString(),
+                                    ModeloOuNome = reader["Hostname"].ToString(),
+                                    DataGarantia = dataGarantia,
+                                    Backup = backup,
+                                    DataColeta = dataColeta,
+                                    ColaboradorNome = colNome,
+                                    Filial = colFilial,
+                                    Setor = colSetor,
+                                    BateriaWearLevel = bateriaWearLevel,
+                                    CpuUsage = cpuUsage
+                                });
+                            }
                         }
                     }
                 }
 
                 // Monitores
-                using (var cmd = connection.CreateCommand())
+                if (string.IsNullOrEmpty(dispositivo) || dispositivo == "Monitor")
                 {
-                    cmd.CommandText = "SELECT m.PartNumber, m.Modelo, m.DataGarantia, col.Nome FROM Monitores m LEFT JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF";
-                    using (var reader = cmd.ExecuteReader())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        cmd.CommandText = "SELECT m.PartNumber, m.Modelo, m.DataGarantia, col.Nome, col.Filial, col.Setor FROM Monitores m LEFT JOIN Colaboradores col ON m.ColaboradorCPF = col.CPF";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            viewModel.TotalMonitores++;
-                            viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                            while (reader.Read())
                             {
-                                TipoEquipamento = "Monitor",
-                                Identificador = reader["PartNumber"].ToString(),
-                                ModeloOuNome = reader["Modelo"].ToString(),
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
-                                ColaboradorNome = reader["Nome"].ToString()
-                            });
+                                string colFilial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : "";
+                                string colSetor = reader["Setor"] != DBNull.Value ? reader["Setor"].ToString() : "";
+
+                                if (!string.IsNullOrEmpty(filial) && colFilial != filial) continue;
+                                if (!string.IsNullOrEmpty(setor) && colSetor != setor) continue;
+
+                                viewModel.TotalMonitores++;
+                                DateTime? dataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null;
+                                if (dataGarantia.HasValue && dataGarantia.Value < DateTime.Now) viewModel.TotalGarantiasVencidas++;
+
+                                viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                                {
+                                    TipoEquipamento = "Monitor",
+                                    Identificador = reader["PartNumber"].ToString(),
+                                    ModeloOuNome = reader["Modelo"].ToString(),
+                                    DataGarantia = dataGarantia,
+                                    ColaboradorNome = reader["Nome"].ToString(),
+                                    Filial = colFilial,
+                                    Setor = colSetor
+                                });
+                            }
                         }
                     }
                 }
 
                 // Perifericos
-                using (var cmd = connection.CreateCommand())
+                if (string.IsNullOrEmpty(dispositivo) || dispositivo == "Periférico")
                 {
-                    cmd.CommandText = "SELECT p.PartNumber, p.Tipo, p.DataGarantia, col.Nome FROM Perifericos p LEFT JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF";
-                    using (var reader = cmd.ExecuteReader())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        cmd.CommandText = "SELECT p.PartNumber, p.Tipo, p.DataGarantia, col.Nome, col.Filial, col.Setor FROM Perifericos p LEFT JOIN Colaboradores col ON p.ColaboradorCPF = col.CPF";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            viewModel.TotalPerifericos++;
-                            viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                            while (reader.Read())
                             {
-                                TipoEquipamento = "Periférico",
-                                Identificador = reader["PartNumber"].ToString(),
-                                ModeloOuNome = reader["Tipo"].ToString(),
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
-                                ColaboradorNome = reader["Nome"].ToString()
-                            });
+                                string colFilial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : "";
+                                string colSetor = reader["Setor"] != DBNull.Value ? reader["Setor"].ToString() : "";
+
+                                if (!string.IsNullOrEmpty(filial) && colFilial != filial) continue;
+                                if (!string.IsNullOrEmpty(setor) && colSetor != setor) continue;
+
+                                viewModel.TotalPerifericos++;
+                                DateTime? dataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null;
+                                if (dataGarantia.HasValue && dataGarantia.Value < DateTime.Now) viewModel.TotalGarantiasVencidas++;
+
+                                viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                                {
+                                    TipoEquipamento = "Periférico",
+                                    Identificador = reader["PartNumber"].ToString(),
+                                    ModeloOuNome = reader["Tipo"].ToString(),
+                                    DataGarantia = dataGarantia,
+                                    ColaboradorNome = reader["Nome"].ToString(),
+                                    Filial = colFilial,
+                                    Setor = colSetor
+                                });
+                            }
                         }
                     }
                 }
 
                 // Redes
-                using (var cmd = connection.CreateCommand())
+                if (string.IsNullOrEmpty(dispositivo) || dispositivo == "Ativo de Rede")
                 {
-                    cmd.CommandText = "SELECT Id, Nome, DataGarantia FROM Rede";
-                    using (var reader = cmd.ExecuteReader())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        cmd.CommandText = "SELECT Id, Nome, DataGarantia, Localizacao FROM Rede";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            viewModel.TotalRedes++;
-                            viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                            while (reader.Read())
                             {
-                                TipoEquipamento = "Ativo de Rede",
-                                Identificador = reader["Id"].ToString(),
-                                ModeloOuNome = reader["Nome"].ToString(),
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null
-                            });
+                                viewModel.TotalRedes++;
+                                DateTime? dataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null;
+                                if (dataGarantia.HasValue && dataGarantia.Value < DateTime.Now) viewModel.TotalGarantiasVencidas++;
+
+                                viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                                {
+                                    TipoEquipamento = "Ativo de Rede",
+                                    Identificador = reader["Id"].ToString(),
+                                    ModeloOuNome = reader["Nome"].ToString(),
+                                    DataGarantia = dataGarantia,
+                                    Filial = reader["Localizacao"] != DBNull.Value ? reader["Localizacao"].ToString() : ""
+                                });
+                            }
                         }
                     }
                 }
 
                 // Smartphones
-                using (var cmd = connection.CreateCommand())
+                if (string.IsNullOrEmpty(dispositivo) || dispositivo == "Smartphone")
                 {
-                    cmd.CommandText = "SELECT Id, Modelo, Usuario, DataGarantia FROM Smartphones";
-                    using (var reader = cmd.ExecuteReader())
+                    using (var cmd = connection.CreateCommand())
                     {
-                        while (reader.Read())
+                        cmd.CommandText = "SELECT Id, Modelo, Usuario, Filial, DataGarantia FROM Smartphones";
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            viewModel.TotalSmartphones++;
-                            viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                            while (reader.Read())
                             {
-                                TipoEquipamento = "Smartphone",
-                                Identificador = reader["Id"].ToString(),
-                                ModeloOuNome = reader["Modelo"].ToString(),
-                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null,
-                                ColaboradorNome = reader["Usuario"].ToString()
-                            });
+                                string colFilial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : "";
+                                if (!string.IsNullOrEmpty(filial) && colFilial != filial) continue;
+
+                                viewModel.TotalSmartphones++;
+                                DateTime? dataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : (DateTime?)null;
+                                if (dataGarantia.HasValue && dataGarantia.Value < DateTime.Now) viewModel.TotalGarantiasVencidas++;
+
+                                viewModel.Equipamentos.Add(new EquipamentoDashboardItem
+                                {
+                                    TipoEquipamento = "Smartphone",
+                                    Identificador = reader["Id"].ToString(),
+                                    ModeloOuNome = reader["Modelo"].ToString(),
+                                    DataGarantia = dataGarantia,
+                                    ColaboradorNome = reader["Usuario"].ToString(),
+                                    Filial = colFilial
+                                });
+                            }
                         }
                     }
                 }
@@ -193,10 +312,10 @@ namespace Web.Controllers
             }
 
             viewModel.GarantiaPieData = new List<int> { temGarantia, semGarantia, semDados };
-            
+
             var sortedExpirations = new List<string>(expirations.Keys);
             sortedExpirations.Sort((a, b) => DateTime.ParseExact(a, "MM/yyyy", null).CompareTo(DateTime.ParseExact(b, "MM/yyyy", null)));
-            
+
             foreach (var key in sortedExpirations)
             {
                 viewModel.GarantiaBarData.Add(new ChartData { Label = key, Value = expirations[key] });
@@ -225,7 +344,7 @@ namespace Web.Controllers
             if (wearCount > 0)
             {
                 viewModel.AverageBatteryWear = totalWear / wearCount;
-                computersWithBattery.Sort((a, b) => b.BateriaWearLevel.Value.CompareTo(a.BateriaWearLevel.Value)); // Sort descending
+                computersWithBattery.Sort((a, b) => b.BateriaWearLevel.Value.CompareTo(a.BateriaWearLevel.Value));
 
                 viewModel.WorstBatteryComputer = computersWithBattery[0];
 
@@ -259,7 +378,7 @@ namespace Web.Controllers
             if (cpuCount > 0)
             {
                 viewModel.AverageCpuUsage = totalCpu / cpuCount;
-                computersWithCpu.Sort((a, b) => b.CpuUsage.Value.CompareTo(a.CpuUsage.Value)); // Sort descending
+                computersWithCpu.Sort((a, b) => b.CpuUsage.Value.CompareTo(a.CpuUsage.Value));
 
                 viewModel.WorstCpuComputer = computersWithCpu[0];
 
@@ -277,21 +396,14 @@ namespace Web.Controllers
                 if (item.TipoEquipamento == "Computador" && item.DataColeta.HasValue)
                 {
                     string key = item.DataColeta.Value.ToString("dd/MM/yyyy");
-                    if (coletaCounts.ContainsKey(key))
-                    {
-                        coletaCounts[key]++;
-                    }
-                    else
-                    {
-                        coletaCounts[key] = 1;
-                    }
+                    if (coletaCounts.ContainsKey(key)) coletaCounts[key]++;
+                    else coletaCounts[key] = 1;
                 }
             }
 
             var sortedColetas = new List<string>(coletaCounts.Keys);
             sortedColetas.Sort((a, b) => DateTime.ParseExact(a, "dd/MM/yyyy", null).CompareTo(DateTime.ParseExact(b, "dd/MM/yyyy", null)));
 
-            // Show last 7 days of data at most for the chart
             int startIndex = Math.Max(0, sortedColetas.Count - 7);
             for (int i = startIndex; i < sortedColetas.Count; i++)
             {

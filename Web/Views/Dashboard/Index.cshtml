@@ -1,310 +1,390 @@
 @model Web.Models.DashboardViewModel
 
 @{
-    ViewData["Title"] = "Dashboard de Equipamentos TI";
+    ViewData["Title"] = "Dashboard TI - Painel de Tomada de Decisão";
 }
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .kpi-card {
+            border: none;
+            border-radius: 10px;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        .kpi-icon {
+            font-size: 2.2rem;
+            opacity: 0.85;
+        }
+    </style>
 }
 
-<div class="container-fluid">
-    <h1 class="mt-4">Dashboard de Equipamentos TI</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item active">Visão Geral de todos os equipamentos</li>
-    </ol>
+<div class="container-fluid mt-4">
+    <!-- Top Bar Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-speedometer2 text-primary"></i> Dashboard TI - Painel Decisório</h2>
+            <p class="text-muted mb-0">Indicadores de saúde do parque tecnológico, riscos operacionais e substituição de ativos.</p>
+        </div>
+        <div>
+            <a asp-controller="Exportar" asp-action="Index" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i> Exportar Relatório Gerencial</a>
+        </div>
+    </div>
 
-    <div class="row">
+    <!-- Global Filter Bar (Power BI Style) -->
+    <div class="card mb-4 shadow-sm border-0 bg-light">
+        <div class="card-body">
+            <form asp-action="Index" method="get" id="dashboard-filter-form" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-secondary">Filial</label>
+                    <select name="filial" class="form-select form-select-sm">
+                        <option value="">Todas as Filiais</option>
+                        @foreach (var f in Model.Filiais)
+                        {
+                            <option value="@f" selected="@(Model.SelectedFilial == f)">@f</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-secondary">Setor</label>
+                    <select name="setor" class="form-select form-select-sm">
+                        <option value="">Todos os Setores</option>
+                        @foreach (var s in Model.Setores)
+                        {
+                            <option value="@s" selected="@(Model.SelectedSetor == s)">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-secondary">Dispositivo</label>
+                    <select name="dispositivo" class="form-select form-select-sm">
+                        <option value="">Todos os Tipos</option>
+                        <option value="Computador" selected="@(Model.SelectedDispositivo == "Computador")">Computador</option>
+                        <option value="Monitor" selected="@(Model.SelectedDispositivo == "Monitor")">Monitor</option>
+                        <option value="Periférico" selected="@(Model.SelectedDispositivo == "Periférico")">Periférico</option>
+                        <option value="Ativo de Rede" selected="@(Model.SelectedDispositivo == "Ativo de Rede")">Ativo de Rede</option>
+                        <option value="Smartphone" selected="@(Model.SelectedDispositivo == "Smartphone")">Smartphone</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small text-secondary">Garantia</label>
+                    <select name="statusGarantia" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="Vencida" selected="@(Model.SelectedStatusGarantia == "Vencida")">Vencida</option>
+                        <option value="Valida" selected="@(Model.SelectedStatusGarantia == "Valida")">Válida</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-funnel me-1"></i> Aplicar Filtros</button>
+                    <a asp-action="Index" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i> Limpar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Actionable Risk & Decision KPI Cards -->
+    <div class="row g-3 mb-4">
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-primary text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Computadores</h5>
-                    <h2>@Model.TotalComputadores</h2>
+            <div class="card kpi-card bg-danger text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold">GARANTIA VENCIDA</div>
+                        <h2 class="mb-0 fw-bold">@Model.TotalGarantiasVencidas</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-success text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Monitores</h5>
-                    <h2>@Model.TotalMonitores</h2>
+            <div class="card kpi-card bg-warning text-dark shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-dark-50 small fw-bold">AGENTES INATIVOS (>15d)</div>
+                        <h2 class="mb-0 fw-bold">@Model.TotalAgentesInativos</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-wifi-off"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-info text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Periféricos</h5>
-                    <h2>@Model.TotalPerifericos</h2>
+            <div class="card kpi-card bg-secondary text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold">SEM BACKUP</div>
+                        <h2 class="mb-0 fw-bold">@Model.TotalSemBackup</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-hdd-network"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-warning text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Redes</h5>
-                    <h2>@Model.TotalRedes</h2>
+            <div class="card kpi-card bg-dark text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold">BATERIAS CRÍTICAS</div>
+                        <h2 class="mb-0 fw-bold">@Model.BatteryCriticalCount</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-battery-10"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-danger text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Smartphones</h5>
-                    <h2>@Model.TotalSmartphones</h2>
+            <div class="card kpi-card bg-primary text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold">CHAMADOS ABERTOS</div>
+                        <h2 class="mb-0 fw-bold">@Model.TotalChamadosAbertos</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-headset"></i></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-2 col-md-4">
-            <div class="card bg-secondary text-white mb-4 text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Total</h5>
-                    <h2>@(Model.TotalComputadores + Model.TotalMonitores + Model.TotalPerifericos + Model.TotalRedes + Model.TotalSmartphones)</h2>
+            <div class="card kpi-card bg-success text-white shadow-sm h-100">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-white-50 small fw-bold">TOTAL EQUIPAMENTOS</div>
+                        <h2 class="mb-0 fw-bold">@Model.Equipamentos.Count</h2>
+                    </div>
+                    <div class="kpi-icon"><i class="bi bi-pc-display"></i></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
+    <!-- Power BI Charts Section -->
+    <div class="row g-4 mb-4">
+        <!-- Baterias -->
         <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-battery-half me-1"></i>
-                    Desgaste da Bateria (Média)
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <span class="fw-bold"><i class="bi bi-battery-charging text-warning me-1"></i> Desgaste de Baterias (Renovação de Hardware)</span>
+                    <span class="badge bg-secondary">Média: @Model.AverageBatteryWear.ToString("0.0")%</span>
                 </div>
                 <div class="card-body">
-                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                        <canvas id="batteryWearPieChart" style="max-height: 250px;"></canvas>
-                    </div>
-                </div>
-                <div class="card-footer small text-muted">
-                    @if (Model.WorstBatteryComputer != null)
-                    {
-                        <span>Pior estado: <strong>@Model.WorstBatteryComputer.ModeloOuNome</strong> (@(Model.WorstBatteryComputer.BateriaWearLevel?.ToString("0.0"))% de desgaste)</span>
-                    }
-                    else
-                    {
-                        <span>Dados insuficientes</span>
-                    }
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-list me-1"></i>
-                    Top 5 Piores Baterias
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Computador</th>
-                                    <th>Desgaste</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (Model.TopWorstBatteries.Any())
-                                {
-                                    foreach (var item in Model.TopWorstBatteries)
-                                    {
-                                        <tr>
-                                            <td>@item.ModeloOuNome</td>
-                                            <td>
-                                                <div class="progress" style="height: 20px;">
-                                                    @{
-                                                        string bgClass = "bg-success";
-                                                        if (item.BateriaWearLevel >= 50) bgClass = "bg-danger";
-                                                        else if (item.BateriaWearLevel >= 25) bgClass = "bg-warning text-dark";
-                                                    }
-                                                    <div class="progress-bar @bgClass" role="progressbar" style="width: @(item.BateriaWearLevel?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%;" aria-valuenow="@(item.BateriaWearLevel?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" aria-valuemin="0" aria-valuemax="100">
-                                                        @(item.BateriaWearLevel?.ToString("0.0"))%
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                                else
-                                {
-                                    <tr>
-                                        <td colspan="2" class="text-center text-muted">Nenhum dado de bateria encontrado.</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-microchip me-1"></i>
-                    Consumo de CPU (Média)
-                </div>
-                <div class="card-body">
-                    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                        <canvas id="cpuWearPieChart" style="max-height: 250px;"></canvas>
-                    </div>
-                </div>
-                <div class="card-footer small text-muted">
-                    @if (Model.WorstCpuComputer != null)
-                    {
-                        <span>Maior consumo: <strong>@Model.WorstCpuComputer.ModeloOuNome</strong> (@(Model.WorstCpuComputer.CpuUsage?.ToString("0.0"))% de uso)</span>
-                    }
-                    else
-                    {
-                        <span>Dados insuficientes</span>
-                    }
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-list me-1"></i>
-                    Top 5 Computadores com Maior Uso de CPU
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Computador</th>
-                                    <th>Uso de CPU</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (Model.TopWorstCpus.Any())
-                                {
-                                    foreach (var item in Model.TopWorstCpus)
-                                    {
-                                        <tr>
-                                            <td>@item.ModeloOuNome</td>
-                                            <td>
-                                                <div class="progress" style="height: 20px;">
-                                                    @{
-                                                        string bgClass = "bg-success";
-                                                        if (item.CpuUsage >= 50) bgClass = "bg-danger";
-                                                        else if (item.CpuUsage >= 25) bgClass = "bg-warning text-dark";
-                                                    }
-                                                    <div class="progress-bar @bgClass" role="progressbar" style="width: @(item.CpuUsage?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%;" aria-valuenow="@(item.CpuUsage?.ToString("0", System.Globalization.CultureInfo.InvariantCulture))" aria-valuemin="0" aria-valuemax="100">
-                                                        @(item.CpuUsage?.ToString("0.0"))%
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                                else
-                                {
-                                    <tr>
-                                        <td colspan="2" class="text-center text-muted">Nenhum dado de CPU encontrado.</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <canvas id="batteryWearPieChart" style="max-height: 220px;"></canvas>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-muted mb-2">Piores Baterias (Ação Imediata)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <tbody>
+                                        @foreach (var item in Model.TopWorstBatteries)
+                                        {
+                                            <tr>
+                                                <td class="small fw-bold">@item.ModeloOuNome</td>
+                                                <td>
+                                                    <span class="badge bg-danger">@item.BateriaWearLevel?.ToString("0.0")%</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                        @if (!Model.TopWorstBatteries.Any())
+                                        {
+                                            <tr><td colspan="2" class="text-muted small">Sem dados críticos.</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-line me-1"></i>
-                    Coletas de Hardware (Últimos 7 dias)
-                </div>
-                <div class="card-body"><canvas id="coletaBarChart" width="100%" height="30"></canvas></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
+        <!-- Consumo de CPU -->
         <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-pie me-1"></i>
-                    Status das Garantias
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <span class="fw-bold"><i class="bi bi-cpu text-danger me-1"></i> Sobrecarga de CPU (Gargalo de Desempenho)</span>
+                    <span class="badge bg-secondary">Média: @Model.AverageCpuUsage.ToString("0.0")%</span>
                 </div>
-                <div class="card-body"><canvas id="garantiaPieChart" width="100%" height="50"></canvas></div>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-chart-bar me-1"></i>
-                    Vencimento das Garantias (Linha do Tempo)
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <canvas id="cpuWearPieChart" style="max-height: 220px;"></canvas>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-muted mb-2">Maiores Consumos (Gargalo)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <tbody>
+                                        @foreach (var item in Model.TopWorstCpus)
+                                        {
+                                            <tr>
+                                                <td class="small fw-bold">@item.ModeloOuNome</td>
+                                                <td>
+                                                    <span class="badge bg-danger">@item.CpuUsage?.ToString("0.0")%</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                        @if (!Model.TopWorstCpus.Any())
+                                        {
+                                            <tr><td colspan="2" class="text-muted small">Sem dados de consumo.</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body"><canvas id="garantiaBarChart" width="100%" height="50"></canvas></div>
             </div>
         </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="row g-4 mb-4">
+        <!-- Status de Garantias -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light fw-bold">
+                    <i class="bi bi-pie-chart text-info me-1"></i> Distribuição das Garantias
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <canvas id="garantiaPieChart" style="max-height: 220px;"></canvas>
+                </div>
+            </div>
+        </div>
 
-        <div class="card-header">
-            <i class="fas fa-table me-1"></i>
-            Lista Geral de Equipamentos
+        <!-- Linha do Tempo de Garantias -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light fw-bold">
+                    <i class="bi bi-bar-chart text-primary me-1"></i> Vencimento de Garantias (Linha do Tempo)
+                </div>
+                <div class="card-body">
+                    <canvas id="garantiaBarChart" style="max-height: 220px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Decision Equipment Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-table me-1"></i> <strong>Matriz de Decisão & Inventário Geral</strong></span>
+            <span class="badge bg-light text-dark">Exibindo @Model.Equipamentos.Count itens</span>
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-bordered table-hover align-middle" id="datatablesSimple">
-                    <thead>
+                <table class="table table-striped table-bordered table-hover align-middle" id="datatablesDashboard">
+                    <thead class="table-dark">
                         <tr>
                             <th>Tipo</th>
-                            <th>ID / MAC / PN</th>
+                            <th>Identificador</th>
                             <th>Modelo / Nome</th>
                             <th>Responsável</th>
+                            <th>Filial / Setor</th>
                             <th>Garantia</th>
                             <th>Backup</th>
-                            <th>Data da Coleta (Comp.)</th>
+                            <th>Última Coleta</th>
+                            <th class="text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in Model.Equipamentos)
                         {
                             <tr>
-                                <td>@item.TipoEquipamento</td>
-                                <td>@item.Identificador</td>
-                                <td>@item.ModeloOuNome</td>
-                                <td>@item.ColaboradorNome</td>
                                 <td>
-                                    @if(item.DataGarantia.HasValue) {
-                                        @if(item.DataGarantia.Value < DateTime.Now) {
-                                            <span class="text-danger fw-bold">@item.DataGarantia.Value.ToString("dd/MM/yyyy") (Vencida)</span>
-                                        } else {
-                                            <span class="text-success">@item.DataGarantia.Value.ToString("dd/MM/yyyy")</span>
-                                        }
-                                    } else {
-                                        <span class="text-muted">S/ Informação</span>
+                                    @if (item.TipoEquipamento == "Computador")
+                                    {
+                                        <span class="badge bg-primary"><i class="bi bi-pc me-1"></i>Computador</span>
+                                    }
+                                    else if (item.TipoEquipamento == "Monitor")
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-display me-1"></i>Monitor</span>
+                                    }
+                                    else if (item.TipoEquipamento == "Periférico")
+                                    {
+                                        <span class="badge bg-info text-dark"><i class="bi bi-mouse me-1"></i>Periférico</span>
+                                    }
+                                    else if (item.TipoEquipamento == "Ativo de Rede")
+                                    {
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-hdd-network me-1"></i>Rede</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger"><i class="bi bi-phone me-1"></i>Smartphone</span>
                                     }
                                 </td>
-                                <td>@item.Backup</td>
+                                <td class="fw-bold">@item.Identificador</td>
+                                <td>@item.ModeloOuNome</td>
+                                <td>@(string.IsNullOrEmpty(item.ColaboradorNome) ? "Sem responsável" : item.ColaboradorNome)</td>
+                                <td>@($"{item.Filial} / {item.Setor}".Trim(' ', '/'))</td>
                                 <td>
-                                    @if (item.DataColeta.HasValue)
+                                    @if (item.DataGarantia.HasValue)
                                     {
-                                        var diasSemColeta = (DateTime.Now - item.DataColeta.Value).TotalDays;
-                                        if (diasSemColeta > 15)
+                                        if (item.DataGarantia.Value < DateTime.Now)
                                         {
-                                            <span class="badge bg-danger">@item.DataColeta.Value.ToString("dd/MM/yyyy") (Há @Math.Floor(diasSemColeta) dias)</span>
-                                        }
-                                        else if (diasSemColeta > 7)
-                                        {
-                                            <span class="badge bg-warning text-dark">@item.DataColeta.Value.ToString("dd/MM/yyyy") (Há @Math.Floor(diasSemColeta) dias)</span>
+                                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Vencida em @item.DataGarantia.Value.ToString("dd/MM/yyyy")</span>
                                         }
                                         else
                                         {
-                                            <span>@item.DataColeta.Value.ToString("dd/MM/yyyy HH:mm:ss")</span>
+                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>@item.DataGarantia.Value.ToString("dd/MM/yyyy")</span>
                                         }
                                     }
+                                    else
+                                    {
+                                        <span class="text-muted small">Sem dados</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.TipoEquipamento == "Computador")
+                                    {
+                                        if (string.IsNullOrEmpty(item.Backup) || item.Backup.Equals("Não", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <span class="badge bg-danger">Não</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Sim</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">N/A</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.DataColeta.HasValue)
+                                    {
+                                        var dias = (DateTime.Now - item.DataColeta.Value).TotalDays;
+                                        if (dias > 15)
+                                        {
+                                            <span class="badge bg-danger">@item.DataColeta.Value.ToString("dd/MM/yyyy") (Há @Math.Floor(dias) dias)</span>
+                                        }
+                                        else if (dias > 7)
+                                        {
+                                            <span class="badge bg-warning text-dark">@item.DataColeta.Value.ToString("dd/MM/yyyy")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success small">@item.DataColeta.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">N/A</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @{
+                                        string controller = item.TipoEquipamento switch
+                                        {
+                                            "Computador" => "Computadores",
+                                            "Monitor" => "Monitores",
+                                            "Periférico" => "Perifericos",
+                                            "Ativo de Rede" => "Redes",
+                                            _ => "Smartphones"
+                                        };
+                                    }
+                                    <a asp-controller="@controller" asp-action="Details" asp-route-id="@item.Identificador" class="btn btn-sm btn-info text-white me-1" title="Detalhes do Ativo"><i class="bi bi-eye"></i></a>
+                                    <a asp-controller="Chamados" asp-action="Create" class="btn btn-sm btn-outline-warning" title="Abrir Chamado"><i class="bi bi-headset"></i></a>
                                 </td>
                             </tr>
                         }
@@ -321,114 +401,21 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         $(document).ready(function() {
+            var dataTable;
             if ($.fn.DataTable) {
-                $('#datatablesSimple').DataTable({
+                dataTable = $('#datatablesDashboard').DataTable({
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json"
-                    }
+                    },
+                    "pageLength": 10
                 });
             }
 
-            // Coleta Bar Chart
-            var ctxColetaBar = document.getElementById("coletaBarChart");
-            if (ctxColetaBar) {
-                var coletaBarData = @Html.Raw(Json.Serialize(Model.ColetaBarData));
-                var coletaLabels = coletaBarData.map(function(d) { return d.label; });
-                var coletaData = coletaBarData.map(function(d) { return d.value; });
-                new Chart(ctxColetaBar, {
-                    type: 'bar',
-                    data: {
-                        labels: coletaLabels,
-                        datasets: [{
-                            label: "Coletas",
-                            backgroundColor: "rgba(40,167,69,1)",
-                            borderColor: "rgba(40,167,69,1)",
-                            data: coletaData,
-                        }],
-                    },
-                    options: {
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            },
-                            y: {
-                                ticks: {
-                                    min: 0,
-                                    maxTicksLimit: 5
-                                },
-                                grid: {
-                                    display: true
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Pie Chart
-            var ctxPie = document.getElementById("garantiaPieChart");
-            if (ctxPie) {
-                var pieData = @Html.Raw(Json.Serialize(Model.GarantiaPieData));
-                new Chart(ctxPie, {
-                    type: 'pie',
-                    data: {
-                        labels: ["Tem garantia", "Sem garantia", "Sem dados de garantia"],
-                        datasets: [{
-                            data: pieData,
-                            backgroundColor: ['#28a745', '#dc3545', '#6c757d'],
-                        }],
-                    },
-                });
-            }
-
-            // Bar Chart
-            var ctxBar = document.getElementById("garantiaBarChart");
-            if (ctxBar) {
-                var barData = @Html.Raw(Json.Serialize(Model.GarantiaBarData));
-                var labels = barData.map(function(d) { return d.label; });
-                var data = barData.map(function(d) { return d.value; });
-                new Chart(ctxBar, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: "Equipamentos a vencer",
-                            backgroundColor: "rgba(2,117,216,1)",
-                            borderColor: "rgba(2,117,216,1)",
-                            data: data,
-                        }],
-                    },
-                    options: {
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: false
-                                }
-                            },
-                            y: {
-                                ticks: {
-                                    min: 0,
-                                    maxTicksLimit: 5
-                                },
-                                grid: {
-                                    display: true
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        }
-                    }
-                });
+            // Power BI Style Cross-Filtering helper
+            function filterTable(searchTerm) {
+                if (dataTable) {
+                    dataTable.search(searchTerm).draw();
+                }
             }
 
             // Battery Wear Pie Chart
@@ -438,14 +425,23 @@
                 var batteryWarning = @Html.Raw(Json.Serialize(Model.BatteryWarningCount));
                 var batteryCritical = @Html.Raw(Json.Serialize(Model.BatteryCriticalCount));
 
-                new Chart(ctxBatteryPie, {
-                    type: 'pie',
+                var batteryChart = new Chart(ctxBatteryPie, {
+                    type: 'doughnut',
                     data: {
-                        labels: ["Boa (0-24%)", "Atenção (25-49%)", "Ruim (50%+)"],
+                        labels: ["Boa (0-24%)", "Atenção (25-49%)", "Crítica (50%+)"],
                         datasets: [{
                             data: [batteryGood, batteryWarning, batteryCritical],
                             backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
                         }],
+                    },
+                    options: {
+                        onClick: function(e, elements) {
+                            if (elements.length > 0) {
+                                var idx = elements[0].index;
+                                var label = batteryChart.data.labels[idx];
+                                filterTable(label.includes("Crítica") ? "Computador" : "");
+                            }
+                        }
                     }
                 });
             }
@@ -457,14 +453,69 @@
                 var cpuWarning = @Html.Raw(Json.Serialize(Model.CpuWarningCount));
                 var cpuCritical = @Html.Raw(Json.Serialize(Model.CpuCriticalCount));
 
-                new Chart(ctxCpuPie, {
-                    type: 'pie',
+                var cpuChart = new Chart(ctxCpuPie, {
+                    type: 'doughnut',
                     data: {
-                        labels: ["Boa (0-24%)", "Atenção (25-49%)", "Ruim (50%+)"],
+                        labels: ["Normal (0-24%)", "Atenção (25-49%)", "Alto Uso (50%+)"],
                         datasets: [{
                             data: [cpuGood, cpuWarning, cpuCritical],
                             backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
                         }],
+                    },
+                    options: {
+                        onClick: function(e, elements) {
+                            if (elements.length > 0) {
+                                filterTable("Computador");
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Pie Chart Garantia
+            var ctxPie = document.getElementById("garantiaPieChart");
+            if (ctxPie) {
+                var pieData = @Html.Raw(Json.Serialize(Model.GarantiaPieData));
+                var pieChart = new Chart(ctxPie, {
+                    type: 'pie',
+                    data: {
+                        labels: ["Garantia Válida", "Garantia Vencida", "Sem dados"],
+                        datasets: [{
+                            data: pieData,
+                            backgroundColor: ['#28a745', '#dc3545', '#6c757d'],
+                        }],
+                    },
+                    options: {
+                        onClick: function(e, elements) {
+                            if (elements.length > 0) {
+                                var idx = elements[0].index;
+                                if (idx === 1) filterTable("Vencida");
+                                else if (idx === 0) filterTable("Válida");
+                                else filterTable("");
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Bar Chart Garantias
+            var ctxBar = document.getElementById("garantiaBarChart");
+            if (ctxBar) {
+                var barData = @Html.Raw(Json.Serialize(Model.GarantiaBarData));
+                var labels = barData.map(function(d) { return d.label; });
+                var data = barData.map(function(d) { return d.value; });
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "Equipamentos a Vencer",
+                            backgroundColor: "#0d6efd",
+                            data: data,
+                        }],
+                    },
+                    options: {
+                        plugins: { legend: { display: false } }
                     }
                 });
             }

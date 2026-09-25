@@ -11,6 +11,27 @@ namespace Web.Models
         public int TotalRedes { get; set; }
         public int TotalSmartphones { get; set; }
 
+        // Support tickets summary
+        public int TotalChamadosAbertos { get; set; }
+        public int TotalChamadosEmAndamento { get; set; }
+
+        // Decision / Risk metrics
+        public int TotalAgentesInativos { get; set; }
+        public int TotalSemBackup { get; set; }
+        public int TotalGarantiasVencidas { get; set; }
+
+        // Filter lists for dropdowns
+        public List<string> Filiais { get; set; } = new List<string>();
+        public List<string> Setores { get; set; } = new List<string>();
+        public List<string> Coordenadores { get; set; } = new List<string>();
+
+        // Selected filter values
+        public string SelectedFilial { get; set; }
+        public string SelectedSetor { get; set; }
+        public string SelectedCoordenador { get; set; }
+        public string SelectedDispositivo { get; set; }
+        public string SelectedStatusGarantia { get; set; }
+
         public List<EquipamentoDashboardItem> Equipamentos { get; set; } = new List<EquipamentoDashboardItem>();
 
         public List<int> GarantiaPieData { get; set; } = new List<int>();
@@ -45,6 +66,8 @@ namespace Web.Models
         public string Backup { get; set; } // Specific to Computador
         public DateTime? DataColeta { get; set; } // Specific to Computador
         public string ColaboradorNome { get; set; }
+        public string Filial { get; set; }
+        public string Setor { get; set; }
         public double? BateriaWearLevel { get; set; } // Specific to Computador
         public double? CpuUsage { get; set; } // Specific to Computador
     }
