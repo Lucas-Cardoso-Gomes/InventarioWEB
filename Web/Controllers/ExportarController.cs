@@ -649,7 +649,7 @@ namespace Web.Controllers
                     fileName = $"export_coordenador_{viewModel.CoordenadorCPF}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
                     var wsComputadores = package.Workbook.Worksheets.Add("Computadores");
 
-                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ArmazenamentoC", "ArmazenamentoCTotal", "ArmazenamentoCLivre", "ArmazenamentoD", "ArmazenamentoDTotal", "ArmazenamentoDLivre", "ConsumoCPU", "SO", "PartNumber" };
+                    string[] computerHeader = { "MAC", "IP", "ColaboradorCPF", "Hostname", "Fabricante", "Processador", "ProcessadorFabricante", "ProcessadorCore", "ProcessadorThread", "ProcessadorClock", "Ram", "RamTipo", "RamVelocidade", "RamVoltagem", "RamPorModule", "ConsumoCPU", "SO", "PartNumber" };
                     for (int i = 0; i < computerHeader.Length; i++) wsComputadores.Cells[1, i + 1].Value = computerHeader[i];
 
                     string sql = $@"

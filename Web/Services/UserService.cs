@@ -296,7 +296,10 @@ namespace Web.Services
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT * FROM Colaboradores";
+                    command.CommandText = @"
+                        SELECT c.CPF, c.Nome, c.Email, cc.SenhaSistema AS SenhaEmail
+                        FROM Colaboradores c
+                        LEFT JOIN ColaboradorCredenciais cc ON c.CPF = cc.ColaboradorCPF AND cc.Sistema = 'Email'";
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())

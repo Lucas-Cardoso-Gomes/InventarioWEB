@@ -477,7 +477,7 @@ namespace Web.Controllers
                 // Smartphones
                 using (var cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT Modelo, IMEI1, IMEI2, MAC FROM Smartphones WHERE Usuario LIKE @Nome";
+                    cmd.CommandText = "SELECT Id, Modelo, MAC FROM Smartphones WHERE Usuario LIKE @Nome";
                     var p = cmd.CreateParameter();
                     p.ParameterName = "@Nome";
                     p.Value = "%" + colaborador.Nome + "%";
@@ -489,11 +489,29 @@ namespace Web.Controllers
                         {
                             smartphones.Add(new Smartphone
                             {
+                                Id = Convert.ToInt32(reader["Id"]),
                                 Modelo = reader["Modelo"].ToString(),
-                                IMEI1 = reader["IMEI1"].ToString(),
-                                IMEI2 = reader["IMEI2"] != DBNull.Value ? reader["IMEI2"].ToString() : "",
                                 MAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : ""
                             });
+                        }
+                    }
+                }
+
+                foreach (var sp in smartphones)
+                {
+                    using (var imeiCmd = connection.CreateCommand())
+                    {
+                        imeiCmd.CommandText = "SELECT IMEI, Ordem FROM SmartphoneIMEIs WHERE SmartphoneId = @SmartphoneId ORDER BY Ordem";
+                        var pImei = imeiCmd.CreateParameter(); pImei.ParameterName = "@SmartphoneId"; pImei.Value = sp.Id; imeiCmd.Parameters.Add(pImei);
+                        using (var reader = imeiCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int ordem = Convert.ToInt32(reader["Ordem"]);
+                                string imei = reader["IMEI"].ToString();
+                                if (ordem == 1) sp.IMEI1 = imei;
+                                else if (ordem == 2) sp.IMEI2 = imei;
+                            }
                         }
                     }
                 }
