@@ -1,4 +1,4 @@
-@model Web.Models.Colaborador
+@model Web.Models.ColaboradorDetailsViewModel
 
 @{
     ViewData["Title"] = "Detalhes do Colaborador";
@@ -6,115 +6,255 @@
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-person-badge"></i> @ViewData["Title"] - @Model.Nome</h2>
+        <h2><i class="bi bi-person-badge"></i> @ViewData["Title"] - @Model.Colaborador.Nome</h2>
         <div>
+            <a asp-action="GerarTermoPdf" asp-route-id="@Model.Colaborador.CPF" class="btn btn-outline-danger me-2" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Termo de Responsabilidade</a>
             @if (User.IsInRole("Admin"))
             {
-                <a asp-action="Edit" asp-route-id="@Model.CPF" class="btn btn-warning"><i class="bi bi-pencil"></i> Editar</a>
+                <a asp-action="Edit" asp-route-id="@Model.Colaborador.CPF" class="btn btn-warning me-2"><i class="bi bi-pencil"></i> Editar</a>
             }
             <a asp-action="Index" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
         </div>
     </div>
 
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Dados Pessoais & Organizacionais</h5>
+    <ul class="nav nav-tabs" id="colaboradorTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button" role="tab" aria-controls="dados" aria-selected="true"><i class="bi bi-person"></i> Dados Cadastrais</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="credenciais-tab" data-bs-toggle="tab" data-bs-target="#credenciais" type="button" role="tab" aria-controls="credenciais" aria-selected="false"><i class="bi bi-key"></i> Sistemas & Credenciais</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="equipamentos-tab" data-bs-toggle="tab" data-bs-target="#equipamentos" type="button" role="tab" aria-controls="equipamentos" aria-selected="false"><i class="bi bi-laptop"></i> Equipamentos Atribuídos</button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-4 bg-white" id="colaboradorTabsContent">
+
+        <!-- Tab: Dados Cadastrais -->
+        <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><i class="bi bi-card-heading"></i> <strong>Informações Pessoais & Organizacionais</strong></div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>CPF:</strong> @Model.Colaborador.CPF</li>
+                            <li class="list-group-item"><strong>Nome Completo:</strong> @Model.Colaborador.Nome</li>
+                            <li class="list-group-item"><strong>E-mail:</strong> @Model.Colaborador.Email</li>
+                            <li class="list-group-item"><strong>Filial:</strong> @Model.Colaborador.Filial</li>
+                            <li class="list-group-item"><strong>Setor:</strong> @Model.Colaborador.Setor</li>
+                            <li class="list-group-item"><strong>Coordenador:</strong> @(string.IsNullOrEmpty(Model.Colaborador.CoordenadorNome) ? "Nenhum" : $"{Model.Colaborador.CoordenadorNome} ({Model.Colaborador.CoordenadorCPF})")</li>
+                            <li class="list-group-item"><strong>Data de Inclusão:</strong> @Model.Colaborador.DataInclusao?.ToString("dd/MM/yyyy HH:mm")</li>
+                            <li class="list-group-item"><strong>Última Alteração:</strong> @Model.Colaborador.DataAlteracao?.ToString("dd/MM/yyyy HH:mm")</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><i class="bi bi-telephone"></i> <strong>Contatos & Segurança</strong></div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Smartphone:</strong> @Model.Colaborador.Smartphone</li>
+                            <li class="list-group-item"><strong>Telefone Fixo:</strong> @Model.Colaborador.TelefoneFixo</li>
+                            <li class="list-group-item"><strong>Ramal:</strong> @Model.Colaborador.Ramal</li>
+                            <li class="list-group-item"><strong>Alarme:</strong> @Model.Colaborador.Alarme</li>
+                            <li class="list-group-item"><strong>Videoporteiro:</strong> @Model.Colaborador.Videoporteiro</li>
+                            <li class="list-group-item"><strong>Observações:</strong> @(string.IsNullOrEmpty(Model.Colaborador.Obs) ? "Nenhuma" : Model.Colaborador.Obs)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">CPF</dt>
-                <dd class="col-sm-9">@Model.CPF</dd>
-                
-                <dt class="col-sm-3">Nome</dt>
-                <dd class="col-sm-9">@Model.Nome</dd>
 
-                <dt class="col-sm-3">Email</dt>
-                <dd class="col-sm-9">@Model.Email</dd>
+        <!-- Tab: Credenciais -->
+        <div class="tab-pane fade" id="credenciais" role="tabpanel" aria-labelledby="credenciais-tab">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><i class="bi bi-shield-lock"></i> <strong>Acessos de Comunicação & Sistemas</strong></div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Email / Usuário:</strong> @Model.Colaborador.Email</li>
+                            <li class="list-group-item"><strong>Senha Email:</strong> @Model.Colaborador.SenhaEmail</li>
+                            <li class="list-group-item"><strong>Teams:</strong> @Model.Colaborador.Teams</li>
+                            <li class="list-group-item"><strong>Senha Teams:</strong> @Model.Colaborador.SenhaTeams</li>
+                            <li class="list-group-item"><strong>E-Despacho:</strong> @Model.Colaborador.EDespacho</li>
+                            <li class="list-group-item"><strong>Senha E-Despacho:</strong> @Model.Colaborador.SenhaEDespacho</li>
+                        </ul>
+                    </div>
+                </div>
 
-                <dt class="col-sm-3">Filial</dt>
-                <dd class="col-sm-9">@Model.Filial</dd>
-
-                <dt class="col-sm-3">Setor</dt>
-                <dd class="col-sm-9">@Model.Setor</dd>
-
-                <dt class="col-sm-3">Coordenador</dt>
-                <dd class="col-sm-9">@Html.DisplayFor(model => model.CoordenadorNome) (@Model.CoordenadorCPF)</dd>
-
-                <dt class="col-sm-3">Data de Inclusão</dt>
-                <dd class="col-sm-9">@Model.DataInclusao?.ToString("g")</dd>
-
-                <dt class="col-sm-3">Última Alteração</dt>
-                <dd class="col-sm-9">@Model.DataAlteracao?.ToString("g")</dd>
-            </dl>
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><i class="bi bi-shield-lock"></i> <strong>Outros Sistemas</strong></div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Genius:</strong> @Model.Colaborador.Genius</li>
+                            <li class="list-group-item"><strong>Senha Genius:</strong> @Model.Colaborador.SenhaGenius</li>
+                            <li class="list-group-item"><strong>Ibrooker:</strong> @Model.Colaborador.Ibrooker</li>
+                            <li class="list-group-item"><strong>Senha Ibrooker:</strong> @Model.Colaborador.SenhaIbrooker</li>
+                            <li class="list-group-item"><strong>Sistema Adicional:</strong> @Model.Colaborador.Adicional</li>
+                            <li class="list-group-item"><strong>Senha Adicional:</strong> @Model.Colaborador.SenhaAdicional</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0">Sistemas & Credenciais</h5>
+        <!-- Tab: Equipamentos Atribuídos -->
+        <div class="tab-pane fade" id="equipamentos" role="tabpanel" aria-labelledby="equipamentos-tab">
+            <h5 class="mb-3"><i class="bi bi-pc-display"></i> Computadores</h5>
+            @if (Model.Computadores != null && Model.Computadores.Any())
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-striped table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>MAC</th>
+                                <th>Hostname</th>
+                                <th>IP</th>
+                                <th>Fabricante</th>
+                                <th>Processador</th>
+                                <th>RAM</th>
+                                <th>SO</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var comp in Model.Computadores)
+                            {
+                                <tr>
+                                    <td>@comp.MAC</td>
+                                    <td>@comp.Hostname</td>
+                                    <td>@comp.IP</td>
+                                    <td>@comp.Fabricante</td>
+                                    <td>@comp.Processador</td>
+                                    <td>@comp.Ram</td>
+                                    <td>@comp.SO</td>
+                                    <td class="text-center">
+                                        <a asp-controller="Computadores" asp-action="Details" asp-route-id="@comp.MAC" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border mb-4">Nenhum computador atribuído.</div>
+            }
+
+            <h5 class="mb-3"><i class="bi bi-display"></i> Monitores</h5>
+            @if (Model.Monitores != null && Model.Monitores.Any())
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-striped table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Part Number</th>
+                                <th>Marca</th>
+                                <th>Modelo</th>
+                                <th>Tamanho</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var mon in Model.Monitores)
+                            {
+                                <tr>
+                                    <td>@mon.PartNumber</td>
+                                    <td>@mon.Marca</td>
+                                    <td>@mon.Modelo</td>
+                                    <td>@mon.Tamanho</td>
+                                    <td class="text-center">
+                                        <a asp-controller="Monitores" asp-action="Details" asp-route-id="@mon.PartNumber" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border mb-4">Nenhum monitor atribuído.</div>
+            }
+
+            <h5 class="mb-3"><i class="bi bi-mouse"></i> Periféricos</h5>
+            @if (Model.Perifericos != null && Model.Perifericos.Any())
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-striped table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Part Number</th>
+                                <th>Tipo</th>
+                                <th>Data Entrega</th>
+                                <th>Garantia</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var per in Model.Perifericos)
+                            {
+                                <tr>
+                                    <td>@per.PartNumber</td>
+                                    <td>@per.Tipo</td>
+                                    <td>@per.DataEntrega?.ToString("dd/MM/yyyy")</td>
+                                    <td>@per.DataGarantia?.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-center">
+                                        <a asp-controller="Perifericos" asp-action="Details" asp-route-id="@per.PartNumber" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border mb-4">Nenhum periférico atribuído.</div>
+            }
+
+            <h5 class="mb-3"><i class="bi bi-phone"></i> Smartphones</h5>
+            @if (Model.Smartphones != null && Model.Smartphones.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Modelo</th>
+                                <th>IMEI 1</th>
+                                <th>IMEI 2</th>
+                                <th>MAC</th>
+                                <th>Garantia</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var smp in Model.Smartphones)
+                            {
+                                <tr>
+                                    <td>@smp.Id</td>
+                                    <td>@smp.Modelo</td>
+                                    <td>@smp.IMEI1</td>
+                                    <td>@smp.IMEI2</td>
+                                    <td>@smp.MAC</td>
+                                    <td>@smp.DataGarantia?.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-center">
+                                        <a asp-controller="Smartphones" asp-action="Details" asp-route-id="@smp.Id" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border">Nenhum smartphone atribuído.</div>
+            }
         </div>
-        <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">Senha Email</dt>
-                <dd class="col-sm-9">@Model.SenhaEmail</dd>
 
-                <dt class="col-sm-3">Teams</dt>
-                <dd class="col-sm-9">@Model.Teams</dd>
-                
-                <dt class="col-sm-3">Senha Teams</dt>
-                <dd class="col-sm-9">@Model.SenhaTeams</dd>
-
-                <dt class="col-sm-3">E-Despacho</dt>
-                <dd class="col-sm-9">@Model.EDespacho</dd>
-
-                <dt class="col-sm-3">Senha E-Despacho</dt>
-                <dd class="col-sm-9">@Model.SenhaEDespacho</dd>
-
-                <dt class="col-sm-3">Genius</dt>
-                <dd class="col-sm-9">@Model.Genius</dd>
-
-                <dt class="col-sm-3">Senha Genius</dt>
-                <dd class="col-sm-9">@Model.SenhaGenius</dd>
-
-                <dt class="col-sm-3">Ibrooker</dt>
-                <dd class="col-sm-9">@Model.Ibrooker</dd>
-
-                <dt class="col-sm-3">Senha Ibrooker</dt>
-                <dd class="col-sm-9">@Model.SenhaIbrooker</dd>
-
-                <dt class="col-sm-3">Adicional (Sistema)</dt>
-                <dd class="col-sm-9">@Model.Adicional</dd>
-
-                <dt class="col-sm-3">Senha Adicional</dt>
-                <dd class="col-sm-9">@Model.SenhaAdicional</dd>
-            </dl>
-        </div>
-    </div>
-
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0">Equipamentos & Contatos</h5>
-        </div>
-        <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">Smartphone</dt>
-                <dd class="col-sm-9">@Model.Smartphone</dd>
-
-                <dt class="col-sm-3">Telefone Fixo</dt>
-                <dd class="col-sm-9">@Model.TelefoneFixo</dd>
-
-                <dt class="col-sm-3">Ramal</dt>
-                <dd class="col-sm-9">@Model.Ramal</dd>
-
-                <dt class="col-sm-3">Alarme</dt>
-                <dd class="col-sm-9">@Model.Alarme</dd>
-
-                <dt class="col-sm-3">Videoporteiro</dt>
-                <dd class="col-sm-9">@Model.Videoporteiro</dd>
-
-                <dt class="col-sm-3">Observações</dt>
-                <dd class="col-sm-9">@Model.Obs</dd>
-            </dl>
-        </div>
     </div>
 </div>

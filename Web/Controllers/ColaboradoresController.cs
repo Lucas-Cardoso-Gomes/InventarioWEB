@@ -299,7 +299,131 @@ namespace Web.Controllers
                 }
             }
 
-            return View(colaborador);
+            var computadores = new List<Computador>();
+            var monitores = new List<Web.Models.Monitor>();
+            var perifericos = new List<Periferico>();
+            var smartphones = new List<Smartphone>();
+
+            using (var connection = _databaseService.CreateConnection())
+            {
+                connection.Open();
+
+                // Computadores
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT c.MAC, c.Hostname, c.IP, c.Fabricante, COALESCE(p.Nome, c.Processador) AS Processador, c.Ram, c.SO FROM Computadores c LEFT JOIN Processadores p ON c.ProcessadorId = p.Id WHERE c.ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter(); p.ParameterName = "@CPF"; p.Value = colaborador.CPF; cmd.Parameters.Add(p);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            computadores.Add(new Computador
+                            {
+                                MAC = reader["MAC"].ToString(),
+                                Hostname = reader["Hostname"].ToString(),
+                                IP = reader["IP"] != DBNull.Value ? reader["IP"].ToString() : "",
+                                Fabricante = reader["Fabricante"] != DBNull.Value ? reader["Fabricante"].ToString() : "",
+                                Processador = reader["Processador"] != DBNull.Value ? reader["Processador"].ToString() : "",
+                                Ram = reader["Ram"] != DBNull.Value ? reader["Ram"].ToString() : "",
+                                SO = reader["SO"] != DBNull.Value ? reader["SO"].ToString() : ""
+                            });
+                        }
+                    }
+                }
+
+                // Monitores
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT PartNumber, Marca, Modelo, Tamanho FROM Monitores WHERE ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter(); p.ParameterName = "@CPF"; p.Value = colaborador.CPF; cmd.Parameters.Add(p);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            monitores.Add(new Web.Models.Monitor
+                            {
+                                PartNumber = reader["PartNumber"].ToString(),
+                                Marca = reader["Marca"] != DBNull.Value ? reader["Marca"].ToString() : "",
+                                Modelo = reader["Modelo"].ToString(),
+                                Tamanho = reader["Tamanho"].ToString()
+                            });
+                        }
+                    }
+                }
+
+                // Perifericos
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT PartNumber, Tipo, DataEntrega, DataGarantia FROM Perifericos WHERE ColaboradorCPF = @CPF";
+                    var p = cmd.CreateParameter(); p.ParameterName = "@CPF"; p.Value = colaborador.CPF; cmd.Parameters.Add(p);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            perifericos.Add(new Periferico
+                            {
+                                PartNumber = reader["PartNumber"].ToString(),
+                                Tipo = reader["Tipo"].ToString(),
+                                DataEntrega = reader["DataEntrega"] != DBNull.Value ? Convert.ToDateTime(reader["DataEntrega"]) : null,
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : null
+                            });
+                        }
+                    }
+                }
+
+                // Smartphones
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, Modelo, Usuario, Filial, MAC, DataGarantia FROM Smartphones WHERE Usuario LIKE @Nome OR Usuario LIKE @CPF";
+                    var p = cmd.CreateParameter(); p.ParameterName = "@Nome"; p.Value = "%" + colaborador.Nome + "%"; cmd.Parameters.Add(p);
+                    var pCpf = cmd.CreateParameter(); pCpf.ParameterName = "@CPF"; pCpf.Value = "%" + colaborador.CPF + "%"; cmd.Parameters.Add(pCpf);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            smartphones.Add(new Smartphone
+                            {
+                                Id = Convert.ToInt32(reader["Id"]),
+                                Modelo = reader["Modelo"].ToString(),
+                                Usuario = reader["Usuario"] != DBNull.Value ? reader["Usuario"].ToString() : "",
+                                Filial = reader["Filial"] != DBNull.Value ? reader["Filial"].ToString() : "",
+                                MAC = reader["MAC"] != DBNull.Value ? reader["MAC"].ToString() : "",
+                                DataGarantia = reader["DataGarantia"] != DBNull.Value ? Convert.ToDateTime(reader["DataGarantia"]) : null
+                            });
+                        }
+                    }
+                }
+
+                foreach (var sp in smartphones)
+                {
+                    using (var imeiCmd = connection.CreateCommand())
+                    {
+                        imeiCmd.CommandText = "SELECT IMEI, Ordem FROM SmartphoneIMEIs WHERE SmartphoneId = @SmartphoneId ORDER BY Ordem";
+                        var pImei = imeiCmd.CreateParameter(); pImei.ParameterName = "@SmartphoneId"; pImei.Value = sp.Id; imeiCmd.Parameters.Add(pImei);
+                        using (var reader = imeiCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int ordem = Convert.ToInt32(reader["Ordem"]);
+                                string imei = reader["IMEI"].ToString();
+                                if (ordem == 1) sp.IMEI1 = imei;
+                                else if (ordem == 2) sp.IMEI2 = imei;
+                            }
+                        }
+                    }
+                }
+            }
+
+            var viewModel = new ColaboradorDetailsViewModel
+            {
+                Colaborador = colaborador,
+                Computadores = computadores,
+                Monitores = monitores,
+                Perifericos = perifericos,
+                Smartphones = smartphones
+            };
+
+            return View(viewModel);
         }
 
         // GET: Colaboradores/Edit/5

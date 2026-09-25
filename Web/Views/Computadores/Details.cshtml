@@ -24,6 +24,9 @@
             <button class="nav-link" id="hardware-tab" data-bs-toggle="tab" data-bs-target="#hardware" type="button" role="tab" aria-controls="hardware" aria-selected="false"><i class="bi bi-cpu"></i> Hardware e Sistema</button>
         </li>
         <li class="nav-item" role="presentation">
+            <button class="nav-link" id="programas-tab" data-bs-toggle="tab" data-bs-target="#programas" type="button" role="tab" aria-controls="programas" aria-selected="false"><i class="bi bi-app-indicator"></i> Programas Instalados</button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button class="nav-link" id="manutencao-tab" data-bs-toggle="tab" data-bs-target="#manutencao" type="button" role="tab" aria-controls="manutencao" aria-selected="false"><i class="bi bi-tools"></i> Histórico de Manutenções</button>
         </li>
         <li class="nav-item" role="presentation">
@@ -83,38 +86,55 @@
              <div class="row">
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><strong>Processador</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-cpu"></i> <strong>Processador</strong></div>
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item"><strong>Modelo:</strong> @Model.Computador.Processador</li>
                             <li class="list-group-item"><strong>Fabricante:</strong> @Model.Computador.ProcessadorFabricante</li>
                             <li class="list-group-item"><strong>Cores/Threads:</strong> @Model.Computador.ProcessadorCore / @Model.Computador.ProcessadorThread</li>
                             <li class="list-group-item"><strong>Clock:</strong> @Model.Computador.ProcessadorClock</li>
+                            <li class="list-group-item"><strong>Temperatura CPU:</strong> @(string.IsNullOrEmpty(Model.Computador.ProcessadorTemperatura) ? "N/A" : Model.Computador.ProcessadorTemperatura)</li>
+                            <li class="list-group-item"><strong>Consumo CPU:</strong> @(string.IsNullOrEmpty(Model.Computador.ConsumoCPU) ? "N/A" : Model.Computador.ConsumoCPU)</li>
                         </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><strong>Memória RAM</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-memory"></i> <strong>Memória RAM</strong></div>
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item"><strong>Total:</strong> @Model.Computador.Ram</li>
                             <li class="list-group-item"><strong>Tipo:</strong> @Model.Computador.RamTipo</li>
                             <li class="list-group-item"><strong>Velocidade:</strong> @Model.Computador.RamVelocidade</li>
+                            <li class="list-group-item"><strong>Voltagem:</strong> @(string.IsNullOrEmpty(Model.Computador.RamVoltagem) ? "N/A" : Model.Computador.RamVoltagem)</li>
+                            <li class="list-group-item"><strong>Módulos:</strong> @(string.IsNullOrEmpty(Model.Computador.RamPorModule) ? "N/A" : Model.Computador.RamPorModule)</li>
                         </ul>
                     </div>
                 </div>
-                 <div class="col-md-6">
+                <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><strong>Armazenamento C:</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-hdd"></i> <strong>Armazenamento C:</strong></div>
                         <ul class="list-group list-group-flush">
-                            <li class="list-group-item"><strong>Modelo:</strong> @Model.Computador.ArmazenamentoC</li>
+                            <li class="list-group-item"><strong>Unidade:</strong> @Model.Computador.ArmazenamentoC</li>
                             <li class="list-group-item"><strong>Total:</strong> @Model.Computador.ArmazenamentoCTotal</li>
                             <li class="list-group-item"><strong>Livre:</strong> @Model.Computador.ArmazenamentoCLivre</li>
                         </ul>
                     </div>
                 </div>
+                @if (!string.IsNullOrEmpty(Model.Computador.ArmazenamentoD))
+                {
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header bg-light"><i class="bi bi-hdd"></i> <strong>Armazenamento D:</strong></div>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Unidade:</strong> @Model.Computador.ArmazenamentoD</li>
+                                <li class="list-group-item"><strong>Total:</strong> @Model.Computador.ArmazenamentoDTotal</li>
+                                <li class="list-group-item"><strong>Livre:</strong> @Model.Computador.ArmazenamentoDLivre</li>
+                            </ul>
+                        </div>
+                    </div>
+                }
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><strong>Sistema Operacional e Backup</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-pc"></i> <strong>Sistema Operacional e Backup</strong></div>
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item"><strong>SO:</strong> @Model.Computador.SO</li>
                             <li class="list-group-item"><strong>Backup:</strong> @Model.Computador.Backup</li>
@@ -122,6 +142,42 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Tab: Programas Instalados -->
+        <div class="tab-pane fade" id="programas" role="tabpanel" aria-labelledby="programas-tab">
+            @if (Model.ProgramasInstalados != null && Model.ProgramasInstalados.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Versão</th>
+                                <th>Desenvolvedor</th>
+                                <th>Pacote ID</th>
+                                <th>Data de Coleta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Model.ProgramasInstalados)
+                            {
+                                <tr>
+                                    <td>@p.Nome</td>
+                                    <td>@p.Versao</td>
+                                    <td>@p.Desenvolvedor</td>
+                                    <td>@p.PacoteId</td>
+                                    <td>@p.DataColeta.ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">Nenhum programa instalado registrado para este computador.</div>
+            }
         </div>
 
         <!-- Tab: Manutenções -->

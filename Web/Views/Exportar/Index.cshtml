@@ -5,138 +5,148 @@
     ViewData["Title"] = "Exportar Dados";
 }
 
-<h2>@ViewData["Title"]</h2>
-<hr />
-
-<form asp-action="Export" method="post">
-    <div class="card mb-4">
-        <div class="card-header">
-            Modo de Exportação
-        </div>
-        <div class="card-body">
-            <div class="form-group col-md-4">
-                <label asp-for="ExportMode" class="control-label"></label>
-                <select asp-for="ExportMode" asp-items="Html.GetEnumSelectList<ExportMode>()" class="form-control" id="exportModeSelect"></select>
-            </div>
-        </div>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-excel"></i> @ViewData["Title"]</h2>
     </div>
 
-    <!-- Export by Coordinator Section -->
-    <div id="exportByCoordenadorSection" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                Selecione o Coordenador
+    <form asp-action="Export" method="post">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-light">
+                <i class="bi bi-funnel"></i> <strong>Modo de Exportação</strong>
             </div>
             <div class="card-body">
-                <div class="form-group col-md-4">
-                    <label asp-for="CoordenadorCPF" class="control-label"></label>
-                    <select asp-for="CoordenadorCPF" asp-items="@(new SelectList(Model.Coordenadores, "CPF", "Nome"))" class="form-control"></select>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Export by Device Section -->
-    <div id="exportByDeviceSection" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                Selecione o Tipo de Dispositivo para Exportar
-            </div>
-            <div class="card-body">
-                <div class="form-group col-md-4">
-                    <label asp-for="DeviceType" class="control-label"></label>
-                    <select asp-for="DeviceType" asp-items="Html.GetEnumSelectList<DeviceType>()" class="form-control" id="deviceTypeSelect"></select>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label asp-for="ExportMode" class="form-label fw-bold"></label>
+                        <select asp-for="ExportMode" asp-items="Html.GetEnumSelectList<ExportMode>()" class="form-select" id="exportModeSelect"></select>
+                    </div>
                 </div>
             </div>
         </div>
 
-        @{
-            Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
-            {
-                <div class="col-md-3">
-                    <label class="form-label">@title</label>
-                    <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
-                        @if (items != null)
-                        {
-                            @foreach (var item in items)
+        <!-- Export by Coordinator Section -->
+        <div id="exportByCoordenadorSection" style="display: none;">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-person-badge"></i> <strong>Selecione o Coordenador</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label asp-for="CoordenadorCPF" class="form-label fw-bold"></label>
+                            <select asp-for="CoordenadorCPF" asp-items="@(new SelectList(Model.Coordenadores, "CPF", "Nome"))" class="form-select"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export by Device Section -->
+        <div id="exportByDeviceSection" style="display: none;">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-devices"></i> <strong>Selecione o Tipo de Dispositivo para Exportar</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label asp-for="DeviceType" class="form-label fw-bold"></label>
+                            <select asp-for="DeviceType" asp-items="Html.GetEnumSelectList<DeviceType>()" class="form-select" id="deviceTypeSelect"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @{
+                Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
+                {
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">@title</label>
+                        <div class="border rounded p-2 bg-white" style="height: 150px; overflow-y: auto;">
+                            @if (items != null)
                             {
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
-                                    <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
-                                        @item
-                                    </label>
-                                </div>
+                                @foreach (var item in items)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
+                                        <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
+                                            @item
+                                        </label>
+                                    </div>
+                                }
                             }
+                        </div>
+                    </div>
+                };
+            }
+
+            <!-- Filtros para Computadores -->
+            <div id="computadoresFilters" class="card mb-4 shadow-sm filter-section" style="display: none;">
+                <div class="card-header bg-light"><i class="bi bi-pc"></i> <strong>Filtros de Computadores</strong></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @{
+                            renderFilter("Fabricante", "CurrentFabricantes", Model.Fabricantes, Model.CurrentFabricantes);
+                            renderFilter("Sistema Operacional", "CurrentSOs", Model.SOs, Model.CurrentSOs);
+                            renderFilter("Fab. do Processador", "CurrentProcessadorFabricantes", Model.ProcessadorFabricantes, Model.CurrentProcessadorFabricantes);
+                            renderFilter("Tipo de RAM", "CurrentRamTipos", Model.RamTipos, Model.CurrentRamTipos);
+                            renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
+                            renderFilter("RAM", "CurrentRams", Model.Rams, Model.CurrentRams);
                         }
                     </div>
                 </div>
-            };
-        }
+            </div>
 
-        <!-- Filtros para Computadores -->
-        <div id="computadoresFilters" class="card mt-4 filter-section" style="display: none;">
-            <div class="card-header">Filtros de Computadores</div>
-            <div class="card-body">
-                <div class="row g-3">
-                    @{
-                        renderFilter("Fabricante", "CurrentFabricantes", Model.Fabricantes, Model.CurrentFabricantes);
-                        renderFilter("Sistema Operacional", "CurrentSOs", Model.SOs, Model.CurrentSOs);
-                        renderFilter("Fab. do Processador", "CurrentProcessadorFabricantes", Model.ProcessadorFabricantes, Model.CurrentProcessadorFabricantes);
-                        renderFilter("Tipo de RAM", "CurrentRamTipos", Model.RamTipos, Model.CurrentRamTipos);
-                        renderFilter("Processador", "CurrentProcessadores", Model.Processadores, Model.CurrentProcessadores);
-                        renderFilter("RAM", "CurrentRams", Model.Rams, Model.CurrentRams);
-                    }
+            <!-- Filtros para Monitores -->
+            <div id="monitoresFilters" class="card mb-4 shadow-sm filter-section" style="display: none;">
+                <div class="card-header bg-light"><i class="bi bi-display"></i> <strong>Filtros de Monitores</strong></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @{
+                            renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
+                            renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
+                            renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros para Periféricos -->
+            <div id="perifericosFilters" class="card mb-4 shadow-sm filter-section" style="display: none;">
+                <div class="card-header bg-light"><i class="bi bi-mouse"></i> <strong>Filtros de Periféricos</strong></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @{
+                            renderFilter("Tipo", "CurrentTiposPeriferico", Model.TiposPeriferico, Model.CurrentTiposPeriferico);
+                        }
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Filtros para Monitores -->
-        <div id="monitoresFilters" class="card mt-4 filter-section" style="display: none;">
-            <div class="card-header">Filtros de Monitores</div>
-            <div class="card-body">
-                <div class="row g-3">
-                    @{
-                        renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
-                        renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
-                        renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
-                    }
+        <!-- Export by Collaborator Section -->
+        <div id="exportByColaboradorSection" style="display: none;">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-person"></i> <strong>Selecione o Colaborador</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label asp-for="SelectedColaboradorCPF" class="form-label fw-bold"></label>
+                            <select asp-for="SelectedColaboradorCPF" asp-items="@(new SelectList(Model.Colaboradores, "CPF", "Nome"))" class="form-select"></select>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Filtros para Periféricos -->
-        <div id="perifericosFilters" class="card mt-4 filter-section" style="display: none;">
-            <div class="card-header">Filtros de Periféricos</div>
-            <div class="card-body">
-                <div class="row g-3">
-                    @{
-                        renderFilter("Tipo", "CurrentTiposPeriferico", Model.TiposPeriferico, Model.CurrentTiposPeriferico);
-                    }
-                </div>
-            </div>
+        <div class="form-group mb-4">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-download"></i> Exportar Arquivo Excel</button>
         </div>
-    </div>
-
-    <!-- Export by Collaborator Section -->
-    <div id="exportByColaboradorSection" style="display: none;">
-        <div class="card">
-            <div class="card-header">
-                Selecione o Colaborador
-            </div>
-            <div class="card-body">
-                <div class="form-group col-md-4">
-                    <label asp-for="SelectedColaboradorCPF" class="control-label"></label>
-                    <select asp-for="SelectedColaboradorCPF" asp-items="@(new SelectList(Model.Colaboradores, "CPF", "Nome"))" class="form-control"></select>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <div class="form-group mt-4">
-        <button type="submit" class="btn btn-primary">Exportar</button>
-    </div>
-</form>
+    </form>
+</div>
 
 @section Scripts {
     <script>

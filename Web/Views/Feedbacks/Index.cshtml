@@ -3,64 +3,68 @@
     ViewData["Title"] = "Gestão de Feedbacks";
 }
 
-<h1>Feedbacks e Sugestões</h1>
-
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-comments me-1"></i>
-        Lista de Feedbacks Recebidos
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-chat-left-quote"></i> @ViewData["Title"]</h2>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered table-hover align-middle" id="datatablesSimple">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Assunto</th>
-                        <th>Autor</th>
-                        <th>Data</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <i class="bi bi-comments me-1"></i>
+            <strong>Lista de Feedbacks Recebidos</strong>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered table-hover align-middle" id="datatablesSimple">
+                    <thead class="table-dark">
                         <tr>
-                            <td>@item.ID</td>
-                            <td>@item.Assunto</td>
-                            <td>
-                                @if (string.IsNullOrEmpty(item.UsuarioCPF))
-                                {
-                                    <span class="badge bg-secondary">Anônimo</span>
-                                }
-                                else
-                                {
-                                    @item.AutorNome
-                                }
-                            </td>
-                            <td>@item.DataCriacao.ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>
-                                @if(item.Status == "Aberto")
-                                {
-                                    <span class="badge bg-primary">Aberto</span>
-                                }
-                                else if(item.Status == "Em Andamento")
-                                {
-                                    <span class="badge bg-warning text-dark">Em Andamento</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-success">Fechado</span>
-                                }
-                            </td>
-                            <td>
-                                <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-info text-white"><i class="fas fa-eye"></i> Detalhes</a>
-                            </td>
+                            <th>ID</th>
+                            <th>Assunto</th>
+                            <th>Autor</th>
+                            <th>Data</th>
+                            <th>Status</th>
+                            <th class="text-center">Ações</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>#@item.ID</td>
+                                <td>@item.Assunto</td>
+                                <td>
+                                    @if (string.IsNullOrEmpty(item.UsuarioCPF))
+                                    {
+                                        <span class="badge bg-secondary">Anônimo</span>
+                                    }
+                                    else
+                                    {
+                                        @item.AutorNome
+                                    }
+                                </td>
+                                <td>@item.DataCriacao.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @if(item.Status == "Aberto")
+                                    {
+                                        <span class="badge bg-primary">Aberto</span>
+                                    }
+                                    else if(item.Status == "Em Andamento")
+                                    {
+                                        <span class="badge bg-warning text-dark">Em Andamento</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Fechado</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <a asp-action="Details" asp-route-id="@item.ID" class="btn btn-sm btn-info text-white"><i class="bi bi-eye"></i> Detalhes</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

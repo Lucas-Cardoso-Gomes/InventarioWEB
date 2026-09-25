@@ -23,19 +23,22 @@ namespace Web.Controllers
         private readonly PersistentLogService _persistentLogService;
         private readonly IHistoricoTrocasService _historicoTrocasService;
         private readonly ManutencaoService _manutencaoService;
+        private readonly IDatabaseService _databaseService;
 
         public ComputadoresController(
             IComputadorService computadorService,
             ILogger<ComputadoresController> logger,
             PersistentLogService persistentLogService,
             IHistoricoTrocasService historicoTrocasService,
-            ManutencaoService manutencaoService)
+            ManutencaoService manutencaoService,
+            IDatabaseService databaseService)
         {
             _computadorService = computadorService;
             _logger = logger;
             _persistentLogService = persistentLogService;
             _historicoTrocasService = historicoTrocasService;
             _manutencaoService = manutencaoService;
+            _databaseService = databaseService;
         }
 
         public IActionResult Index(string sortOrder, string searchString,
@@ -227,11 +230,39 @@ namespace Web.Controllers
             Computador computador = _computadorService.FindById(id);
             if (computador == null) return NotFound();
 
+            var programas = new List<ProgramaInstalado>();
+            using (var connection = _databaseService.CreateConnection())
+            {
+                connection.Open();
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT ID, ComputadorMAC, Nome, Versao, Desenvolvedor, PacoteId, DataColeta FROM ProgramasInstalados WHERE ComputadorMAC = @MAC ORDER BY Nome";
+                    var p = cmd.CreateParameter(); p.ParameterName = "@MAC"; p.Value = computador.MAC; cmd.Parameters.Add(p);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            programas.Add(new ProgramaInstalado
+                            {
+                                ID = Convert.ToInt32(reader["ID"]),
+                                ComputadorMAC = reader["ComputadorMAC"].ToString(),
+                                Nome = reader["Nome"].ToString(),
+                                Versao = reader["Versao"] != DBNull.Value ? reader["Versao"].ToString() : "",
+                                Desenvolvedor = reader["Desenvolvedor"] != DBNull.Value ? reader["Desenvolvedor"].ToString() : "",
+                                PacoteId = reader["PacoteId"] != DBNull.Value ? reader["PacoteId"].ToString() : "",
+                                DataColeta = Convert.ToDateTime(reader["DataColeta"])
+                            });
+                        }
+                    }
+                }
+            }
+
             var viewModel = new ComputadorDetailsViewModel
             {
                 Computador = computador,
                 HistoricoManutencoes = _manutencaoService.GetManutencoesByEquipamento("Computador", id),
-                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Computador", id)
+                HistoricoTrocas = _historicoTrocasService.GetHistoricoByEquipamento("Computador", id),
+                ProgramasInstalados = programas
             };
 
             return View(viewModel);

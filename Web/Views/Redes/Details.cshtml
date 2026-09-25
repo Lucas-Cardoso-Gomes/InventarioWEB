@@ -44,11 +44,13 @@
                 </div>
                 <div class="col-md-6">
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><i class="bi bi-geo-alt"></i> <strong>Localização e Garantia</strong></div>
+                        <div class="card-header bg-light"><i class="bi bi-geo-alt"></i> <strong>Localização e Datas</strong></div>
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item"><strong>Localização:</strong> @Model.Rede.Localizacao</li>
                             <li class="list-group-item"><strong>Endereço:</strong> @Model.Rede.Endereco</li>
                             <li class="list-group-item"><strong>Garantia:</strong> @(Model.Rede.DataGarantia.HasValue ? Model.Rede.DataGarantia.Value.ToString("dd/MM/yyyy") : "Não definida")</li>
+                            <li class="list-group-item"><strong>Data de Inclusão:</strong> @Model.Rede.DataInclusao.ToString("dd/MM/yyyy HH:mm")</li>
+                            <li class="list-group-item"><strong>Última Alteração:</strong> @(Model.Rede.DataAlteracao.HasValue ? Model.Rede.DataAlteracao.Value.ToString("dd/MM/yyyy HH:mm") : "N/A")</li>
                         </ul>
                     </div>
                 </div>

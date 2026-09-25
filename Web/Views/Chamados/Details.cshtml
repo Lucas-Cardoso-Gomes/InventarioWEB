@@ -5,101 +5,162 @@
     ViewData["Title"] = "Detalhes do Chamado";
 }
 
-<h1>Detalhes do Chamado</h1>
-
-<div>
-    <h4>Chamado</h4>
-    <hr />
-    <dl class="row">
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ID)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.ID)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.AdminNome)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.AdminNome)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.ColaboradorNome)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.ColaboradorNome)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Servico)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.Servico)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Descricao)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.Descricao)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.Status)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.Status)</dd>
-
-        <dt class="col-sm-2">Prioridade</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.Prioridade)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataCriacao)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataCriacao)</dd>
-
-        <dt class="col-sm-2">@Html.DisplayNameFor(model => model.DataAlteracao)</dt>
-        <dd class="col-sm-10">@Html.DisplayFor(model => model.DataAlteracao)</dd>
-    </dl>
-</div>
-
-<div class="row">
-    <div class="col-md-8">
-        <h3>Conversa</h3>
-        @if (Model.Status == "Fechado")
-        {
-            <div class="alert alert-info">O chat foi desativado pois este chamado está fechado.</div>
-        }
-        @await Html.PartialAsync("_Chat", Model.Conversas, new ViewDataDictionary(ViewData) { { "Status", Model.Status } })
-    </div>
-    <div class="col-md-4">
-        <h3>Anexos</h3>
-        <div id="anexos-list">
-            @foreach (var anexo in Model.Anexos)
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-headset"></i> @ViewData["Title"] #@Model.ID - @Model.Servico</h2>
+        <div>
+            @if (Model.Status == "Fechado" && (!Model.DataAlteracao.HasValue || DateTime.Now <= Model.DataAlteracao.Value.AddHours(24)))
             {
-                <div>
-                    <a href="@Url.Content(anexo.CaminhoArquivo)" target="_blank">@anexo.NomeArquivo</a>
-                </div>
+                var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
+                if (User.IsInRole("Admin") || Model.ColaboradorCPF == userCpf)
+                {
+                    <form asp-action="ReopenTicket" asp-route-id="@Model.ID" method="post" class="d-inline me-2">
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-arrow-counterclockwise"></i> Reabrir Chamado</button>
+                    </form>
+                }
             }
+
+            @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH") || User.IsInRole("Coordenador"))
+            {
+                <button id="btn-notify-user" class="btn btn-warning me-2" data-chamado-id="@Model.ID" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+                    <i class="bi bi-bell"></i> Notificar Colaborador
+                </button>
+            }
+            <a asp-action="Index" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Voltar</a>
         </div>
-        <hr />
-        @if (Model.Status != "Fechado")
-        {
-            <h4>Adicionar Anexo</h4>
-            <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
-                <input type="hidden" name="ChamadoID" value="@Model.ID" />
-                <div class="form-group">
-                    <input type="file" name="file" id="file-input" class="form-control" />
-                </div>
-                <br>
-                <button type="submit" class="btn btn-primary">Adicionar</button>
-            </form>
-            <div id="upload-status" class="mt-2"></div>
-        }
-        else
-        {
-            <div class="alert alert-info">O upload de anexos foi desativado pois este chamado está fechado.</div>
-        }
     </div>
-</div>
 
-<br>
-<div>
-    <a asp-action="Index" class="btn btn-secondary">Voltar à Lista</a>
-    @if (Model.Status == "Fechado" && (!Model.DataAlteracao.HasValue || DateTime.Now <= Model.DataAlteracao.Value.AddHours(24)))
-    {
-        var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
-        if (User.IsInRole("Admin") || Model.ColaboradorCPF == userCpf)
-        {
-            <form asp-action="ReopenTicket" asp-route-id="@Model.ID" method="post" class="d-inline ms-2">
-                <button type="submit" class="btn btn-danger">Reabrir Chamado</button>
-            </form>
-        }
-    }
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-info-circle"></i> <strong>Informações do Chamado</strong>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">ID:</dt>
+                        <dd class="col-sm-7">#@Model.ID</dd>
 
-    @if (User.IsInRole("Admin") || User.IsInRole("Diretoria/RH") || User.IsInRole("Coordenador"))
-    {
-        <button id="btn-notify-user" class="btn btn-warning ms-2" data-chamado-id="@Model.ID" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
-            <i class="fas fa-bell"></i> Notificar Colaborador
-        </button>
-    }
+                        <dt class="col-sm-5">Solicitante:</dt>
+                        <dd class="col-sm-7">@Model.ColaboradorNome</dd>
+
+                        <dt class="col-sm-5">Técnico/Admin:</dt>
+                        <dd class="col-sm-7">@(string.IsNullOrEmpty(Model.AdminNome) ? "Não atribuído" : Model.AdminNome)</dd>
+
+                        <dt class="col-sm-5">Serviço:</dt>
+                        <dd class="col-sm-7">@Model.Servico</dd>
+
+                        <dt class="col-sm-5">Prioridade:</dt>
+                        <dd class="col-sm-7">
+                            @if (Model.Prioridade == "Crítico")
+                            {
+                                <span class="badge bg-danger">Crítico</span>
+                            }
+                            else if (Model.Prioridade == "Alto")
+                            {
+                                <span class="badge bg-warning text-dark">Alto</span>
+                            }
+                            else if (Model.Prioridade == "Médio")
+                            {
+                                <span class="badge bg-info text-dark">Médio</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Baixo</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-5">Status:</dt>
+                        <dd class="col-sm-7">
+                            @if (Model.Status == "Aberto")
+                            {
+                                <span class="badge bg-primary">Aberto</span>
+                            }
+                            else if (Model.Status == "Em Andamento")
+                            {
+                                <span class="badge bg-warning text-dark">Em Andamento</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Fechado</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-5">Criação:</dt>
+                        <dd class="col-sm-7">@Model.DataCriacao.ToString("dd/MM/yyyy HH:mm")</dd>
+
+                        <dt class="col-sm-5">Atualização:</dt>
+                        <dd class="col-sm-7">@(Model.DataAlteracao.HasValue ? Model.DataAlteracao.Value.ToString("dd/MM/yyyy HH:mm") : "N/A")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-paperclip"></i> <strong>Anexos</strong>
+                </div>
+                <div class="card-body">
+                    <div id="anexos-list" class="mb-3">
+                        @if (Model.Anexos != null && Model.Anexos.Any())
+                        {
+                            foreach (var anexo in Model.Anexos)
+                            {
+                                <div class="mb-2">
+                                    <i class="bi bi-file-earmark me-1"></i>
+                                    <a href="@Url.Content(anexo.CaminhoArquivo)" target="_blank">@anexo.NomeArquivo</a>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted small">Nenhum anexo adicionado.</span>
+                        }
+                    </div>
+                    <hr />
+                    @if (Model.Status != "Fechado")
+                    {
+                        <h6>Adicionar Anexo</h6>
+                        <form id="upload-anexo-form" method="post" enctype="multipart/form-data" data-request-token="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+                            <input type="hidden" name="ChamadoID" value="@Model.ID" />
+                            <div class="mb-2">
+                                <input type="file" name="file" id="file-input" class="form-control form-control-sm" />
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-upload"></i> Enviar Anexo</button>
+                        </form>
+                        <div id="upload-status" class="mt-2"></div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info py-1 px-2 mb-0 small">O upload de anexos está desativado pois o chamado está fechado.</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bi-card-text"></i> <strong>Descrição do Problema</strong>
+                </div>
+                <div class="card-body">
+                    <p class="card-text mb-0">@Model.Descricao</p>
+                </div>
+            </div>
+
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <i class="bi bg-chat-dots me-1"></i> <strong>Conversa & Histórico</strong>
+                </div>
+                <div class="card-body">
+                    @if (Model.Status == "Fechado")
+                    {
+                        <div class="alert alert-info">O chat foi desativado pois este chamado está fechado.</div>
+                    }
+                    @await Html.PartialAsync("_Chat", Model.Conversas, new ViewDataDictionary(ViewData) { { "Status", Model.Status } })
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -138,63 +199,63 @@
         const fileInput = document.getElementById('file-input');
         const uploadStatus = document.getElementById('upload-status');
         const anexosList = document.getElementById('anexos-list');
-        const requestToken = uploadForm.dataset.requestToken;
-        const chamadoId = document.querySelector('input[name="ChamadoID"]').value;
+        if (uploadForm) {
+            const requestToken = uploadForm.dataset.requestToken;
+            const chamadoId = document.querySelector('input[name="ChamadoID"]').value;
 
-        const attachmentConnection = new signalR.HubConnectionBuilder()
-            .withUrl("/chatHub")
-            .build();
+            const attachmentConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/chatHub")
+                .build();
 
-        attachmentConnection.on("NewAttachment", function (fileName, filePath) {
-            if (document.querySelector(`a[href="${filePath}"]`)) {
-                return;
-            }
-            const newAnexo = `<div><a href="${filePath}" target="_blank">${fileName}</a></div>`;
-            anexosList.insertAdjacentHTML('beforeend', newAnexo);
-        });
+            attachmentConnection.on("NewAttachment", function (fileName, filePath) {
+                if (document.querySelector(`a[href="${filePath}"]`)) {
+                    return;
+                }
+                const newAnexo = `<div class="mb-2"><i class="bi bi-file-earmark me-1"></i><a href="${filePath}" target="_blank">${fileName}</a></div>`;
+                anexosList.insertAdjacentHTML('beforeend', newAnexo);
+            });
 
-        attachmentConnection.start().then(function () {
-            attachmentConnection.invoke("JoinGroup", chamadoId).catch(function (err) {
+            attachmentConnection.start().then(function () {
+                attachmentConnection.invoke("JoinGroup", chamadoId).catch(function (err) {
+                    return console.error(err.toString());
+                });
+            }).catch(function (err) {
                 return console.error(err.toString());
             });
-        }).catch(function (err) {
-            return console.error(err.toString());
-        });
 
-        uploadForm.addEventListener('submit', function(event) {
-            event.preventDefault();
+            uploadForm.addEventListener('submit', function(event) {
+                event.preventDefault();
 
-            const formData = new FormData(uploadForm);
-            const file = fileInput.files[0];
-            if (!file) {
-                uploadStatus.innerHTML = '<div class="alert alert-danger">Por favor, selecione um arquivo.</div>';
-                return;
-            }
-            formData.append('file', file);
-
-            fetch('/Chamados/UploadAnexo', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': requestToken
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    uploadStatus.innerHTML = `<div class="alert alert-success">Upload do arquivo '${data.fileName}' concluído com sucesso.</div>`;
-                    //const newAnexo = `<div><a href="${data.filePath}" target="_blank">${data.fileName}</a></div>`;
-                    //anexosList.insertAdjacentHTML('beforeend', newAnexo);
-                    fileInput.value = '';
-                } else {
-                    uploadStatus.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                const formData = new FormData(uploadForm);
+                const file = fileInput.files[0];
+                if (!file) {
+                    uploadStatus.innerHTML = '<div class="alert alert-danger py-1 px-2 small">Por favor, selecione um arquivo.</div>';
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Erro no upload:', error);
-                uploadStatus.innerHTML = '<div class="alert alert-danger">Ocorreu um erro durante o upload.</div>';
+                formData.append('file', file);
+
+                fetch('/Chamados/UploadAnexo', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': requestToken
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        uploadStatus.innerHTML = `<div class="alert alert-success py-1 px-2 small">Upload do arquivo '${data.fileName}' concluído com sucesso.</div>`;
+                        fileInput.value = '';
+                    } else {
+                        uploadStatus.innerHTML = `<div class="alert alert-danger py-1 px-2 small">${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro no upload:', error);
+                    uploadStatus.innerHTML = '<div class="alert alert-danger py-1 px-2 small">Ocorreu um erro durante o upload.</div>';
+                });
             });
-        });
+        }
     });
     </script>
 }
