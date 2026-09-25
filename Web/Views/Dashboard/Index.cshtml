@@ -178,10 +178,16 @@
                                     <tbody>
                                         @foreach (var item in Model.TopWorstBatteries)
                                         {
+                                            var wearVal = Math.Min(Math.Max(item.BateriaWearLevel ?? 0, 0), 100);
+                                            var bgClass = wearVal >= 50 ? "bg-danger" : (wearVal >= 25 ? "bg-warning text-dark" : "bg-success");
                                             <tr>
-                                                <td class="small fw-bold">@item.ModeloOuNome</td>
-                                                <td>
-                                                    <span class="badge bg-danger">@item.BateriaWearLevel?.ToString("0.0")%</span>
+                                                <td class="small fw-bold text-nowrap align-middle" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis;">@item.ModeloOuNome</td>
+                                                <td class="align-middle" style="min-width: 130px;">
+                                                    <div class="progress" style="height: 18px; border-radius: 4px; background-color: #e9ecef;">
+                                                        <div class="progress-bar @bgClass fw-bold small" role="progressbar" style="width: @wearVal.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%; font-size: 0.75rem; line-height: 18px;" aria-valuenow="@wearVal" aria-valuemin="0" aria-valuemax="100">
+                                                            @wearVal.ToString("0.0")%
+                                                        </div>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -217,10 +223,16 @@
                                     <tbody>
                                         @foreach (var item in Model.TopWorstCpus)
                                         {
+                                            var cpuVal = Math.Min(Math.Max(item.CpuUsage ?? 0, 0), 100);
+                                            var bgClass = cpuVal >= 50 ? "bg-danger" : (cpuVal >= 25 ? "bg-warning text-dark" : "bg-success");
                                             <tr>
-                                                <td class="small fw-bold">@item.ModeloOuNome</td>
-                                                <td>
-                                                    <span class="badge bg-danger">@item.CpuUsage?.ToString("0.0")%</span>
+                                                <td class="small fw-bold text-nowrap align-middle" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis;">@item.ModeloOuNome</td>
+                                                <td class="align-middle" style="min-width: 130px;">
+                                                    <div class="progress" style="height: 18px; border-radius: 4px; background-color: #e9ecef;">
+                                                        <div class="progress-bar @bgClass fw-bold small" role="progressbar" style="width: @cpuVal.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%; font-size: 0.75rem; line-height: 18px;" aria-valuenow="@cpuVal" aria-valuemin="0" aria-valuemax="100">
+                                                            @cpuVal.ToString("0.0")%
+                                                        </div>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -383,8 +395,7 @@
                                             _ => "Smartphones"
                                         };
                                     }
-                                    <a asp-controller="@controller" asp-action="Details" asp-route-id="@item.Identificador" class="btn btn-sm btn-info text-white me-1" title="Detalhes do Ativo"><i class="bi bi-eye"></i></a>
-                                    <a asp-controller="Chamados" asp-action="Create" class="btn btn-sm btn-outline-warning" title="Abrir Chamado"><i class="bi bi-headset"></i></a>
+                                    <a asp-controller="@controller" asp-action="Details" asp-route-id="@item.Identificador" class="btn btn-sm btn-info text-white me-1" title="Detalhes do Ativo">Detalhes</a>
                                 </td>
                             </tr>
                         }
@@ -435,6 +446,16 @@
                         }],
                     },
                     options: {
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { size: 11 }
+                                }
+                            }
+                        },
                         onClick: function(e, elements) {
                             if (elements.length > 0) {
                                 var idx = elements[0].index;
@@ -463,6 +484,16 @@
                         }],
                     },
                     options: {
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { size: 11 }
+                                }
+                            }
+                        },
                         onClick: function(e, elements) {
                             if (elements.length > 0) {
                                 filterTable("Computador");
@@ -486,6 +517,16 @@
                         }],
                     },
                     options: {
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { size: 11 }
+                                }
+                            }
+                        },
                         onClick: function(e, elements) {
                             if (elements.length > 0) {
                                 var idx = elements[0].index;
