@@ -1,0 +1,327 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using Microsoft.Data.Sqlite;
+using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Web.Models;
+using Web.Services;
+using System.IO;
+
+namespace Web.Services
+{
+    public class ColetaService
+    {
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<ColetaService> _logger;
+        private readonly LogService _logService;
+        private readonly IDatabaseService _databaseService;
+        private readonly string _solicitarInformacoes;
+
+        public ColetaService(IConfiguration configuration, ILogger<ColetaService> logger, LogService logService, IDatabaseService databaseService)
+        {
+            _configuration = configuration;
+            _logger = logger;
+            _logService = logService;
+            _databaseService = databaseService;
+            _solicitarInformacoes = _configuration.GetSection("Autenticacao")["SolicitarInformacoes"];
+        }
+
+        public async Task ColetarDadosAsync(string computadorIp, Action<string> onResult)
+        {
+            int serverPort = 27275;
+            _logService.AddLog("Info", $"Iniciando coleta de dados para o IP: {computadorIp}", "Coleta");
+
+            try
+            {
+                using (var client = new TcpClient())
+                {
+                    var connectTask = client.ConnectAsync(computadorIp, serverPort);
+                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
+                    {
+                        string message = $"Timeout ao conectar com: {computadorIp}";
+                        onResult(message);
+                        return;
+                    }
+
+                    await connectTask;
+                    _logService.AddLog("Info", $"Conexão bem-sucedida com o IP: {computadorIp}", "Coleta");
+
+                    using (NetworkStream networkStream = client.GetStream())
+                    {
+                        var expectedThumbprint = _configuration["Seguranca:AgenteThumbprint"];
+                        using (SslStream sslStream = new SslStream(networkStream, false, (sender, cert, chain, errors) => ValidateServerCertificate(sender, cert, chain, errors, expectedThumbprint), null))
+                        {
+                            await sslStream.AuthenticateAsClientAsync("ColetaAgent");
+
+                        using (var writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                        using (var reader = new StreamReader(sslStream, Encoding.UTF8))
+                        {
+                            var nonce = await reader.ReadLineAsync();
+                            var authHash = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(_solicitarInformacoes), Encoding.UTF8.GetBytes(nonce ?? string.Empty)));
+
+                            await writer.WriteLineAsync(authHash);
+                            onResult($"Solicitação enviada para: {computadorIp}");
+
+                        string resposta = await reader.ReadToEndAsync();
+
+                        HardwareInfo hardwareInfo;
+                        try
+                        {
+                            hardwareInfo = JsonSerializer.Deserialize<HardwareInfo>(resposta);
+                        }
+                        catch (JsonException jsonEx)
+                        {
+                            string message = $"Erro de JSON ao coletar dados de {computadorIp}: {jsonEx.Message}. Resposta recebida: '{resposta}'";
+                            _logService.AddLog("Error", message, "Coleta");
+                            onResult(message);
+                            return;
+                        }
+
+                            if (hardwareInfo == null || hardwareInfo.MAC == null)
+                            {
+                                string message = $"Resposta JSON recebida, mas o MAC é nulo para o IP: {computadorIp}. Resposta: {resposta}";
+                                _logService.AddLog("Error", message, "Coleta");
+                                onResult(message);
+                                return;
+                            }
+
+                            SalvarDados(hardwareInfo, computadorIp);
+                            string successMessage = $"Dados de {computadorIp} (MAC: {hardwareInfo.MAC}) salvos com sucesso.";
+                            _logService.AddLog("Info", successMessage, "Coleta");
+                            onResult(successMessage);
+                        }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                string errorMessage = $"Erro ao coletar dados de {computadorIp}: {ex.Message}";
+                _logger.LogError(ex, errorMessage);
+                _logService.AddLog("Error", errorMessage, "Coleta");
+                onResult(errorMessage);
+            }
+        }
+
+        private static bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors, string expectedThumbprint)
+        {
+            // Allow bypassing if thumbprint is not configured (backward compatibility)
+            if (string.IsNullOrEmpty(expectedThumbprint))
+            {
+                return true;
+            }
+
+            // Pinned certificate generated by the static RSA key in ColetaAgent
+            if (certificate != null && certificate is X509Certificate2 cert2)
+            {
+                return cert2.Thumbprint.Equals(expectedThumbprint.Replace(":", ""), StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        public void SalvarDados(HardwareInfo hardwareInfo, string computadorIp)
+        {
+            using (var connection = _databaseService.CreateConnection())
+            {
+                connection.Open();
+
+                // 0. Obter ou inserir o ID do Processador na tabela normalizada Processadores
+                object processadorIdObj = DBNull.Value;
+                string procNome = hardwareInfo.Processador?.Nome ?? "Desconhecido";
+                string procFab = hardwareInfo.Processador?.Fabricante;
+                string procCore = hardwareInfo.Processador?.Cores.ToString();
+                string procThread = hardwareInfo.Processador?.Threads.ToString();
+                string procClock = hardwareInfo.Processador?.ClockSpeed;
+
+                if (!string.IsNullOrWhiteSpace(procNome) || !string.IsNullOrWhiteSpace(procFab))
+                {
+                    using (var procCmd = connection.CreateCommand())
+                    {
+                        procCmd.CommandText = @"
+                            INSERT OR IGNORE INTO Processadores (Nome, Fabricante, Cores, Threads, Clock)
+                            VALUES (@Nome, @Fabricante, @Cores, @Threads, @Clock);
+                            
+                            SELECT Id FROM Processadores 
+                            WHERE Nome = @Nome 
+                              AND (Fabricante = @Fabricante OR (Fabricante IS NULL AND @Fabricante IS NULL))
+                              AND (Cores = @Cores OR (Cores IS NULL AND @Cores IS NULL))
+                              AND (Threads = @Threads OR (Threads IS NULL AND @Threads IS NULL))
+                              AND (Clock = @Clock OR (Clock IS NULL AND @Clock IS NULL))
+                            LIMIT 1;";
+
+                        var pName = procCmd.CreateParameter(); pName.ParameterName = "@Nome"; pName.Value = procNome; procCmd.Parameters.Add(pName);
+                        var pFab = procCmd.CreateParameter(); pFab.ParameterName = "@Fabricante"; pFab.Value = procFab ?? (object)DBNull.Value; procCmd.Parameters.Add(pFab);
+                        var pCore = procCmd.CreateParameter(); pCore.ParameterName = "@Cores"; pCore.Value = procCore ?? (object)DBNull.Value; procCmd.Parameters.Add(pCore);
+                        var pThread = procCmd.CreateParameter(); pThread.ParameterName = "@Threads"; pThread.Value = procThread ?? (object)DBNull.Value; procCmd.Parameters.Add(pThread);
+                        var pClock = procCmd.CreateParameter(); pClock.ParameterName = "@Clock"; pClock.Value = procClock ?? (object)DBNull.Value; procCmd.Parameters.Add(pClock);
+
+                        var res = procCmd.ExecuteScalar();
+                        if (res != null && res != DBNull.Value)
+                        {
+                            processadorIdObj = Convert.ToInt32(res);
+                        }
+                    }
+                }
+
+                // 1. Inserir ou atualizar primeiro a tabela pai 'Computadores' para garantir a chave primária MAC
+                string upsertQuery = @"
+                    INSERT INTO Computadores (MAC, IP, Processador, ProcessadorFabricante, ProcessadorCore, ProcessadorThread, ProcessadorClock, ProcessadorId, ProcessadorTemperatura, Ram, RamTipo, RamVelocidade, RamVoltagem, RamPorModule, Hostname, Fabricante, SO, ConsumoCPU, DataColeta, PartNumber, BateriaWearLevel, TempoAtividade)
+                    VALUES (@MAC, @IP, @Processador, @ProcessadorFabricante, @ProcessadorCore, @ProcessadorThread, @ProcessadorClock, @ProcessadorId, @ProcessadorTemperatura, @Ram, @RamTipo, @RamVelocidade, @RamVoltagem, @RamPorModule, @Hostname, @Fabricante, @SO, @ConsumoCPU, @DataColeta, @PartNumber, @BateriaWearLevel, @TempoAtividade)
+                    ON CONFLICT(MAC) DO UPDATE SET
+                        IP = excluded.IP,
+                        Processador = excluded.Processador,
+                        ProcessadorFabricante = excluded.ProcessadorFabricante,
+                        ProcessadorCore = excluded.ProcessadorCore,
+                        ProcessadorThread = excluded.ProcessadorThread,
+                        ProcessadorClock = excluded.ProcessadorClock,
+                        ProcessadorId = excluded.ProcessadorId,
+                        ProcessadorTemperatura = excluded.ProcessadorTemperatura,
+                        Ram = excluded.Ram,
+                        RamTipo = excluded.RamTipo,
+                        RamVelocidade = excluded.RamVelocidade,
+                        RamVoltagem = excluded.RamVoltagem,
+                        RamPorModule = excluded.RamPorModule,
+                        Hostname = excluded.Hostname,
+                        Fabricante = excluded.Fabricante,
+                        SO = excluded.SO,
+                        ConsumoCPU = excluded.ConsumoCPU,
+                        DataColeta = excluded.DataColeta,
+                        PartNumber = excluded.PartNumber,
+                        BateriaWearLevel = excluded.BateriaWearLevel,
+                        TempoAtividade = excluded.TempoAtividade;
+                ";
+
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = upsertQuery;
+
+                    var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? (object)DBNull.Value; cmd.Parameters.Add(p1);
+                    var p2 = cmd.CreateParameter(); p2.ParameterName = "@IP"; p2.Value = computadorIp; cmd.Parameters.Add(p2);
+                    var p3 = cmd.CreateParameter(); p3.ParameterName = "@Processador"; p3.Value = hardwareInfo.Processador?.Nome ?? (object)DBNull.Value; cmd.Parameters.Add(p3);
+                    var p4 = cmd.CreateParameter(); p4.ParameterName = "@ProcessadorFabricante"; p4.Value = hardwareInfo.Processador?.Fabricante ?? (object)DBNull.Value; cmd.Parameters.Add(p4);
+                    var p5 = cmd.CreateParameter(); p5.ParameterName = "@ProcessadorCore"; p5.Value = hardwareInfo.Processador?.Cores.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p5);
+                    var p6 = cmd.CreateParameter(); p6.ParameterName = "@ProcessadorThread"; p6.Value = hardwareInfo.Processador?.Threads.ToString() ?? (object)DBNull.Value; cmd.Parameters.Add(p6);
+                    var p7 = cmd.CreateParameter(); p7.ParameterName = "@ProcessadorClock"; p7.Value = hardwareInfo.Processador?.ClockSpeed ?? (object)DBNull.Value; cmd.Parameters.Add(p7);
+                    var pProcId = cmd.CreateParameter(); pProcId.ParameterName = "@ProcessadorId"; pProcId.Value = processadorIdObj; cmd.Parameters.Add(pProcId);
+                    var pTemp = cmd.CreateParameter(); pTemp.ParameterName = "@ProcessadorTemperatura"; pTemp.Value = hardwareInfo.Processador?.Temperatura ?? (object)DBNull.Value; cmd.Parameters.Add(pTemp);
+                    var p8 = cmd.CreateParameter(); p8.ParameterName = "@Ram"; p8.Value = hardwareInfo.Ram?.RamTotal ?? (object)DBNull.Value; cmd.Parameters.Add(p8);
+                    var p9 = cmd.CreateParameter(); p9.ParameterName = "@RamTipo"; p9.Value = hardwareInfo.Ram?.Tipo ?? (object)DBNull.Value; cmd.Parameters.Add(p9);
+                    var p10 = cmd.CreateParameter(); p10.ParameterName = "@RamVelocidade"; p10.Value = hardwareInfo.Ram?.Velocidade ?? (object)DBNull.Value; cmd.Parameters.Add(p10);
+                    var p11 = cmd.CreateParameter(); p11.ParameterName = "@RamVoltagem"; p11.Value = hardwareInfo.Ram?.Voltagem ?? (object)DBNull.Value; cmd.Parameters.Add(p11);
+                    var p12 = cmd.CreateParameter(); p12.ParameterName = "@RamPorModule"; p12.Value = hardwareInfo.Ram?.PorModulo ?? (object)DBNull.Value; cmd.Parameters.Add(p12);
+                    var p13 = cmd.CreateParameter(); p13.ParameterName = "@Hostname"; p13.Value = hardwareInfo.Usuario?.Hostname ?? (object)DBNull.Value; cmd.Parameters.Add(p13);
+                    var p14 = cmd.CreateParameter(); p14.ParameterName = "@Fabricante"; p14.Value = hardwareInfo.Fabricante ?? (object)DBNull.Value; cmd.Parameters.Add(p14);
+                    var p15 = cmd.CreateParameter(); p15.ParameterName = "@SO"; p15.Value = hardwareInfo.SO ?? (object)DBNull.Value; cmd.Parameters.Add(p15);
+                    var p22 = cmd.CreateParameter(); p22.ParameterName = "@ConsumoCPU"; p22.Value = hardwareInfo.ConsumoCPU ?? (object)DBNull.Value; cmd.Parameters.Add(p22);
+                    var p23 = cmd.CreateParameter(); p23.ParameterName = "@DataColeta"; p23.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p23);
+                    var p24 = cmd.CreateParameter(); p24.ParameterName = "@PartNumber"; p24.Value = hardwareInfo.PartNumber ?? (object)DBNull.Value; cmd.Parameters.Add(p24);
+                    var p25 = cmd.CreateParameter(); p25.ParameterName = "@BateriaWearLevel"; p25.Value = hardwareInfo.BateriaWearLevel ?? (object)DBNull.Value; cmd.Parameters.Add(p25);
+                    var p26 = cmd.CreateParameter(); p26.ParameterName = "@TempoAtividade"; p26.Value = hardwareInfo.TempoAtividade ?? (object)DBNull.Value; cmd.Parameters.Add(p26);
+
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 1b. Salvar discos na tabela normalizada 1FN 'ComputadorDiscos'
+                if (hardwareInfo.Armazenamento != null)
+                {
+                    using (var delCmd = connection.CreateCommand())
+                    {
+                        delCmd.CommandText = "DELETE FROM ComputadorDiscos WHERE ComputadorMAC = @MAC";
+                        var pMac = delCmd.CreateParameter(); pMac.ParameterName = "@MAC"; pMac.Value = hardwareInfo.MAC ?? ""; delCmd.Parameters.Add(pMac);
+                        delCmd.ExecuteNonQuery();
+                    }
+
+                    if (hardwareInfo.Armazenamento.DriveC != null && !string.IsNullOrEmpty(hardwareInfo.Armazenamento.DriveC.Letra))
+                    {
+                        using (var insCmd = connection.CreateCommand())
+                        {
+                            insCmd.CommandText = "INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB) VALUES (@MAC, @Letra, @TotalGB, @LivreGB)";
+                            var p1 = insCmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; insCmd.Parameters.Add(p1);
+                            var p2 = insCmd.CreateParameter(); p2.ParameterName = "@Letra"; p2.Value = hardwareInfo.Armazenamento.DriveC.Letra; insCmd.Parameters.Add(p2);
+                            var p3 = insCmd.CreateParameter(); p3.ParameterName = "@TotalGB"; p3.Value = (object)hardwareInfo.Armazenamento.DriveC.TotalGB ?? DBNull.Value; insCmd.Parameters.Add(p3);
+                            var p4 = insCmd.CreateParameter(); p4.ParameterName = "@LivreGB"; p4.Value = (object)hardwareInfo.Armazenamento.DriveC.LivreGB ?? DBNull.Value; insCmd.Parameters.Add(p4);
+                            insCmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (hardwareInfo.Armazenamento.DriveD != null && !string.IsNullOrEmpty(hardwareInfo.Armazenamento.DriveD.Letra))
+                    {
+                        using (var insCmd = connection.CreateCommand())
+                        {
+                            insCmd.CommandText = "INSERT INTO ComputadorDiscos (ComputadorMAC, Letra, TotalGB, LivreGB) VALUES (@MAC, @Letra, @TotalGB, @LivreGB)";
+                            var p1 = insCmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; insCmd.Parameters.Add(p1);
+                            var p2 = insCmd.CreateParameter(); p2.ParameterName = "@Letra"; p2.Value = hardwareInfo.Armazenamento.DriveD.Letra; insCmd.Parameters.Add(p2);
+                            var p3 = insCmd.CreateParameter(); p3.ParameterName = "@TotalGB"; p3.Value = (object)hardwareInfo.Armazenamento.DriveD.TotalGB ?? DBNull.Value; insCmd.Parameters.Add(p3);
+                            var p4 = insCmd.CreateParameter(); p4.ParameterName = "@LivreGB"; p4.Value = (object)hardwareInfo.Armazenamento.DriveD.LivreGB ?? DBNull.Value; insCmd.Parameters.Add(p4);
+                            insCmd.ExecuteNonQuery();
+                        }
+                    }
+                }
+
+                // 2. Processar e salvar histórico de CPU na tabela filha 'HistoricoCPU' (agora com a FK garantida)
+                double consumoValue = 0;
+                string avgCpuDisplay = hardwareInfo.ConsumoCPU;
+                
+                if (!string.IsNullOrEmpty(hardwareInfo.ConsumoCPU))
+                {
+                    string parseStr = hardwareInfo.ConsumoCPU.Replace("%", "").Trim();
+                    if (double.TryParse(parseStr, out double cVal))
+                    {
+                        consumoValue = cVal;
+                        
+                        // Insert current CPU usage
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = "INSERT INTO HistoricoCPU (ComputadorMAC, Consumo, DataColeta) VALUES (@MAC, @Consumo, @DataColeta)";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            var p2 = cmd.CreateParameter(); p2.ParameterName = "@Consumo"; p2.Value = consumoValue; cmd.Parameters.Add(p2);
+                            var p3 = cmd.CreateParameter(); p3.ParameterName = "@DataColeta"; p3.Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"); cmd.Parameters.Add(p3);
+                            cmd.ExecuteNonQuery();
+                        }
+                        
+                        // Keep only last 5 records
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = @"
+                                DELETE FROM HistoricoCPU 
+                                WHERE Id NOT IN (
+                                    SELECT Id FROM HistoricoCPU 
+                                    WHERE ComputadorMAC = @MAC 
+                                    ORDER BY Id DESC 
+                                    LIMIT 5
+                                ) AND ComputadorMAC = @MAC";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            cmd.ExecuteNonQuery();
+                        }
+                        
+                        // Calculate Average
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.CommandText = "SELECT AVG(Consumo) FROM HistoricoCPU WHERE ComputadorMAC = @MAC";
+                            var p1 = cmd.CreateParameter(); p1.ParameterName = "@MAC"; p1.Value = hardwareInfo.MAC ?? ""; cmd.Parameters.Add(p1);
+                            var avgResult = cmd.ExecuteScalar();
+                            if (avgResult != null && avgResult != DBNull.Value)
+                            {
+                                double avg = Convert.ToDouble(avgResult);
+                                avgCpuDisplay = $"{avg:0.0}%";
+                            }
+                        }
+                    }
+                }
+
+                // Update hardwareInfo with average CPU usage
+                hardwareInfo.ConsumoCPU = avgCpuDisplay;
+            }
+        }
+
+    }
+}

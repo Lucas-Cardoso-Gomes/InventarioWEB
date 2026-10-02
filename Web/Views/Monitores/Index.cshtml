@@ -1,0 +1,134 @@
+@model Web.Models.MonitorIndexViewModel
+
+@{
+    ViewData["Title"] = "Monitores";
+}
+
+<h1>Monitores</h1>
+
+@if (User.IsInRole("Admin"))
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <a asp-action="Create" class="btn btn-primary">Adicionar Novo Monitor</a>
+        <form asp-controller="Monitores" asp-action="Importar" method="post" enctype="multipart/form-data" class="d-flex m-0">
+            <div class="input-group">
+                <input type="file" name="file" class="form-control" />
+                <button type="submit" class="btn btn-success">Importar</button>
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#helpModal">Ajuda de Importação</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal de Ajuda -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="helpModalLabel">Estrutura do Excel para Monitores</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>O arquivo Excel (.xlsx) deve conter as seguintes colunas na ordem abaixo, começando na primeira linha (cabeçalho não importa, mas a ordem sim):</p>
+            <ol>
+                <li><strong>PartNumber</strong> (Obrigatório)</li>
+                <li><strong>ColaboradorCPF</strong> (Apenas números)</li>
+                <li><strong>Marca</strong></li>
+                <li><strong>Modelo</strong></li>
+                <li><strong>Tamanho</strong></li>
+            </ol>
+            <p><strong>Atenção:</strong> A leitura começa a partir da <strong>linha 2</strong>.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+}
+
+<form asp-action="Index" method="get" class="card mb-4">
+    <div class="card-header">
+        Filtros
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            @{
+                Action<string, string, List<string>, List<string>> renderFilter = (title, name, items, selectedItems) =>
+                {
+                    <div class="col-md-4 filterable-list-container">
+                        <label class="form-label">@title</label>
+                        <input type="text" class="form-control form-control-sm mb-2 filterable-list-input" placeholder="Filtrar...">
+                        <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
+                            @if (items != null)
+                            {
+                                @foreach (var item in items)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="@name" value="@item" id="@(name)-@item.Replace(" ", "-")" @(selectedItems.Contains(item) ? "checked" : "")>
+                                        <label class="form-check-label" for="@(name)-@item.Replace(" ", "-")">
+                                            @item
+                                        </label>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                };
+
+                renderFilter("Marca", "CurrentMarcas", Model.Marcas, Model.CurrentMarcas);
+                renderFilter("Tamanho", "CurrentTamanhos", Model.Tamanhos, Model.CurrentTamanhos);
+                renderFilter("Modelo", "CurrentModelos", Model.Modelos, Model.CurrentModelos);
+            }
+        </div>
+    </div>
+    <div class="card-footer text-end">
+        <a asp-action="Index" class="btn btn-secondary">Limpar Filtros</a>
+        <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered table-hover align-middle">
+        <thead>
+            <tr>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().PartNumber)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().ColaboradorNome)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Marca)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Modelo)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().Tamanho)</th>
+                <th>@Html.DisplayNameFor(model => model.Monitores.FirstOrDefault().DataGarantia)</th>
+                @if (User.IsInRole("Admin")){
+                    <th>
+                        Ações
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Monitores)
+            {
+                <tr>
+                    <td>@Html.DisplayFor(modelItem => item.PartNumber)</td>
+                    <td>@Html.DisplayFor(modelItem => item.ColaboradorNome)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Marca)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Modelo)</td>
+                    <td>@Html.DisplayFor(modelItem => item.Tamanho)</td>
+                    <td>@(item.DataGarantia.HasValue ? item.DataGarantia.Value.ToString("dd/MM/yyyy") : "")</td>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <td>
+                                <a asp-action="Details" asp-route-id="@item.PartNumber" class="btn btn-info btn-sm" title="Detalhes"><i class="bi bi-eye"></i> Detalhes</a>
+                            <a asp-action="Edit" asp-route-id="@item.PartNumber" class="btn btn-warning btn-sm">Editar</a>
+                            <a asp-action="Delete" asp-route-id="@item.PartNumber" class="btn btn-danger btn-sm">Excluir</a>
+                        </td>
+                    }
+                    
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="~/js/filterable-checkbox-list.js" asp-append-version="true"></script>
+}

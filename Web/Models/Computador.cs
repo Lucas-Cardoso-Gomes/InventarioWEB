@@ -1,0 +1,58 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Web.Models
+{
+    public class Computador
+    {
+        [Key]
+        [Required(ErrorMessage = "O endereço MAC é obrigatório.")]
+        public string MAC { get; set; }
+        public string? IP { get; set; }
+        public string? ColaboradorCPF { get; set; }
+        [NotMapped]
+        public string? ColaboradorNome { get; set; }
+        [Required(ErrorMessage = "O Hostname é obrigatório.")]
+        public string Hostname { get; set; }
+        public string? Fabricante { get; set; }
+        public int? ProcessadorId { get; set; }
+        public string? Processador { get; set; }
+        public string? ProcessadorFabricante { get; set; }
+        public string? ProcessadorCore { get; set; }
+        public string? ProcessadorThread { get; set; }
+        public string? ProcessadorClock { get; set; }
+        public string? Ram { get; set; }
+        public string? RamTipo { get; set; }
+        public string? RamVelocidade { get; set; }
+        public string? RamVoltagem { get; set; }
+        public string? RamPorModule { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoC { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoCTotal { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoCLivre { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoD { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoDTotal { get; set; }
+        [NotMapped]
+        public string? ArmazenamentoDLivre { get; set; }
+        public string? ConsumoCPU { get; set; }
+        public string? ProcessadorTemperatura { get; set; }
+        public string? SO { get; set; }
+        public DateTime? DataColeta { get; set; }
+        public string? PartNumber { get; set; }
+
+        [Display(Name = "Garantia")]
+        [DataType(DataType.Date)]
+        public DateTime? DataGarantia { get; set; }
+
+        public string? Backup { get; set; }
+        
+        public string? BateriaWearLevel { get; set; }
+        public string? TempoAtividade { get; set; }
+        public string? Localizacao { get; set; }
+    }
+}

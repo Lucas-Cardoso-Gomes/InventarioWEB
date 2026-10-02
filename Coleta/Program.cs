@@ -1,0 +1,526 @@
+using System;
+using System.Net;
+using System.Net.Sockets;
+using System.Net.Security;
+using System.Diagnostics;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Text.Json;
+using System.Management;
+using Microsoft.Extensions.Configuration;
+using Coleta.Models;
+using Coleta;
+using System.Threading.Tasks;
+using System.Reflection;
+using System.Net.Http;
+using System.Net.Http.Headers;
+
+namespace coleta
+{
+    partial class Program
+    {
+        static async Task Main()
+        {
+            var builder = new ConfigurationBuilder();
+            var assembly = Assembly.GetExecutingAssembly();
+
+            var appSettingsStream = assembly.GetManifestResourceStream("Coleta.appsettings.json");
+
+            if (appSettingsStream != null)
+            {
+                builder.AddJsonStream(appSettingsStream);
+            }
+            else
+            {
+                Console.WriteLine("[ERROR] Falha de Segurança: Arquivo de configuração embutido não encontrado.");
+                return;
+            }
+
+            IConfiguration config = builder.Build();
+
+            // Gerar certificado auto-assinado
+            X509Certificate2 serverCertificate;
+            using (RSA rsa = RSA.Create(2048))
+            {
+                string staticPrivateKeyBase64 = config["Seguranca:CertificadoPrivateKey"] ?? "";
+                if (!string.IsNullOrEmpty(staticPrivateKeyBase64))
+                {
+                    rsa.ImportRSAPrivateKey(Convert.FromBase64String(staticPrivateKeyBase64), out _);
+                }
+
+                var request = new CertificateRequest("cn=ColetaAgent", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                using (X509Certificate2 ephemeralCert = request.CreateSelfSigned(DateTimeOffset.Now, DateTimeOffset.Now.AddYears(10)))
+                {
+                    byte[] pfxData = ephemeralCert.Export(X509ContentType.Pfx, "temp_password");
+                    serverCertificate = new X509Certificate2(pfxData, "temp_password");
+                }
+            }
+
+            string solicitarInformacoes = config["Autenticacao:SolicitarInformacoes"];
+            string realizarComandos = config["Autenticacao:RealizarComandos"];
+
+            Console.Clear();
+
+            // Iniciar loop de telemetria (espera 10 minutos para a primeira telemetria, e repete a cada 30 minutos)
+            _ = Task.Run(() => StartTelemetryLoopAsync(config, solicitarInformacoes));
+
+            try
+            {
+                int port = 27275;
+                TcpListener listener = new TcpListener(IPAddress.Any, port);
+                // Permite reuso da porta se estiver em estado TIME_WAIT
+                listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                listener.Start();
+                Console.WriteLine($"Aguardando solicitações na porta {port}...");
+                Console.WriteLine("Certifique-se de que a porta 27275 está liberada no firewall.");
+
+                while (true)
+                {
+                    TcpClient client = null;
+                    try
+                    {
+                        client = await listener.AcceptTcpClientAsync();
+                        string clientIP = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+                        Console.WriteLine($"[INFO] Conexão recebida do IP: {clientIP}");
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using (NetworkStream networkStream = client.GetStream())
+                                using (SslStream sslStream = new SslStream(networkStream, false))
+                                {
+                                    // Autenticar como servidor usando o certificado gerado em memória
+                                    await sslStream.AuthenticateAsServerAsync(serverCertificate, clientCertificateRequired: false, checkCertificateRevocation: true);
+
+                                    using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
+                                    using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                                    {
+
+                                        string nonce = Guid.NewGuid().ToString();
+                                        await writer.WriteLineAsync(nonce);
+
+                                        string autenticacaoHash = await reader.ReadLineAsync();
+                                        if (autenticacaoHash == null)
+                                        {
+                                            Console.WriteLine("[WARN] O cliente desconectou antes de enviar a autenticação.");
+                                            return;
+                                        }
+
+                                        autenticacaoHash = autenticacaoHash.Trim();
+
+                                        string expectedHashSolicitar = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(solicitarInformacoes), Encoding.UTF8.GetBytes(nonce)));
+                                        string expectedHashComandos = Convert.ToBase64String(HMACSHA256.HashData(Encoding.UTF8.GetBytes(realizarComandos), Encoding.UTF8.GetBytes(nonce)));
+
+                                        if (autenticacaoHash == expectedHashSolicitar)
+                                        {
+                                            Console.WriteLine("[INFO] Solicitação de informações recebida.");
+                                            var hardwareInfo = new HardwareInfo
+                                            {
+                                                Processador = Processador.GetProcessorInfo(),
+                                                Ram = RAM.GetRamInfo(),
+                                                Usuario = User.GetUserInfo(),
+                                                Fabricante = Fabricante.GetManufacturer(),
+                                                MAC = MAC.GetFormattedMacAddress(),
+                                                SO = OS.GetOSInfo(),
+                                                ConsumoCPU = Consumo.Uso(),
+                                                Armazenamento = Armazenamento.GetStorageInfo(),
+                                                BateriaWearLevel = Bateria.GetWearLevel(),
+                                                TempoAtividade = Uptime.GetUptime()
+                                            };
+
+                                            string resposta = JsonSerializer.Serialize(hardwareInfo);
+                                            await writer.WriteLineAsync(resposta);
+                                            Console.WriteLine($"[INFO] Informações enviadas para o IP: {clientIP}");
+                                        }
+                                        else if (autenticacaoHash == expectedHashComandos)
+                                        {
+                                            string comandoRemoto = await reader.ReadLineAsync();
+                                            if (comandoRemoto == null)
+                                            {
+                                                Console.WriteLine("[WARN] O cliente desconectou antes de enviar o comando.");
+                                                return;
+                                            }
+
+                                            comandoRemoto = comandoRemoto.Trim();
+                                            Console.WriteLine($"[INFO] Solicitação de comando recebida: '{comandoRemoto}'");
+
+                                            if (comandoRemoto == "take_screenshot")
+                                            {
+                                                try
+                                                {
+                                                    byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
+                                                    string base64String = Convert.ToBase64String(screenshotBytes);
+
+                                                    // Envia o tamanho primeiro e depois os dados para garantir a integridade
+                                                    await writer.WriteLineAsync(base64String.Length.ToString());
+                                                    await writer.WriteAsync(base64String);
+                                                    await writer.FlushAsync();
+
+                                                    Console.WriteLine($"[INFO] Screenshot enviado com sucesso ({base64String.Length} caracteres).");
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    Console.WriteLine($"[ERROR] Falha ao capturar a tela: {ex.Message}");
+                                                    await writer.WriteLineAsync($"Error: {ex.Message}");
+                                                }
+                                            }
+                                            else if (comandoRemoto == "take_screenshot_stream")
+                                            {
+                                                Console.WriteLine($"[INFO] Iniciando stream de tela contínuo...");
+                                                try
+                                                {
+                                                    while (true)
+                                                    {
+                                                        byte[] screenshotBytes = ScreenCapturer.CaptureScreen();
+                                                        byte[] sizeBytes = BitConverter.GetBytes(screenshotBytes.Length);
+                                                        await sslStream.WriteAsync(sizeBytes, 0, 4);
+                                                        await sslStream.WriteAsync(screenshotBytes, 0, screenshotBytes.Length);
+                                                        await sslStream.FlushAsync();
+                                                    }
+                                                }
+                                                catch (Exception)
+                                                {
+                                                    Console.WriteLine($"[INFO] Stream de tela encerrado ou desconectado.");
+                                                }
+                                            }
+                                            else if (comandoRemoto.StartsWith("mouse_event"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                var type = parts[1];
+                                                int x = int.Parse(parts[2]);
+                                                int y = int.Parse(parts[3]);
+                                                int deltaY = int.Parse(parts[4]);
+
+                                                RemoteControl.HandleMouseEvent(type, x, y, deltaY);
+                                                await writer.WriteLineAsync("Mouse event handled.");
+                                            }
+                                            else if (comandoRemoto.StartsWith("set_clipboard"))
+                                            {
+                                                var text = comandoRemoto.Substring("set_clipboard".Length).Trim();
+                                                RemoteControl.SetClipboardText(text);
+                                                await writer.WriteLineAsync("Clipboard set.");
+                                            }
+                                            else if (comandoRemoto == "get_clipboard")
+                                            {
+                                                var text = RemoteControl.GetClipboardText();
+                                                await writer.WriteLineAsync(text);
+                                            }
+                                            else if (comandoRemoto.StartsWith("keyboard_event"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                if (parts.Length >= 3)
+                                                {
+                                                    var key = parts[1];
+                                                    var state = parts[2];
+                                                    var vkCode = KeyCodeConverter.GetVirtualKeyCode(key);
+                                                    if (vkCode != 0)
+                                                    {
+                                                        RemoteControl.SendKeyEvent(vkCode, state == "up");
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"[WARN] Key not found in map: {key}");
+                                                    }
+                                                    await writer.WriteLineAsync("Keyboard event handled.");
+                                                }
+                                            }
+                                            else if (comandoRemoto == "send_ctrl_alt_del")
+                                            {
+                                                try
+                                                {
+                                                    Process.Start("taskmgr.exe");
+                                                    await writer.WriteLineAsync("Ctrl+Alt+Del sent.");
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    await writer.WriteLineAsync($"Error: {ex.Message}");
+                                                }
+                                            }
+                                            else if (comandoRemoto.StartsWith("upload_file"))
+                                            {
+                                                var parts = comandoRemoto.Split(' ');
+                                                var fileName = Path.GetFileName(parts[1]); // Prevent Path Traversal
+                                                var fileSize = long.Parse(parts[2]);
+                                                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                                                var filePath = Path.Combine(desktopPath, fileName);
+
+                                                using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                                                {
+                                                    var buffer = new byte[8192];
+                                                    long bytesRead = 0;
+                                                    while (bytesRead < fileSize)
+                                                    {
+                                                        var read = await sslStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, fileSize - bytesRead));
+                                                        if (read == 0) break;
+                                                        await fileStream.WriteAsync(buffer, 0, read);
+                                                        bytesRead += read;
+                                                    }
+                                                }
+                                                await writer.WriteLineAsync("File uploaded successfully.");
+                                            }
+                                            else if (comandoRemoto == "get_installed_programs")
+                                            {
+                                                Console.WriteLine($"[INFO] Coletando programas instalados (PowerShell via arquivo temporario)...");
+
+                                                string script = @"
+                                                $ProgressPreference = 'SilentlyContinue'
+                                                $ErrorActionPreference = 'SilentlyContinue'
+                                                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+                                                $paths = @(
+                                                    'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                                                    'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                                                    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                                                )
+                                                $regProgs = Get-ItemProperty $paths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -ne $null } | Select-Object DisplayName, DisplayVersion, Publisher
+
+                                                $wingetPath = 'winget.exe'
+                                                if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+                                                    $possiblePaths = @(
+                                                        ($env:LOCALAPPDATA + '\Microsoft\WindowsApps\winget.exe'),
+                                                        ($env:ProgramFiles + '\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe')
+                                                    )
+                                                    foreach ($p in $possiblePaths) {
+                                                        $found = Resolve-Path $p -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1
+                                                        if ($found) { $wingetPath = $found; break }
+                                                    }
+                                                }
+
+                                                $wingetOut = & $wingetPath list --accept-source-agreements --accept-package-agreements 2>$null
+                                                $wingetMap = @{}
+                                                $dashLineIdx = -1
+
+                                                if ($wingetOut -ne $null) {
+                                                    # Remove Carriage Returns (\r) para nao quebrar o Regex
+                                                    $wingetOut = $wingetOut -replace [char]13, ''
+
+                                                    for ($i = 0; $i -lt $wingetOut.Count; $i++) {
+                                                        if ($wingetOut[$i] -match '^-+\s*$') { 
+                                                            $dashLineIdx = $i; 
+                                                            break 
+                                                        }
+                                                    }
+
+                                                    if ($dashLineIdx -gt 0) {
+                                                        $header = $wingetOut[$dashLineIdx - 1]
+                                                        $cols = $header -split '\s{2,}'
+                                                        
+                                                        if ($cols.Count -ge 3) {
+                                                            $idIdx = $header.IndexOf($cols[1])
+                                                            $versionIdx = $header.IndexOf($cols[2])
+
+                                                            for ($i = $dashLineIdx + 1; $i -lt $wingetOut.Count; $i++) {
+                                                                $line = $wingetOut[$i]
+                                                                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+                                                                $name = if ($line.Length -gt $idIdx) { $line.Substring(0, $idIdx).Trim() } else { $line.Trim() }
+                                                                $id = if ($line.Length -gt $versionIdx) { $line.Substring($idIdx, $versionIdx - $idIdx).Trim() } elseif ($line.Length -gt $idIdx) { $line.Substring($idIdx).Trim() } else { '' }
+                                                                $version = if ($line.Length -gt $versionIdx) { $line.Substring($versionIdx).Trim() -replace '\s{2,}.*','' } else { '' }
+                                                                
+                                                                if ($name) { 
+                                                                    $wingetMap[$name] = @{ Id = $id; Version = $version } 
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                $results = @()
+                                                $processedNames = @{}
+
+                                                foreach ($regProg in $regProgs) {
+                                                    $name = ([string]$regProg.DisplayName).Trim()
+                                                    
+                                                    if (-not $processedNames.ContainsKey($name)) {
+                                                        $id = ''
+                                                        if ($wingetMap.ContainsKey($name)) { 
+                                                            $id = $wingetMap[$name].Id 
+                                                        }
+                                                        
+                                                        $results += [PSCustomObject]@{
+                                                            DisplayName = $name
+                                                            Id = $id
+                                                            DisplayVersion = $regProg.DisplayVersion
+                                                            Publisher = $regProg.Publisher
+                                                        }
+                                                        $processedNames[$name] = $true
+                                                    }
+                                                }
+
+                                                foreach ($key in $wingetMap.Keys) {
+                                                    if (-not $processedNames.ContainsKey($key)) {
+                                                        $results += [PSCustomObject]@{
+                                                            DisplayName = $key
+                                                            Id = $wingetMap[$key].Id
+                                                            DisplayVersion = $wingetMap[$key].Version
+                                                            Publisher = ''
+                                                        }
+                                                    }
+                                                }
+
+                                                $results | ConvertTo-Json -Compress
+                                                ";
+
+                                                string tempScriptPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"coleta_programas_{Guid.NewGuid():N}.ps1");
+                                                string resultado = "";
+
+                                                try
+                                                {
+                                                    System.IO.File.WriteAllText(tempScriptPath, script, new System.Text.UTF8Encoding(false));
+
+                                                    resultado = Comandos.ExecutarComando($"powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{tempScriptPath}\"");
+                                                }
+                                                finally
+                                                {
+                                                    if (System.IO.File.Exists(tempScriptPath))
+                                                    {
+                                                        try { System.IO.File.Delete(tempScriptPath); } catch { /* Ignore delete errors */ }
+                                                    }
+                                                }
+
+                                                await writer.WriteLineAsync(resultado);
+                                                Console.WriteLine($"[INFO] Lista de programas enviada.");
+                                            }
+                                            else
+                                            {
+                                                string resultadoComando = Comandos.ExecutarComando(comandoRemoto);
+                                                await writer.WriteLineAsync(resultadoComando);
+                                                Console.WriteLine($"[INFO] Resultado do comando enviado para o IP: {clientIP}");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            string resposta = "Código de Autenticação Incorreto!";
+                                            await writer.WriteLineAsync(resposta);
+                                            Console.WriteLine($"[FAIL] Falha no código de autenticação para o IP: {clientIP}. Enviado: '{autenticacaoHash}'");
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] Erro ao manusear cliente {clientIP}: {ex.Message}");
+                            }
+                            finally
+                            {
+                                client?.Close();
+                                Console.WriteLine($"[INFO] Conexão fechada ({clientIP}). Aguardando novas instruções...");
+                                Console.WriteLine("----------------------------------------------------");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Erro ao aceitar cliente: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Erro: " + ex.Message);
+            }
+            Console.WriteLine("Fora do Loop, sistema finalizando operações...");
+        }
+
+        static async Task StartTelemetryLoopAsync(IConfiguration config, string authKey)
+        {
+            Console.WriteLine("[INFO] Aguardando 10 minutos antes de enviar a telemetria inicial...");
+            await Task.Delay(TimeSpan.FromMinutes(10));
+
+            while (true)
+            {
+                await SendTelemetryAsync(config, authKey);
+
+                Console.WriteLine("[INFO] Próximo envio de telemetria agendado para daqui a 30 minutos.");
+                await Task.Delay(TimeSpan.FromMinutes(30));
+            }
+        }
+
+        static async Task SendTelemetryAsync(IConfiguration config, string authKey)
+        {
+            try
+            {
+                Console.WriteLine("[INFO] Iniciando coleta de telemetria...");
+
+                var hardwareInfo = new HardwareInfo
+                {
+                    Processador = Processador.GetProcessorInfo(),
+                    Ram = RAM.GetRamInfo(),
+                    Usuario = User.GetUserInfo(),
+                    Fabricante = Fabricante.GetManufacturer(),
+                    MAC = MAC.GetFormattedMacAddress(),
+                    SO = OS.GetOSInfo(),
+                    ConsumoCPU = Consumo.Uso(),
+                    Armazenamento = Armazenamento.GetStorageInfo(),
+                    BateriaWearLevel = Bateria.GetWearLevel(),
+                    TempoAtividade = Uptime.GetUptime()
+                };
+
+                string serverUrl = config["Servidor:Url"];
+                if (string.IsNullOrEmpty(serverUrl))
+                {
+                    Console.WriteLine("[WARN] URL do Servidor não configurada. Telemetria não enviada.");
+                    return;
+                }
+
+                string endpoint = $"{serverUrl.TrimEnd('/')}/api/agent/telemetry";
+
+                string authHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(authKey)));
+
+                string payload = JsonSerializer.Serialize(hardwareInfo);
+
+                // Ignorar erros de certificado SSL auto-assinado/desenvolvimento
+                var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+                };
+
+                using (var httpClient = new HttpClient(handler))
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authHash);
+
+                    int maxRetries = 3;
+                    int delayMs = 2000;
+
+                    for (int attempt = 1; attempt <= maxRetries; attempt++)
+                    {
+                        try
+                        {
+                            Console.WriteLine($"[INFO] Enviando telemetria para {endpoint} (tentativa {attempt}/{maxRetries})...");
+                            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                            var response = await httpClient.PostAsync(endpoint, content);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                Console.WriteLine("[INFO] Telemetria enviada com sucesso.");
+                                break;
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[ERROR] Falha ao enviar telemetria (tentativa {attempt}/{maxRetries}). Status: {response.StatusCode}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[ERROR] Exceção ao enviar telemetria (tentativa {attempt}/{maxRetries}): {ex.Message}");
+                        }
+
+                        if (attempt < maxRetries)
+                        {
+                            Console.WriteLine($"[INFO] Aguardando {delayMs / 1000}s antes da próxima tentativa...");
+                            await Task.Delay(delayMs);
+                            delayMs *= 2;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Erro na coleta ou envio da telemetria: {ex.Message}");
+            }
+        }
+    }
+}

@@ -1,0 +1,125 @@
+using Web.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Web.Models;
+using Web.Hubs;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System.Reflection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var assembly = Assembly.GetExecutingAssembly();
+
+var appSettingsStream = assembly.GetManifestResourceStream("Web.appsettings.json");
+if (appSettingsStream != null)
+{
+    builder.Configuration.AddJsonStream(appSettingsStream);
+}
+
+var appSettingsProdStream = assembly.GetManifestResourceStream("Web.appsettings.Production.json");
+if (appSettingsProdStream != null)
+{
+    builder.Configuration.AddJsonStream(appSettingsProdStream);
+}
+
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddTransient<IEmailService, EmailService>();
+builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
+
+builder.Services.AddSignalR();
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async context =>
+            {
+                var userService = context.HttpContext.RequestServices.GetRequiredService<UserService>();
+                var userIdClaim = context.Principal.FindFirst(ClaimTypes.NameIdentifier);
+                
+                if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                {
+                    var user = await userService.FindByIdAsync(userId);
+                    if (user == null || !user.IsActive)
+                    {
+                        context.RejectPrincipal();
+                        await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                    }
+                }
+                else
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                }
+            }
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+});
+
+builder.Services.AddScoped<IComputadorService, ComputadorService>();
+builder.Services.AddScoped<IMonitorService, MonitorService>();
+builder.Services.AddScoped<IPerifericoService, PerifericoService>();
+builder.Services.AddScoped<ColetaService>();
+builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<ComandoService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<PersistentLogService>();
+builder.Services.AddScoped<IHistoricoTrocasService, HistoricoTrocasService>();
+builder.Services.AddScoped<ManutencaoService>();
+builder.Services.AddScoped<SmartphoneService>();
+builder.Services.AddScoped<DataMigrationService>();
+builder.Services.AddHostedService<PingService>();
+
+// Adicione isto para que a aplicação reconheça o HTTPS do Proxy Reverso
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+    dbService.InitializeDatabase();
+}
+
+// Aplicar os cabeçalhos recebidos do proxy
+app.UseForwardedHeaders();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error"); // Tratamento de erros seguro
+    app.UseHsts(); // Força o browser a usar apenas HTTPS
+}
+
+// Redireciona eventuais pedidos HTTP perdidos para HTTPS
+app.UseHttpsRedirection();
+
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Computadores}/{action=Index}/{id?}");
+
+app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<ChatHub>("/chatHub");
+
+app.Run();
