@@ -70,7 +70,10 @@ Para informações aprofundadas sobre a arquitetura, estrutura de código, módu
 ## 🛠 Guia de Instalação e Execução
 
 ### Pré-requisitos
-* [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) instalado.
+* [.NET 10.0 SDK](https://dotnet.microsoft.com/pt-br/download/dotnet) instalado.
+* [.NET 8.0 Runtime](https://dotnet.microsoft.com/pt-br/download/dotnet/thank-you/runtime-8.0.32-windows-arm64-installer?cid=getdotnetcore) instalado.
+* [ASP.NET 8.0 Runtime](https://dotnet.microsoft.com/pt-br/download/dotnet/thank-you/runtime-aspnetcore-8.0.32-windows-arm64-installer?cid=getdotnetcore) instalado.
+
 
 ### Configuração Inicial
 
