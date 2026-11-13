@@ -77,15 +77,14 @@ namespace Web.Services
                     parameters.Add("@search", $"%{searchString}%");
                 }
 
-                Action<string, List<string>> addInClause = (columnName, values) =>
+                Action<string, string, List<string>> addInClause = (columnName, paramAlias, values) =>
                 {
                     if (values != null && values.Any())
                     {
                         var paramNames = new List<string>();
-                        var cleanCol = new string(columnName.Where(char.IsLetterOrDigit).ToArray()).ToLower();
                         for (int i = 0; i < values.Count; i++)
                         {
-                            var paramName = $"@{cleanCol}{i}";
+                            var paramName = $"@{paramAlias}{i}";
                             paramNames.Add(paramName);
                             parameters.Add(paramName, values[i]);
                         }
@@ -93,12 +92,12 @@ namespace Web.Services
                     }
                 };
 
-                addInClause("comp.Fabricante", currentFabricantes);
-                addInClause("comp.SO", currentSOs);
-                addInClause("COALESCE(p.Fabricante, comp.ProcessadorFabricante)", currentProcessadorFabricantes);
-                addInClause("comp.RamTipo", currentRamTipos);
-                addInClause("COALESCE(p.Nome, comp.Processador)", currentProcessadores);
-                addInClause("comp.Ram", currentRams);
+                addInClause("comp.Fabricante", "fabricante", currentFabricantes);
+                addInClause("comp.SO", "so", currentSOs);
+                addInClause("COALESCE(p.Fabricante, comp.ProcessadorFabricante)", "procfab", currentProcessadorFabricantes);
+                addInClause("comp.RamTipo", "ramtipo", currentRamTipos);
+                addInClause("COALESCE(p.Nome, comp.Processador)", "proc", currentProcessadores);
+                addInClause("comp.Ram", "ram", currentRams);
 
                 string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
