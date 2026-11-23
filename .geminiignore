@@ -1,0 +1,52 @@
+# Build e compilação (.NET)
+**/bin/
+**/obj/
+packages/
+
+# Bibliotecas de terceiros (frontend)
+Web/wwwroot/lib/
+node_modules/
+
+# Anexos e uploads
+Web/wwwroot/attachments/
+
+# Bancos de dados, logs e relatórios gerados
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.log
+Coleta/battery-report.xml
+
+# Certificados, segredos e arquivos compactados
+*.pfx
+*.rar
+*.zip
+*.7z
+Web/secrets.txt
+Web/secrets.json
+
+# Binários, fontes e mídia
+*.exe
+*.dll
+*.pdb
+*.ico
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.min.js
+*.min.css
+*.map
+
+# Pastas de ambiente, IDE e auxiliares
+.git/
+.vs/
+.vscode/
+jules-scratch/
+TCC/
