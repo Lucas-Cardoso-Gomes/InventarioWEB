@@ -186,6 +186,36 @@ namespace coleta
                                                     Console.WriteLine($"[INFO] Stream de tela encerrado ou desconectado.");
                                                 }
                                             }
+                                            else if (comandoRemoto == "input_session")
+                                            {
+                                                client.NoDelay = true;
+                                                await writer.WriteLineAsync("OK");
+                                                Console.WriteLine("[INFO] Sessão de input iniciada.");
+                                                try
+                                                {
+                                                    string? line;
+                                                    while ((line = await reader.ReadLineAsync()) != null)
+                                                    {
+                                                        try
+                                                        {
+                                                            RemoteControl.HandleInputLine(line);
+                                                        }
+                                                        catch (Exception ex)
+                                                        {
+                                                            Console.WriteLine($"[ERROR] Falha ao processar linha de input '{line}': {ex.Message}");
+                                                        }
+                                                    }
+                                                }
+                                                catch (Exception)
+                                                {
+                                                    // Desconexão abrupta do cliente durante o loop de leitura
+                                                }
+                                                finally
+                                                {
+                                                    RemoteControl.ReleaseAllKeys();
+                                                    Console.WriteLine("[INFO] Sessão de input encerrada.");
+                                                }
+                                            }
                                             else if (comandoRemoto.StartsWith("mouse_event"))
                                             {
                                                 var parts = comandoRemoto.Split(' ');

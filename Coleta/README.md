@@ -59,13 +59,14 @@ Quando conectado ao agente com a credencial autorizada (`RealizarComandos`), o c
 
 1. **`take_screenshot`:** Captura e retorna uma foto instantânea da tela em formato Base64.
 2. **`take_screenshot_stream`:** Inicia um stream contínuo de vídeo em tempo real (envia pacotes contendo o tamanho do frame + bytes JPEG do frame).
-3. **`mouse_event <tipo> <x> <y> <deltaY>`:** Injeta eventos de clique (`down_0`, `up_0`, `down_2`, `up_2`), movimentação (`move`) ou rolagem de scroll (`wheel`).
-4. **`keyboard_event <tecla> <estado>`:** Injeta pressionamento (`down`) ou soltura (`up`) de teclas do teclado.
-5. **`get_clipboard` / `set_clipboard <texto>`:** Lê ou altera o conteúdo da área de transferência (Ctrl+C / Ctrl+V) do Windows do usuário remoto.
-6. **`send_ctrl_alt_del`:** Dispara a abertura do Gerenciador de Tarefas do Windows (`taskmgr.exe`).
-7. **`upload_file <nome_arquivo> <tamanho>`:** Transfere um arquivo diretamente para a **Área de Trabalho** (Desktop) do usuário remoto.
-8. **`get_installed_programs`:** Executa um script PowerShell temporário e seguro que varre o Registro do Windows (`HKLM` e `CU` - 32/64 bits) e integra com o CLI do **`winget`** para listar todos os softwares instalados com ID, versão e fornecedor.
-9. **Comandos de Linha de Comando (Prompt/PowerShell):** Qualquer texto enviado que não corresponda às palavras-chave acima é executado no terminal e seu retorno retornado ao servidor.
+3. **`input_session`:** Inicia uma sessão persistente de entrada em tempo real (responde `OK` e consome comandos por linha `m`, `d`, `u`, `w`, `h`, `k`, `r` sem resposta por evento; ao encerrar, libera todas as teclas e botões pressionados).
+4. **`mouse_event <tipo> <x> <y> <deltaY>`:** Injeta eventos de clique (`down_0`, `up_0`, `down_2`, `up_2`), movimentação (`move`) ou rolagem de scroll (`wheel`).
+5. **`keyboard_event <tecla> <estado>`:** Injeta pressionamento (`down`) ou soltura (`up`) de teclas do teclado.
+6. **`get_clipboard` / `set_clipboard <texto>`:** Lê ou altera o conteúdo da área de transferência (Ctrl+C / Ctrl+V) do Windows do usuário remoto.
+7. **`send_ctrl_alt_del`:** Dispara a abertura do Gerenciador de Tarefas do Windows (`taskmgr.exe`).
+8. **`upload_file <nome_arquivo> <tamanho>`:** Transfere um arquivo diretamente para a **Área de Trabalho** (Desktop) do usuário remoto.
+9. **`get_installed_programs`:** Executa um script PowerShell temporário e seguro que varre o Registro do Windows (`HKLM` e `CU` - 32/64 bits) e integra com o CLI do **`winget`** para listar todos os softwares instalados com ID, versão e fornecedor.
+10. **Comandos de Linha de Comando (Prompt/PowerShell):** Qualquer texto enviado que não corresponda às palavras-chave acima é executado no terminal e seu retorno retornado ao servidor.
 
 ---
 

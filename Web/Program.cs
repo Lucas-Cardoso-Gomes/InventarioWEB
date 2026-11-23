@@ -112,6 +112,8 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+
 app.UseAuthentication();
 app.UseAuthorization();
 
