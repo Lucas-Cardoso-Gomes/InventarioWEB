@@ -22,7 +22,6 @@ window.addEventListener('pageshow', function (event) {
 
         const savedState = JSON.parse(savedStateJSON);
 
-        // Restore text inputs
         let stateMatchesUrl = true;
         const urlParams = new URLSearchParams(window.location.search);
 

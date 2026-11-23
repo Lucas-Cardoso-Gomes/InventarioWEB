@@ -116,7 +116,6 @@ public class KeyCodeConverter
         {
             return vkCode;
         }
-        // Return 0 if not found, or handle error as needed
         return 0;
     }
 }

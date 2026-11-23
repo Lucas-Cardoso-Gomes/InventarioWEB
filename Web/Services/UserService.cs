@@ -22,7 +22,6 @@ namespace Web.Services
         {
             using (var connection = _databaseService.CreateConnection())
             {
-                // Note: IDbConnection doesn't have OpenAsync, use Open
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {

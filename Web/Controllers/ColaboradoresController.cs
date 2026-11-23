@@ -129,7 +129,6 @@ namespace Web.Controllers
                     addPhoneInClause("Ramal", viewModel.CurrentRamais);
                     addInClause("co.Nome", viewModel.CurrentCoordenadores);
 
-                    // Add role-based filtering
                     if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
                     {
                         var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
@@ -140,7 +139,6 @@ namespace Web.Controllers
                         }
                         else
                         {
-                            // If the user doesn't have a CPF claim (e.g. they aren't linked to a Colaborador), they should see nothing
                             whereClauses.Add("1 = 0");
                         }
                     }
@@ -217,7 +215,6 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        // GET: Colaboradores/Create
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
@@ -225,7 +222,6 @@ namespace Web.Controllers
             return View();
         }
 
-        // POST: Colaboradores/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -281,7 +277,6 @@ namespace Web.Controllers
             return View(colaborador);
         }
 
-        // GET: Colaboradores/Details/5
         public IActionResult Details(string id)
         {
             if (id == null) return NotFound();
@@ -289,11 +284,9 @@ namespace Web.Controllers
             Colaborador colaborador = FindColaboradorById(sanitizedId);
             if (colaborador == null) return NotFound();
 
-            // Authorization check
             if (!User.IsInRole("Admin") && !User.IsInRole("Diretoria/RH"))
             {
                 var userCpf = User.Claims.FirstOrDefault(c => c.Type == "ColaboradorCPF")?.Value;
-                // If the current user's CPF doesn't match the accessed CPF and the accessed user's Coordinator CPF
                 if (userCpf != colaborador.CPF && userCpf != colaborador.CoordenadorCPF)
                 {
                     return Forbid();
@@ -427,7 +420,6 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        // GET: Colaboradores/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
@@ -777,7 +769,6 @@ namespace Web.Controllers
             }
         }
 
-        // GET: Colaboradores/Delete/5
         [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
@@ -787,7 +778,6 @@ namespace Web.Controllers
             return View(colaborador);
         }
 
-        // POST: Colaboradores/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -1004,7 +994,6 @@ namespace Web.Controllers
 
                                 if (existente != null)
                                 {
-                                    // Consider adding logging for bulk updates here if needed, but it might be too verbose.
                                     string updateSql = @"UPDATE Colaboradores SET 
                                                        Nome = @Nome, Email = @Email, Filial = @Filial, Setor = @Setor, Alarme = @Alarme, Videoporteiro = @Videoporteiro,
                                                        Obs = @Obs, DataAlteracao = @DataAlteracao, CoordenadorCPF = @CoordenadorCPF

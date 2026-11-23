@@ -35,7 +35,6 @@ namespace Web.Controllers
             using (var connection = _databaseService.CreateConnection())
             {
                 connection.Open();
-                // Computer filters
                 viewModel.Fabricantes = GetDistinctValues(connection, "Computadores", "Fabricante");
                 viewModel.SOs = GetDistinctValues(connection, "Computadores", "SO");
                 viewModel.ProcessadorFabricantes = GetDistinctValues(connection, "Computadores", "ProcessadorFabricante");
@@ -43,15 +42,12 @@ namespace Web.Controllers
                 viewModel.Processadores = GetDistinctValues(connection, "Computadores", "Processador");
                 viewModel.Rams = GetDistinctValues(connection, "Computadores", "Ram");
 
-                // Monitor filters
                 viewModel.Marcas = GetDistinctValues(connection, "Monitores", "Marca");
                 viewModel.Tamanhos = GetDistinctValues(connection, "Monitores", "Tamanho");
                 viewModel.Modelos = GetDistinctValues(connection, "Monitores", "Modelo");
 
-                // Periferico filters
                 viewModel.TiposPeriferico = GetDistinctValues(connection, "Perifericos", "Tipo");
 
-                // Colaborador filter
                 viewModel.Colaboradores = GetColaboradores(connection);
                 viewModel.Coordenadores = GetCoordenadores(connection);
             }
@@ -69,7 +65,6 @@ namespace Web.Controllers
             }
             else
             {
-                // Note: Parameters are not directly supported in SQL string here, need to handle in command execution
                 sql = "SELECT c.CPF, c.Nome FROM Colaboradores c WHERE c.CPF = @UserCPF";
             }
 

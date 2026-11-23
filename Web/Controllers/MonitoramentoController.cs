@@ -37,7 +37,6 @@ namespace Web.Controllers
                 {
                     connection.Open();
 
-                    // Get all device types for the filter
                     using (var tipoCommand = connection.CreateCommand())
                     {
                         tipoCommand.CommandText = "SELECT DISTINCT Tipo FROM Rede ORDER BY Tipo";
@@ -50,7 +49,6 @@ namespace Web.Controllers
                         }
                     }
 
-                    // Build the main query with an optional filter
                     var query = "SELECT Id, Tipo, IP, MAC, Nome, DataInclusao, DataAlteracao, Observacao FROM Rede";
                     if (!string.IsNullOrEmpty(tipo))
                     {
@@ -84,9 +82,6 @@ namespace Web.Controllers
                     }
                 }
 
-                // Sort the list in-memory using System.Version for correct IP sorting
-                // Note: IP parsing might fail if IPs are not strictly valid versions (e.g. empty or weird format)
-                // Using a safer parse or TryParse would be better, but assuming valid IPs for now or handling exception
                  redes = redes.OrderBy<Rede, long>(r =>
                  {
                      if (System.Net.IPAddress.TryParse(r.IP, out var ip))

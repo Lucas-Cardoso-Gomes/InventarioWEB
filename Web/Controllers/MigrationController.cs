@@ -73,7 +73,6 @@ namespace Web.Controllers
                 TempData["ErrorMessage"] = "Erro ao criar usuários: " + ex.Message;
             }
 
-            // Redirect to UsersController Index action. The controller name is "Users", not "User"
             return RedirectToAction("Index", "Users");
         }
     }

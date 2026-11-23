@@ -1,15 +1,14 @@
 document.addEventListener('DOMContentLoaded', function () {
     const columnMenu = document.getElementById('column-visibility-menu');
     const table = document.querySelector('.table');
+    if (!columnMenu || !table) return;
 
-    // Define all columns based on the th classes (col-*)
     const allColumns = Array.from(table.querySelectorAll('thead th[class^="col-"]'))
         .map(th => ({
             id: th.className,
             name: th.textContent.trim()
         }));
 
-    // Define default visible columns as requested by the user
     const defaultVisibleColumns = [
         'col-ip',
         'col-mac',
@@ -26,10 +25,8 @@ document.addEventListener('DOMContentLoaded', function () {
         'col-datacoleta'
     ];
 
-    // Load saved preferences from localStorage or use defaults
     let visibleColumns = JSON.parse(localStorage.getItem('visibleComputerColumns')) || defaultVisibleColumns;
 
-    // Function to apply visibility settings
     function applyVisibility() {
         allColumns.forEach(column => {
             const elements = table.querySelectorAll(`.${column.id}`);
@@ -40,12 +37,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Function to save preferences to localStorage
     function savePreferences() {
         localStorage.setItem('visibleComputerColumns', JSON.stringify(visibleColumns));
     }
 
-    // Populate the dropdown menu
     allColumns.forEach(column => {
         const li = document.createElement('li');
         li.className = 'dropdown-item';
@@ -65,7 +60,6 @@ document.addEventListener('DOMContentLoaded', function () {
         li.appendChild(label);
         columnMenu.appendChild(li);
 
-        // Add event listener
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
                 if (!visibleColumns.includes(column.id)) {
@@ -79,11 +73,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Prevent dropdown from closing when clicking on items
     columnMenu.addEventListener('click', function (e) {
         e.stopPropagation();
     });
 
-    // Initial application of visibility
     applyVisibility();
 });

@@ -33,7 +33,6 @@ namespace Web.Controllers
             {
                 connection.Open();
 
-                // Get Filter Options
                 using (var cmd = connection.CreateCommand())
                 {
                     cmd.CommandText = "SELECT DISTINCT Filial FROM Colaboradores WHERE Filial IS NOT NULL AND TRIM(Filial) != '' ORDER BY Filial";
@@ -61,7 +60,6 @@ namespace Web.Controllers
                     }
                 }
 
-                // Get Support Tickets Summary
                 using (var cmd = connection.CreateCommand())
                 {
                     cmd.CommandText = "SELECT Status, COUNT(*) as Qtd FROM Chamados GROUP BY Status";

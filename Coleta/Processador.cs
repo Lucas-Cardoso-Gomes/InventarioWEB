@@ -34,7 +34,7 @@ namespace coleta
                         var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
                         if (result != null && result["CurrentTemperature"] != null)
                         {
-                            // MSAcpi_ThermalZoneTemperature is in tenths of degrees Kelvin
+                            // Retorna em décimos de Kelvin
                             uint tempK = Convert.ToUInt32(result["CurrentTemperature"]);
                             double tempC = (tempK / 10.0) - 273.15;
                             info.Temperatura = $"{Math.Round(tempC, 1)} °C";
@@ -44,7 +44,6 @@ namespace coleta
                 }
                 catch
                 {
-                    // WMI path might not be available or require admin rights
                 }
 
                 if (!tempSet)
@@ -56,7 +55,7 @@ namespace coleta
                             var result = searcher.Get().Cast<ManagementBaseObject>().FirstOrDefault();
                             if (result != null && result["Temperature"] != null)
                             {
-                                // Win32_PerfFormattedData_Counters_ThermalZoneInformation Temperature is in degrees Kelvin
+                                // Retorna em Kelvin
                                 uint tempK = Convert.ToUInt32(result["Temperature"]);
                                 double tempC = tempK - 273.15;
                                 info.Temperatura = $"{Math.Round(tempC, 1)} °C";
@@ -66,7 +65,6 @@ namespace coleta
                     }
                     catch
                     {
-                        // Fallback also failed
                     }
                 }
 

@@ -63,8 +63,6 @@ namespace Web.Controllers
                     }
                 }
 
-                // Sort the list in-memory using System.Version for correct IP sorting
-                // As before, this is risky if IPs are malformed
                 var redesOrdenadas = redes.OrderBy<Rede, long>(r =>
                 {
                      if (System.Net.IPAddress.TryParse(r.IP, out var ip))
@@ -82,8 +80,7 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting network assets list.");
-                // Handle error appropriately
-                return View(redes); // Return unsorted list in case of an error
+                return View(redes);
             }
         }
 
@@ -474,7 +471,6 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting network asset.");
-                // Handle error
             }
             return RedirectToAction(nameof(Index));
         }
@@ -517,7 +513,6 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error finding network asset by id.");
-                // Handle error
             }
             return rede;
         }

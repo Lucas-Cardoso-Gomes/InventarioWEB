@@ -49,8 +49,6 @@ namespace Web.Models
         public string CoordenadorCPF { get; set; }
         public List<Colaborador> Coordenadores { get; set; } = new List<Colaborador>();
 
-
-        // --- Filters for Computadores ---
         public List<string> Fabricantes { get; set; }
         public List<string> SOs { get; set; }
         public List<string> ProcessadorFabricantes { get; set; }
@@ -65,7 +63,6 @@ namespace Web.Models
         public List<string> CurrentProcessadores { get; set; } = new List<string>();
         public List<string> CurrentRams { get; set; } = new List<string>();
 
-        // --- Filters for Monitores ---
         public List<string> Marcas { get; set; }
         public List<string> Tamanhos { get; set; }
         public List<string> Modelos { get; set; }
@@ -74,7 +71,6 @@ namespace Web.Models
         public List<string> CurrentTamanhos { get; set; } = new List<string>();
         public List<string> CurrentModelos { get; set; } = new List<string>();
 
-        // --- Filters for Perifericos ---
         public List<string> TiposPeriferico { get; set; }
         public List<string> CurrentTiposPeriferico { get; set; } = new List<string>();
     }

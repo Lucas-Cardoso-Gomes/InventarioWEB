@@ -175,9 +175,8 @@ namespace Web.Services
                             var p = destCmd.CreateParameter();
                             p.ParameterName = paramName;
 
-                            var val = reader[colName]; // Access by column name is safer
+                            var val = reader[colName];
 
-                            // Convert DateTime to string for SQLite
                             if (val is DateTime dt)
                             {
                                 p.Value = dt.ToString("yyyy-MM-dd HH:mm:ss");

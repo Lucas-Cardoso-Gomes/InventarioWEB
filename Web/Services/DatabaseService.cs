@@ -32,7 +32,6 @@ namespace Web.Services
 
             try
             {
-                // Try to parse as SQLite connection string
                 var builder = new SqliteConnectionStringBuilder(_connectionString);
                 _dbFilePath = builder.DataSource;
             }
@@ -87,7 +86,6 @@ namespace Web.Services
                 {
                     connection.Open();
 
-                    // Safely add new columns if they don't exist
                     var columnsToAdd = new[]
                     {
                         "ALTER TABLE Rede ADD COLUMN Localizacao TEXT;",
@@ -130,13 +128,11 @@ namespace Web.Services
                                 command.ExecuteNonQuery();
                             }
                         }
-                        catch (SqliteException ex) when (ex.SqliteErrorCode == 1) // 1 = SQLITE_ERROR, typically "duplicate column name"
+                        catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
                         {
-                            // Column already exists, safe to ignore
                         }
                     }
 
-                    // Create table HistoricoTrocas if it doesn't exist yet
                     try
                     {
                         using (var command = connection.CreateCommand())
@@ -192,7 +188,6 @@ namespace Web.Services
                         _logger.LogWarning($"Schema update error for HistoricoTrocas (handled): {ex.Message}");
                     }
 
-                    // Create table HistoricoCPU and normalized tables if they don't exist yet
                     try
                     {
                         using (var command = connection.CreateCommand())
@@ -422,7 +417,6 @@ namespace Web.Services
                             }
                             catch
                             {
-                                // Safe to ignore if column is already dropped or not supported
                             }
                         }
                     }
@@ -511,7 +505,6 @@ namespace Web.Services
             }
             catch
             {
-                // Fallback if table does not exist
             }
             return false;
         }

@@ -29,7 +29,6 @@ namespace Web.Services
             }
             catch (Exception)
             {
-                // Fail silently
             }
         }
 
@@ -58,8 +57,6 @@ namespace Web.Services
             }
             catch (Exception)
             {
-                // Fail silently or log to file/console, but don't break the main flow
-                // In a real scenario, you might want to log this failure
             }
             await Task.CompletedTask;
         }

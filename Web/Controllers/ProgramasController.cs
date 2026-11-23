@@ -91,19 +91,13 @@ namespace Web.Controllers
             try
             {
                 _logService.AddLog("Info", $"Iniciando coleta de programas para {ip} ({mac})", "Programas");
-                // The actual processing should happen in background or via SignalR, here we trigger and wait
-                // Due to timeout limits in synchronous web requests, we will just send the command.
-                // The agent needs to return a large JSON array which we should parse.
                 
-                // Fire and forget or handle properly?
-                // Let's create a background task or use a dedicated method
                 Task.Run(async () =>
                 {
                     try {
                         string resultado = await _comandoService.EnviarComandoAsync(ip, "get_installed_programs");
                         _logger.LogInformation("Recebeu resposta do comando get_installed_programs");
                         
-                        // Limpa a string para pegar apenas o JSON (ignora mensagens de erro/aviso que podem vir do PowerShell)
                         string jsonToParse = resultado;
                         int firstBrace = resultado.IndexOf('{');
                         int firstBracket = resultado.IndexOf('[');
@@ -122,10 +116,9 @@ namespace Web.Controllers
                         {
                             _logger.LogWarning($"Resultado vazio ou inválido recebido de {ip}. Resposta original: {resultado}");
                             _logService.AddLog("Warning", $"Resultado inválido recebido ao tentar coletar programas de {ip}. Não foi possível extrair um formato JSON válido.", "Programas");
-                            return; // Encerra task silenciosamente ou pode logar no db
+                            return;
                         }
 
-                        // Parse JSON result and save to DB
                         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                         var jsonDoc = JsonDocument.Parse(jsonToParse);
                         

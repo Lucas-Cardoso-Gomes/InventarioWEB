@@ -6,7 +6,7 @@ namespace Web.Models
     public class ComandoViewModel
     {
         [Display(Name = "Tipo de Envio")]
-        public string TipoEnvio { get; set; } // "ip" or "range"
+        public string TipoEnvio { get; set; }
 
         [Display(Name = "Endereço IP / Hostname")]
         public string IpAddress { get; set; }
@@ -18,7 +18,6 @@ namespace Web.Models
         [Display(Name = "Comando a ser executado")]
         public string Comando { get; set; }
 
-        // To display results
         public bool ComandoIniciado { get; set; } = false;
         public List<string> Resultados { get; set; } = new List<string>();
     }

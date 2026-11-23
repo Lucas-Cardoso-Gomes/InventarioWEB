@@ -24,10 +24,10 @@ public class ScreenCapturer
         IntPtr bitmapPtr = CreateCompatibleBitmap(desktopPtr, width, height);
         IntPtr oldBitmapPtr = SelectObject(memoryDcPtr, bitmapPtr);
 
-        // Copy the entire virtual screen to the memory device context
+        // Copia a imagem da tela para a memória
         BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, x, y, SRCCOPY);
 
-        // Capture and draw the cursor
+        // Desenha o cursor sobre a captura
         CURSORINFO pci;
         pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
         if (GetCursorInfo(out pci))
@@ -99,13 +99,12 @@ public class ScreenCapturer
         return null;
     }
 
-    // Constants for GetSystemMetrics
     private const int SM_XVIRTUALSCREEN = 76;
     private const int SM_YVIRTUALSCREEN = 77;
     private const int SM_CXVIRTUALSCREEN = 78;
     private const int SM_CYVIRTUALSCREEN = 79;
 
-    private const int SRCCOPY = 0x00CC0020; // Ternary raster operation code
+    private const int SRCCOPY = 0x00CC0020;
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
@@ -137,7 +136,6 @@ public class ScreenCapturer
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
-    // P/Invoke for cursor
     [StructLayout(LayoutKind.Sequential)]
     struct POINT
     {

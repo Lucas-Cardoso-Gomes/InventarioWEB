@@ -37,7 +37,6 @@ namespace Web.Models
         [DataType(DataType.Date)]
         public DateTime? DataGarantia { get; set; }
 
-        // Monitoring properties
         [NotMapped]
         public string? Status { get; set; }
         [NotMapped]

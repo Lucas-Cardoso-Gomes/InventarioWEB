@@ -30,10 +30,6 @@ namespace Web.Controllers
             var colaboradores = new List<Colaborador>();
             using (var connection = _databaseService.CreateConnection())
             {
-                // SQLite doesn't support async open properly with IDbConnection interface in older context, but SqliteConnection does.
-                // However, standard is synchronous for SQLite usually or Task.CompletedTask wrapper.
-                // Since CreateConnection returns IDbConnection, we treat it synchronously or cast.
-                // But for consistency let's just Open.
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
@@ -50,7 +46,6 @@ namespace Web.Controllers
             return await Task.FromResult(colaboradores);
         }
 
-        // GET: Users
         public async Task<IActionResult> Index(string sortOrder, string searchString, List<string> currentRoles, int pageNumber = 1, int pageSize = 25)
         {
             ViewData["CurrentSort"] = sortOrder;
@@ -62,7 +57,6 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        // GET: Users/Create
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create()
         {
@@ -73,7 +67,6 @@ namespace Web.Controllers
             return View(model);
         }
 
-        // POST: Users/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -123,7 +116,6 @@ namespace Web.Controllers
             return View(model);
         }
 
-        // GET: Users/Edit/5
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id)
         {
@@ -148,7 +140,6 @@ namespace Web.Controllers
             return View(model);
         }
 
-        // POST: Users/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -195,7 +186,6 @@ namespace Web.Controllers
             return View(model);
         }
 
-        // GET: Users/Delete/5
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -207,7 +197,6 @@ namespace Web.Controllers
             return View(user);
         }
 
-        // POST: Users/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]

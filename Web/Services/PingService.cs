@@ -40,7 +40,6 @@ namespace Web.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Initial load of devices to monitor
             await LoadRedesAsync(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -52,17 +51,17 @@ namespace Web.Services
 
                     foreach (var ip in ipsToPing)
                     {
-                        var ping = new Ping();
-                        // Ping send async might throw if address is invalid or not reachable in a way ping doesn't handle gracefully
-                        try {
-                            var reply = await ping.SendPingAsync(ip, 1000); // 1 second timeout
+                        using (var ping = new Ping())
+                        {
+                            try {
+                                var reply = await ping.SendPingAsync(ip, 1000);
 
-                            var currentPingStatus = reply.Status == IPStatus.Success;
+                                var currentPingStatus = reply.Status == IPStatus.Success;
 
-                            _pingStatuses.AddOrUpdate(ip, new PingStatusInfo(), (key, existingStatus) =>
-                            {
-                                var lastPing = existingStatus.LastPingStatus;
-                                var newStatus = "Gray"; // Default status
+                                _pingStatuses.AddOrUpdate(ip, new PingStatusInfo(), (key, existingStatus) =>
+                                {
+                                    var lastPing = existingStatus.LastPingStatus;
+                                    var newStatus = "Gray";
 
                                 if (currentPingStatus && lastPing == true)
                                 {
@@ -92,6 +91,7 @@ namespace Web.Services
                         } catch (Exception pingEx) {
                              _logger.LogWarning(pingEx, "Failed to ping {IP}", ip);
                         }
+                    }
                     }
                 }
                 catch (Exception ex)

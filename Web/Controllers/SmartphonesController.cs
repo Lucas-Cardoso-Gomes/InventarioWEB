@@ -26,21 +26,17 @@ namespace Web.Controllers
             _historicoTrocasService = historicoTrocasService;
         }
 
-        // GET: Smartphones
         public async Task<IActionResult> Index()
         {
             var smartphones = await _smartphoneService.GetAllAsync();
             return View(smartphones);
         }
 
-
-        // GET: Smartphones/Create
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: Smartphones/Create
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
@@ -78,7 +74,6 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        // GET: Smartphones/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -94,7 +89,6 @@ namespace Web.Controllers
             return View(smartphone);
         }
 
-        // POST: Smartphones/Edit/5
         [HttpPost]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
@@ -130,7 +124,6 @@ namespace Web.Controllers
                 }
                 catch
                 {
-                    // Log the error or handle it appropriately
                     throw;
                 }
                 return RedirectToAction(nameof(Index));
@@ -221,14 +214,12 @@ namespace Web.Controllers
             }
             catch (Exception)
             {
-                // In a real app we might inject a logger to log this.
                 TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
             }
 
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Smartphones/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -245,7 +236,6 @@ namespace Web.Controllers
             return View(smartphone);
         }
 
-        // POST: Smartphones/Delete/5
         [HttpPost, ActionName("Delete")]
         [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]

@@ -87,7 +87,6 @@ namespace Web.Controllers
                                 Historico = worksheet.Cells[row, 8].Value?.ToString().Trim()
                             };
 
-                            // Basic validation: must have at least one device linked.
                             if (!string.IsNullOrWhiteSpace(manutencao.ComputadorMAC) || 
                                 !string.IsNullOrWhiteSpace(manutencao.MonitorPartNumber) || 
                                 !string.IsNullOrWhiteSpace(manutencao.PerifericoPartNumber))
@@ -102,8 +101,6 @@ namespace Web.Controllers
 
                 foreach (var manutencao in manutencoes)
                 {
-                    // As IDs are auto-generated and there isn't a strict natural unique key combination, 
-                    // we'll treat all imports as new records or you can adjust to find existing records if preferred.
                     _manutencaoService.AddManutencao(manutencao);
                     adicionados++;
                 }
@@ -112,7 +109,6 @@ namespace Web.Controllers
             }
             catch (Exception)
             {
-                // In a real app we might log the exception.
                 TempData["ErrorMessage"] = "Ocorreu um erro durante a importação do arquivo. Verifique se o formato está correto.";
             }
 

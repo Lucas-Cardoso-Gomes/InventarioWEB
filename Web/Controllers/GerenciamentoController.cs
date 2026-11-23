@@ -32,7 +32,6 @@ namespace Web.Controllers
             _databaseService = databaseService;
         }
 
-        // GET: /Gerenciamento/Logs
         public IActionResult Logs(string level, string source, string searchString, int pageNumber = 1, int pageSize = 25)
         {
             var viewModel = new LogViewModel
@@ -77,7 +76,6 @@ namespace Web.Controllers
 
                     string whereSql = whereClauses.Any() ? $"WHERE {string.Join(" AND ", whereClauses)}" : "";
 
-                    // Get total count for pagination
                     string countSql = $"SELECT COUNT(*) FROM Logs {whereSql}";
                     using (var countCommand = connection.CreateCommand())
                     {
@@ -92,7 +90,6 @@ namespace Web.Controllers
                         viewModel.TotalCount = result != DBNull.Value ? Convert.ToInt32(result) : 0;
                     }
 
-                    // Get paginated logs
                     string sql = $"SELECT Id, Timestamp, Level, Message, Source FROM Logs {whereSql} ORDER BY Timestamp DESC LIMIT @pageSize OFFSET @offset";
                     using (var command = connection.CreateCommand())
                     {
@@ -187,7 +184,6 @@ namespace Web.Controllers
             return values;
         }
 
-        // GET: /Gerenciamento
         public IActionResult Index()
         {
             return View();
@@ -235,7 +231,6 @@ namespace Web.Controllers
             return RedirectToAction(nameof(PersistentLogs));
         }
 
-        // GET: /Gerenciamento/Coletar
         public IActionResult Coletar()
         {
             var model = new ColetaViewModel();
@@ -310,8 +305,6 @@ namespace Web.Controllers
             }
         }
 
-
-        // GET: /Gerenciamento/Programas
         public IActionResult Programas()
         {
             var model = new ColetaViewModel();
@@ -488,7 +481,6 @@ namespace Web.Controllers
             }
         }
 
-        // GET: /Gerenciamento/Comandos
         public IActionResult Comandos()
         {
             var model = new ComandoViewModel();
@@ -506,13 +498,6 @@ namespace Web.Controllers
             }
             
             model.ComandoIniciado = true;
-
-            // NOTA: A validação do ModelState foi removida intencionalmente, pois estava causando
-            // um erro inexplicável. A validação manual abaixo é suficiente.
-            // if (!ModelState.IsValid)
-            // {
-            //     return View(model);
-            // }
 
             if (model.TipoEnvio == "ip")
             {
@@ -581,7 +566,6 @@ namespace Web.Controllers
             }
             catch (Exception ex)
             {
-                // Create a new scope specifically for logging the error.
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var logger = scope.ServiceProvider.GetRequiredService<ILogger<GerenciamentoController>>();

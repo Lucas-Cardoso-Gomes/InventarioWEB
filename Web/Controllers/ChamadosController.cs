@@ -426,7 +426,6 @@ namespace Web.Controllers
         private async Task<List<ChartData>> GetChamadosPorDiaDaSemanaAsync(IDbConnection connection, string whereSql, Dictionary<string, object> parameters)
         {
             var data = new List<ChartData>();
-            // SQLite strftime '%w' returns 0-6 where 0 is Sunday
             string sql = $@"SELECT case strftime('%w', c.DataCriacao)
                                 when '0' then 'Domingo'
                                 when '1' then 'Segunda'
@@ -576,7 +575,6 @@ namespace Web.Controllers
             return data;
         }
 
-        // GET: Chamados/Create
         public IActionResult Create()
         {
             if (User.IsInRole("Admin"))
@@ -586,7 +584,6 @@ namespace Web.Controllers
             return View();
         }
 
-        // POST: Chamados/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Chamado chamado)
@@ -621,7 +618,6 @@ namespace Web.Controllers
                     using (var connection = _databaseService.CreateConnection())
                     {
                         connection.Open();
-                        // SQLite: use select last_insert_rowid() instead of OUTPUT
                         string sql = @"INSERT INTO Chamados (AdminCPF, ColaboradorCPF, Servico, Descricao, DataCriacao, Status, Prioridade)
                                        VALUES (@AdminCPF, @ColaboradorCPF, @Servico, @Descricao, @DataCriacao, @Status, @Prioridade);
                                        SELECT last_insert_rowid();";
@@ -736,7 +732,6 @@ namespace Web.Controllers
             return admins;
         }
 
-        // GET: Chamados/Chat/5
         public IActionResult Chat(int id)
         {
             var conversas = GetConversasByChamadoId(id);
@@ -744,7 +739,6 @@ namespace Web.Controllers
             return PartialView("_Chat", conversas);
         }
 
-        // GET: Chamados/Details/5
         public IActionResult Details(int? id)
         {
             if (id == null)
@@ -845,7 +839,6 @@ namespace Web.Controllers
             }
         }
 
-        // GET: Chamados/Edit/5
         [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult Edit(int? id)
         {
@@ -985,7 +978,6 @@ namespace Web.Controllers
             return chamado;
         }
 
-        // GET: Chamados/Delete/5
         [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
         public IActionResult Delete(int? id)
         {
@@ -1013,7 +1005,6 @@ namespace Web.Controllers
             return View(chamado);
         }
 
-        // POST: Chamados/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin,Coordenador,Colaborador,Diretoria/RH")]
@@ -1204,13 +1195,11 @@ namespace Web.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao fechar chamado.");
-                // Optionally, add a message to the user that something went wrong
                 TempData["ErrorMessage"] = "Erro ao fechar o chamado.";
             }
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Chamados/GetServicos
         [HttpGet]
         public IActionResult GetServicos()
         {
@@ -1459,7 +1448,6 @@ namespace Web.Controllers
 
             var notificationMessage = $"Você tem uma nova notificação no chamado #{chamadoId} - {chamado.Servico}";
 
-            // Sends the notification to the specific user identifier (their CPF)
             await _notificationHubContext.Clients.User(chamado.ColaboradorCPF).SendAsync("ReceiveNotification", "Sistema", notificationMessage);
 
             return Ok();

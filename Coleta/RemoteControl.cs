@@ -86,8 +86,6 @@ public class RemoteControl
         }
     }
 
-
-    // Structures and functions for SendInput
     [StructLayout(LayoutKind.Sequential)]
     public struct INPUT
     {

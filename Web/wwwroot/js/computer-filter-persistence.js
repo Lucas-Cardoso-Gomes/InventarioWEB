@@ -28,10 +28,8 @@ window.addEventListener('pageshow', function (event) {
 
         const savedState = JSON.parse(savedStateJSON);
 
-        // Restore search string
         form.querySelector('input[name="searchString"]').value = savedState.searchString || '';
 
-        // Restore checkboxes
         checkboxNames.forEach(name => {
             if (savedState[name]) {
                 form.querySelectorAll(`input[name="${name}"]`).forEach(cb => {
@@ -40,7 +38,6 @@ window.addEventListener('pageshow', function (event) {
             }
         });
 
-        // Check if state matches URL and submit if it doesn't
         const urlParams = new URLSearchParams(window.location.search);
         let stateMatchesUrl = true;
 
@@ -56,7 +53,7 @@ window.addEventListener('pageshow', function (event) {
             return sortedA.every((val, index) => val === sortedB[index]);
         };
 
-        if (stateMatchesUrl) { // Only check arrays if the simple string already matches
+        if (stateMatchesUrl) {
             for (const name of checkboxNames) {
                 const fromState = savedState[name] || [];
                 const fromUrl = urlParams.getAll(name);
@@ -78,7 +75,6 @@ window.addEventListener('pageshow', function (event) {
     if (clearButton) {
         clearButton.addEventListener('click', function() {
             localStorage.removeItem(storageKey);
-            // Allow the link's default navigation to proceed
         });
     }
 

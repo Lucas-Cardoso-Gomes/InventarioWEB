@@ -38,7 +38,6 @@ namespace Web.Controllers
             _manutencaoService = manutencaoService;
         }
 
-        // GET: Perifericos
         public IActionResult Index(string searchString)
         {
             ViewData["CurrentFilter"] = searchString;
@@ -58,7 +57,6 @@ namespace Web.Controllers
             }
         }
 
-        // GET: Perifericos/Create
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
@@ -66,7 +64,6 @@ namespace Web.Controllers
             return View();
         }
 
-        // POST: Perifericos/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -106,7 +103,6 @@ namespace Web.Controllers
             return View(viewModel);
         }
 
-        // GET: Perifericos/Edit/5
         [Authorize(Roles = "Admin")]
         public IActionResult Edit(string id)
         {
@@ -117,7 +113,6 @@ namespace Web.Controllers
             return View(periferico);
         }
 
-        // POST: Perifericos/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -152,7 +147,6 @@ namespace Web.Controllers
             return View(periferico);
         }
 
-        // GET: Perifericos/Delete/5
         [Authorize(Roles = "Admin")]
         public IActionResult Delete(string id)
         {
@@ -162,7 +156,6 @@ namespace Web.Controllers
             return View(periferico);
         }
 
-        // POST: Perifericos/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]

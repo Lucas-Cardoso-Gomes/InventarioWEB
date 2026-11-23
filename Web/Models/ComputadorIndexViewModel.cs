@@ -9,7 +9,6 @@ namespace Web.Models
         public string CurrentSort { get; set; }
         public string SearchString { get; set; }
 
-        // Filter data sources
         public List<string> Fabricantes { get; set; } = new List<string>();
         public List<string> SOs { get; set; } = new List<string>();
         public List<string> ProcessadorFabricantes { get; set; } = new List<string>();
@@ -17,7 +16,6 @@ namespace Web.Models
         public List<string> Processadores { get; set; } = new List<string>();
         public List<string> Rams { get; set; } = new List<string>();
 
-        // Current filter selections
         public List<string> CurrentFabricantes { get; set; } = new List<string>();
         public List<string> CurrentSOs { get; set; } = new List<string>();
         public List<string> CurrentProcessadorFabricantes { get; set; } = new List<string>();

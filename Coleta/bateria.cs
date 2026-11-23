@@ -13,7 +13,7 @@ namespace coleta
                 double fullChargeCapacity = 0;
                 uint cycleCount = 0;
 
-                // Design Capacity
+                // Capacidade nominal de fábrica
                 using (var searcher = new ManagementObjectSearcher(@"root\wmi", 
                     "SELECT DesignedCapacity FROM BatteryStaticData"))
                 {
@@ -23,7 +23,7 @@ namespace coleta
                     }
                 }
 
-                // Full Charge Capacity
+                // Capacidade de carga total atual
                 using (var searcher = new ManagementObjectSearcher(@"root\wmi", 
                     "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity"))
                 {
@@ -33,7 +33,7 @@ namespace coleta
                     }
                 }
 
-                // Cycle Count (nem todos dispositivos suportam)
+                // Contagem de ciclos (suporte dependente do hardware/fabricante)
                 using (var searcher = new ManagementObjectSearcher(@"root\wmi", 
                     "SELECT CycleCount FROM BatteryCycleCount"))
                 {

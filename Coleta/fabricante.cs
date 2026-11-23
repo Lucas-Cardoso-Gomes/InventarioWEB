@@ -16,7 +16,6 @@ namespace coleta
                 {
                     manufacturer = obj["Manufacturer"]?.ToString() ?? "Fabricante não identificado";
                 }
-                //System.Console.WriteLine(manufacturer);
                 return manufacturer;
             }
             catch (Exception ex)

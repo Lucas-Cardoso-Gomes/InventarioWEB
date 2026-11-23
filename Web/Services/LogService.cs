@@ -50,7 +50,6 @@ namespace Web.Services
             }
             catch (Exception ex)
             {
-                // Fallback logging to the console if database logging fails.
                 _logger.LogError(ex, "Falha ao gravar no banco de dados de log. Log original: Level={Level}, Source={Source}, Message={Message}", level, source, message);
             }
         }

@@ -11,21 +11,17 @@ namespace Web.Models
         public int TotalRedes { get; set; }
         public int TotalSmartphones { get; set; }
 
-        // Support tickets summary
         public int TotalChamadosAbertos { get; set; }
         public int TotalChamadosEmAndamento { get; set; }
 
-        // Decision / Risk metrics
         public int TotalAgentesInativos { get; set; }
         public int TotalSemBackup { get; set; }
         public int TotalGarantiasVencidas { get; set; }
 
-        // Filter lists for dropdowns
         public List<string> Filiais { get; set; } = new List<string>();
         public List<string> Setores { get; set; } = new List<string>();
         public List<string> Coordenadores { get; set; } = new List<string>();
 
-        // Selected filter values
         public string SelectedFilial { get; set; }
         public string SelectedSetor { get; set; }
         public string SelectedCoordenador { get; set; }
@@ -37,7 +33,6 @@ namespace Web.Models
         public List<int> GarantiaPieData { get; set; } = new List<int>();
         public List<ChartData> GarantiaBarData { get; set; } = new List<ChartData>();
 
-        // Battery Wear properties
         public int BatteryGoodCount { get; set; }
         public int BatteryWarningCount { get; set; }
         public int BatteryCriticalCount { get; set; }
