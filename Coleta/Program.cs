@@ -16,13 +16,56 @@ using System.Threading.Tasks;
 using System.Reflection;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 
 namespace coleta
 {
     partial class Program
     {
+        private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new IntPtr(-4);
+        private const int PROCESS_PER_MONITOR_DPI_AWARE = 2;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
+
+        [DllImport("shcore.dll")]
+        private static extern int SetProcessDpiAwareness(int awareness);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
+        private static void EnableDpiAwareness()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return;
+
+            try
+            {
+                if (SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
+                    return;
+            }
+            catch (EntryPointNotFoundException) { }
+            catch (DllNotFoundException) { }
+
+            try
+            {
+                if (SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) == 0)
+                    return;
+            }
+            catch (EntryPointNotFoundException) { }
+            catch (DllNotFoundException) { }
+
+            try
+            {
+                SetProcessDPIAware();
+            }
+            catch (EntryPointNotFoundException) { }
+            catch (DllNotFoundException) { }
+        }
+
         static async Task Main()
         {
+            EnableDpiAwareness();
             var builder = new ConfigurationBuilder();
             var assembly = Assembly.GetExecutingAssembly();
 
@@ -96,7 +139,7 @@ namespace coleta
                                     await sslStream.AuthenticateAsServerAsync(serverCertificate, clientCertificateRequired: false, checkCertificateRevocation: true);
 
                                     using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
-                                    using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
+                                    using (StreamWriter writer = new StreamWriter(sslStream, new UTF8Encoding(false)) { AutoFlush = true })
                                     {
 
                                         string nonce = Guid.NewGuid().ToString();

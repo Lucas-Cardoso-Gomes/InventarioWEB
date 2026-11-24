@@ -11,6 +11,7 @@ public class RemoteControl
     [DllImport("user32.dll")]
     public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint cButtons, uint dwExtraInfo);
 
+    public const uint MOUSEEVENTF_MOVE = 0x0001;
     public const uint MOUSEEVENTF_LEFTDOWN = 0x02;
     public const uint MOUSEEVENTF_LEFTUP = 0x04;
     public const uint MOUSEEVENTF_RIGHTDOWN = 0x08;
@@ -19,6 +20,8 @@ public class RemoteControl
     public const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
     public const uint MOUSEEVENTF_WHEEL = 0x0800;
     public const uint MOUSEEVENTF_HWHEEL = 0x01000;
+    public const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
+    public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
 
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
@@ -35,6 +38,8 @@ public class RemoteControl
 
     private const int SM_XVIRTUALSCREEN = 76;
     private const int SM_YVIRTUALSCREEN = 77;
+    private const int SM_CXVIRTUALSCREEN = 78;
+    private const int SM_CYVIRTUALSCREEN = 79;
 
     private static readonly object _inputLock = new object();
     private static readonly HashSet<ushort> _pressedKeys = new HashSet<ushort>();
@@ -58,6 +63,40 @@ public class RemoteControl
     {
         int virtualX = GetSystemMetrics(SM_XVIRTUALSCREEN);
         int virtualY = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int virtualWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        int virtualHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+        if (virtualWidth > 0 && virtualHeight > 0)
+        {
+            int clampedX = Math.Clamp(x, 0, virtualWidth - 1);
+            int clampedY = Math.Clamp(y, 0, virtualHeight - 1);
+            int normalizedX = Math.Clamp((int)(((long)clampedX * 65536L + 32768L) / virtualWidth), 0, 65535);
+            int normalizedY = Math.Clamp((int)(((long)clampedY * 65536L + 32768L) / virtualHeight), 0, 65535);
+
+            INPUT[] inputs = new INPUT[1];
+            inputs[0] = new INPUT
+            {
+                type = 0, // INPUT_MOUSE
+                u = new InputUnion
+                {
+                    mi = new MOUSEINPUT
+                    {
+                        dx = normalizedX,
+                        dy = normalizedY,
+                        mouseData = 0,
+                        dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            };
+
+            if (SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT))) > 0)
+            {
+                return;
+            }
+        }
+
         SetCursorPos(x + virtualX, y + virtualY);
     }
 
@@ -111,7 +150,7 @@ public class RemoteControl
                     var vkCode = KeyCodeConverter.GetVirtualKeyCode(parts[1]);
                     if (vkCode != 0)
                     {
-                        SendKeyEventEx(vkCode, parts[2] == "up");
+                        SendKeyEventEx(vkCode, parts[2] == "up", isExtendedOverride: parts[1].Equals("NumpadEnter", StringComparison.OrdinalIgnoreCase));
                     }
                 }
                 break;
@@ -249,7 +288,7 @@ public class RemoteControl
         SendKeyEventEx(vkCode, keyUp);
     }
 
-    public static void SendKeyEventEx(ushort vkCode, bool up)
+    public static void SendKeyEventEx(ushort vkCode, bool up, bool isExtendedOverride = false)
     {
         lock (_inputLock)
         {
@@ -260,7 +299,7 @@ public class RemoteControl
         }
 
         uint flags = up ? KEYEVENTF_KEYUP : 0;
-        if (IsExtendedKey(vkCode))
+        if (isExtendedOverride || IsExtendedKey(vkCode))
         {
             flags |= KEYEVENTF_EXTENDEDKEY;
         }

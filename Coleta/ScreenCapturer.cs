@@ -14,47 +14,61 @@ public class ScreenCapturer
         }
 
         IntPtr desktopPtr = GetDC(IntPtr.Zero);
-        IntPtr memoryDcPtr = CreateCompatibleDC(desktopPtr);
-        
-        int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
-        int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-
-        IntPtr bitmapPtr = CreateCompatibleBitmap(desktopPtr, width, height);
-        IntPtr oldBitmapPtr = SelectObject(memoryDcPtr, bitmapPtr);
-
-        // Copia a imagem da tela para a memória
-        BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, x, y, SRCCOPY);
-
-        // Desenha o cursor sobre a captura
-        CURSORINFO pci;
-        pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
-        if (GetCursorInfo(out pci))
+        if (desktopPtr == IntPtr.Zero)
         {
-            if (pci.flags == CURSOR_SHOWING)
-            {
-                IntPtr hicon = CopyIcon(pci.hCursor);
-                if (hicon != IntPtr.Zero)
-                {
-                    ICONINFO ii;
-                    if (GetIconInfo(hicon, out ii))
-                    {
-                        int x_cursor = pci.ptScreenPos.x - x - ii.xHotspot;
-                        int y_cursor = pci.ptScreenPos.y - y - ii.yHotspot;
-                        DrawIcon(memoryDcPtr, x_cursor, y_cursor, hicon);
-                        
-                        if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
-                        if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);
-                    }
-                    DestroyIcon(hicon);
-                }
-            }
+            throw new InvalidOperationException("Failed to acquire desktop device context.");
         }
+
+        IntPtr memoryDcPtr = IntPtr.Zero;
+        IntPtr bitmapPtr = IntPtr.Zero;
+        IntPtr oldBitmapPtr = IntPtr.Zero;
 
         byte[] result;
         try
         {
+            memoryDcPtr = CreateCompatibleDC(desktopPtr);
+
+            int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            int y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            int width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+            if (width <= 0 || height <= 0)
+            {
+                throw new InvalidOperationException($"Invalid virtual screen dimensions: {width}x{height}.");
+            }
+
+            bitmapPtr = CreateCompatibleBitmap(desktopPtr, width, height);
+            oldBitmapPtr = SelectObject(memoryDcPtr, bitmapPtr);
+
+            // Copia a imagem da tela para a memória
+            BitBlt(memoryDcPtr, 0, 0, width, height, desktopPtr, x, y, SRCCOPY);
+
+            // Desenha o cursor sobre a captura
+            CURSORINFO pci;
+            pci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+            if (GetCursorInfo(out pci))
+            {
+                if (pci.flags == CURSOR_SHOWING)
+                {
+                    IntPtr hicon = CopyIcon(pci.hCursor);
+                    if (hicon != IntPtr.Zero)
+                    {
+                        ICONINFO ii;
+                        if (GetIconInfo(hicon, out ii))
+                        {
+                            int x_cursor = pci.ptScreenPos.x - x - ii.xHotspot;
+                            int y_cursor = pci.ptScreenPos.y - y - ii.yHotspot;
+                            DrawIconEx(memoryDcPtr, x_cursor, y_cursor, hicon, 0, 0, 0, IntPtr.Zero, DI_NORMAL);
+
+                            if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
+                            if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);
+                        }
+                        DestroyIcon(hicon);
+                    }
+                }
+            }
+
             using (Bitmap bmp = Bitmap.FromHbitmap(bitmapPtr))
             {
                 using (MemoryStream ms = new MemoryStream())
@@ -79,9 +93,9 @@ public class ScreenCapturer
         }
         finally
         {
-            SelectObject(memoryDcPtr, oldBitmapPtr);
-            DeleteObject(bitmapPtr);
-            DeleteDC(memoryDcPtr);
+            if (oldBitmapPtr != IntPtr.Zero && memoryDcPtr != IntPtr.Zero) SelectObject(memoryDcPtr, oldBitmapPtr);
+            if (bitmapPtr != IntPtr.Zero) DeleteObject(bitmapPtr);
+            if (memoryDcPtr != IntPtr.Zero) DeleteDC(memoryDcPtr);
             ReleaseDC(IntPtr.Zero, desktopPtr);
         }
 
@@ -163,6 +177,7 @@ public class ScreenCapturer
     }
 
     const int CURSOR_SHOWING = 0x00000001;
+    const uint DI_NORMAL = 0x0003;
     [DllImport("user32.dll")]
     static extern bool GetCursorInfo(out CURSORINFO pci);
     [DllImport("user32.dll")]
@@ -170,5 +185,5 @@ public class ScreenCapturer
     [DllImport("user32.dll")]
     static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
     [DllImport("user32.dll")]
-    static extern bool DrawIcon(IntPtr hDC, int X, int Y, IntPtr hIcon);
+    static extern bool DrawIconEx(IntPtr hdc, int xLeft, int yTop, IntPtr hIcon, int cxWidth, int cyWidth, uint istepIfAniCur, IntPtr hbrFlickerFreeDraw, uint diFlags);
 }

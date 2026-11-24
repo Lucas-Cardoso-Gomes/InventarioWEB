@@ -12,6 +12,7 @@
             flex-direction: column;
             width: 100%;
             height: 100vh;
+            overflow: hidden;
             background-color: #111;
             color: #f8f9fa;
         }
@@ -36,10 +37,10 @@
         }
 
         #remote-screen-container {
-            flex: 1 1 auto;
+            flex: 1 1 0;
             min-height: 0;
             width: 100%;
-            height: calc(100vh - 48px);
+            overflow: hidden;
             position: relative;
             display: flex;
             align-items: center;
@@ -53,10 +54,13 @@
         }
 
         #remote-screen-container:fullscreen {
+            width: 100vw;
             height: 100vh;
         }
 
         #screen {
+            max-width: 100%;
+            max-height: 100%;
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -98,9 +102,8 @@
         const ip = @Html.Raw(JsonSerializer.Serialize(remoteIp));
         const encodedIp = encodeURIComponent(ip);
 
-        const screen = document.getElementById("screen");
+        const screenImg = document.getElementById("screen");
         const screenContainer = document.getElementById("remote-screen-container");
-        const toolbar = document.getElementById("remote-toolbar");
         const statusBadge = document.getElementById("ws-status-badge");
         const lockButton = document.getElementById("lock-mouse-btn");
         const taskMgrButton = document.getElementById("open-taskmgr-btn");
@@ -121,17 +124,7 @@
         let accWheelX = 0;
         let rafScheduled = false;
         const virtualPos = { x: 0, y: 0 };
-
-        function syncContainerHeight() {
-            if (!isFullscreen) {
-                const barHeight = toolbar ? toolbar.offsetHeight : 48;
-                screenContainer.style.height = `calc(100vh - ${barHeight}px)`;
-            } else {
-                screenContainer.style.height = "100vh";
-            }
-        }
-        window.addEventListener("resize", syncContainerHeight);
-        syncContainerHeight();
+        const pressedButtons = new Set();
 
         function setStatus(text, badgeClass) {
             statusBadge.textContent = text;
@@ -189,11 +182,11 @@
         }
 
         function toRemote(e) {
-            const nw = screen.naturalWidth;
-            const nh = screen.naturalHeight;
+            const nw = screenImg.naturalWidth;
+            const nh = screenImg.naturalHeight;
             if (!nw || !nh) return null;
 
-            const rect = screen.getBoundingClientRect();
+            const rect = screenImg.getBoundingClientRect();
             if (!rect.width || !rect.height) return null;
 
             const elemRatio = rect.width / rect.height;
@@ -255,28 +248,28 @@
         }
 
         function isPointerLocked() {
-            return document.pointerLockElement === screen || document.pointerLockElement === screenContainer;
+            return document.pointerLockElement === screenImg || document.pointerLockElement === screenContainer;
         }
 
         function isRemoteFocused() {
             return document.activeElement === screenContainer ||
-                document.activeElement === screen ||
+                document.activeElement === screenImg ||
                 isFullscreen ||
                 isPointerLocked();
         }
 
         function getCurrentPos(e) {
             if (isPointerLocked()) {
-                if (!screen.naturalWidth || !screen.naturalHeight) return null;
+                if (!screenImg.naturalWidth || !screenImg.naturalHeight) return null;
                 return {
-                    x: clamp(Math.round(virtualPos.x), 0, screen.naturalWidth - 1),
-                    y: clamp(Math.round(virtualPos.y), 0, screen.naturalHeight - 1)
+                    x: clamp(Math.round(virtualPos.x), 0, screenImg.naturalWidth - 1),
+                    y: clamp(Math.round(virtualPos.y), 0, screenImg.naturalHeight - 1)
                 };
             }
             return toRemote(e);
         }
 
-        screen.addEventListener("mousemove", (e) => {
+        screenImg.addEventListener("mousemove", (e) => {
             if (isPointerLocked()) return;
             const pos = toRemote(e);
             if (!pos) return;
@@ -287,9 +280,9 @@
         });
 
         function handleLockedMouseMove(e) {
-            if (!screen.naturalWidth || !screen.naturalHeight) return;
-            virtualPos.x = clamp(virtualPos.x + e.movementX, 0, screen.naturalWidth - 1);
-            virtualPos.y = clamp(virtualPos.y + e.movementY, 0, screen.naturalHeight - 1);
+            if (!screenImg.naturalWidth || !screenImg.naturalHeight) return;
+            virtualPos.x = clamp(virtualPos.x + e.movementX, 0, screenImg.naturalWidth - 1);
+            virtualPos.y = clamp(virtualPos.y + e.movementY, 0, screenImg.naturalHeight - 1);
             pendingMove = {
                 x: Math.round(virtualPos.x),
                 y: Math.round(virtualPos.y)
@@ -299,9 +292,9 @@
 
         document.addEventListener("pointerlockchange", () => {
             if (isPointerLocked()) {
-                if (screen.naturalWidth && screen.naturalHeight && virtualPos.x === 0 && virtualPos.y === 0) {
-                    virtualPos.x = Math.floor(screen.naturalWidth / 2);
-                    virtualPos.y = Math.floor(screen.naturalHeight / 2);
+                if (screenImg.naturalWidth && screenImg.naturalHeight && virtualPos.x === 0 && virtualPos.y === 0) {
+                    virtualPos.x = Math.floor(screenImg.naturalWidth / 2);
+                    virtualPos.y = Math.floor(screenImg.naturalHeight / 2);
                 }
                 document.addEventListener("mousemove", handleLockedMouseMove, false);
             } else {
@@ -309,33 +302,38 @@
             }
         });
 
-        screen.addEventListener("mousedown", (e) => {
+        screenImg.addEventListener("mousedown", (e) => {
             e.preventDefault();
             screenContainer.focus({ preventScroll: true });
             const pos = getCurrentPos(e);
             if (!pos) return;
             pendingMove = null;
+            pressedButtons.add(e.button);
             send(`d ${e.button} ${pos.x} ${pos.y}`);
         });
 
-        screen.addEventListener("mouseup", (e) => {
-            e.preventDefault();
+        window.addEventListener("mouseup", (e) => {
+            if (!pressedButtons.has(e.button) && e.target !== screenImg) return;
+            pressedButtons.delete(e.button);
             const pos = getCurrentPos(e);
-            if (!pos) return;
             pendingMove = null;
-            send(`u ${e.button} ${pos.x} ${pos.y}`);
+            if (pos) {
+                send(`u ${e.button} ${pos.x} ${pos.y}`);
+            } else {
+                send(`u ${e.button}`);
+            }
         });
 
-        screen.addEventListener("wheel", (e) => {
+        screenImg.addEventListener("wheel", (e) => {
             e.preventDefault();
-            if (!screen.naturalWidth) return;
+            if (!screenImg.naturalWidth) return;
             const mult = e.deltaMode === 1 ? 40 : 1;
             accWheelY += e.deltaY * mult;
             accWheelX += e.deltaX * mult;
             scheduleFrameFlush();
         }, { passive: false });
 
-        screen.addEventListener("contextmenu", (e) => e.preventDefault());
+        screenImg.addEventListener("contextmenu", (e) => e.preventDefault());
 
         function handleKeyboard(e, state) {
             if (!isRemoteFocused()) return;
@@ -350,6 +348,7 @@
         document.addEventListener("keyup", (e) => handleKeyboard(e, "up"));
 
         function releaseAllRemoteKeys() {
+            pressedButtons.clear();
             send("r");
         }
 
@@ -374,7 +373,7 @@
 
         lockButton.addEventListener("click", () => {
             screenContainer.focus({ preventScroll: true });
-            screen.requestPointerLock();
+            screenImg.requestPointerLock();
         });
 
         releaseKeysButton.addEventListener("click", () => {
@@ -407,7 +406,6 @@
 
         document.addEventListener("fullscreenchange", () => {
             isFullscreen = document.fullscreenElement === screenContainer;
-            syncContainerHeight();
             if (isFullscreen) {
                 screenContainer.focus({ preventScroll: true });
             }

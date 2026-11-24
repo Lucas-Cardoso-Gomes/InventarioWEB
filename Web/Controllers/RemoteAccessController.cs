@@ -81,6 +81,8 @@ namespace Web.Controllers
             }
 
             Response.Headers.Append("Content-Type", "multipart/x-mixed-replace; boundary=--frame");
+            Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+            Response.Headers["X-Accel-Buffering"] = "no";
 
             try
             {
@@ -137,7 +139,7 @@ namespace Web.Controllers
             }
         }
 
-        [HttpGet]
+        [AcceptVerbs("GET", "CONNECT")]
         public async Task InputSocket(string ip)
         {
             if (string.IsNullOrWhiteSpace(ip) || !HttpContext.WebSockets.IsWebSocketRequest)
@@ -228,7 +230,21 @@ namespace Web.Controllers
             }
             catch (OperationCanceledException)
             {
-                // Request aborted or timeout during connection
+                if (!ct.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Timeout connecting to agent input session for {IP}", ip);
+                    if (ws.State == WebSocketState.Open)
+                    {
+                        try
+                        {
+                            await ws.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, "tempo limite ao conectar no agente", CancellationToken.None);
+                        }
+                        catch
+                        {
+                            // Ignore close failures
+                        }
+                    }
+                }
             }
             catch (WebSocketException ex)
             {
@@ -364,7 +380,7 @@ namespace Web.Controllers
                 await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions { TargetHost = "ColetaAgent" }, ct);
 
                 reader = new StreamReader(sslStream, Encoding.UTF8);
-                writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true };
+                writer = new StreamWriter(sslStream, new UTF8Encoding(false)) { AutoFlush = true };
 
                 var authKey = _configuration["Autenticacao:RealizarComandos"];
                 var nonce = await reader.ReadLineAsync(ct);
